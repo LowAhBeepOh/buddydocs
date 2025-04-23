@@ -258,9 +258,13 @@ document.addEventListener('DOMContentLoaded', function() {
     initStateAnimations();
     initNotificationInteractions();
     initFilterDropdown();
-    initNewButton();
+    // Note: New button is now handled by DocumentManager
+    // initNewButton();
     initProfilePictures();
-    initMobileResponsiveness();
+    
+    // Make ripple effect available globally for dynamic elements
+    window.createRipple = createRipple;
+    window.initRippleEffect = initRippleEffect;
     
     // Start staggered animations
     setTimeout(animateCardsStaggered, 100);
