@@ -1,30 +1,27 @@
 # Buddy Docs
 
-A modern document management web application built with Material Design 3 principles. Buddy Docs provides a clean, intuitive interface for managing various types of documents, wikis, and lists.
+A minimalistic document editor, which anyone can use. For the Buddy ecosystem, and is meant for students. Currently in beta.
+
+*"The school Chromebook can't even handle Google Docs."* - me
+
+Also another place for me to test my coding.
 
 ## Features
 
-- **Material Design 3**: Implements the latest Material Design guidelines with smooth animations and transitions
-- **Document Cards**: View and access your documents in an organized card layout
-- **Notifications**: Receive and manage access requests and comments
-- **AI Integration**: Get personalized plans and suggestions from CompactB
-- **Responsive Design**: Optimized for 16:9 laptop screens
+- **Basic things**
+- **Material Design 3**: I'm using Material Design 3 for this project, for now, making the components are difficult.
+- **Integration with CompactB**: Get summerizations, plan stuff, and chat. (Coming soon)
 
-## Technologies Used
+## Languages used
 
-- HTML5
-- CSS3 with Material Design 3 variables and components
-- Vanilla JavaScript for animations and interactions
-- No frameworks or libraries required
+- HTML, CSS and JavaScript. I'm not gonna learn React for this.
 
-## Getting Started
+## Info for users
 
-1. Clone this repository
-2. Open `index.html` in your browser
-3. No build process or dependencies required
+Heya, this web app WILL take time to make, you can try it out, but I don't recommend switching to it. :D
 
-## Project Structure
+## Info for programmers/coders/whatever (or people who want to Contribute)
 
-- `index.html` - Main application structure
-- `styles.css` - Material Design 3 styling
-- `script.js` - Interactive animations and functionality
+If there's a "dev" branch, write in that instead of "main".
+
+I typically use "main" as the GitHub Pages, and "dev" for actual coding. I will fix my naming soon okay? Thanks-

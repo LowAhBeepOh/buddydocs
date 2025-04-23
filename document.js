@@ -1,6 +1,3 @@
-// Document Management System for Buddy Docs
-
-// IndexedDB setup
 class DocumentStorage {
     constructor() {
         this.dbName = 'buddyDocsDB';
@@ -9,7 +6,6 @@ class DocumentStorage {
         this.initDB();
     }
 
-    // Initialize the database
     initDB() {
         return new Promise((resolve, reject) => {
             const request = indexedDB.open(this.dbName, this.dbVersion);
@@ -28,7 +24,6 @@ class DocumentStorage {
             request.onupgradeneeded = (event) => {
                 const db = event.target.result;
                 
-                // Create object store for documents
                 if (!db.objectStoreNames.contains('documents')) {
                     const store = db.createObjectStore('documents', { keyPath: 'id', autoIncrement: true });
                     store.createIndex('title', 'title', { unique: false });
@@ -40,13 +35,11 @@ class DocumentStorage {
         });
     }
 
-    // Add a new document
     addDocument(doc) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['documents'], 'readwrite');
             const store = transaction.objectStore('documents');
             
-            // Add timestamp
             doc.created = new Date().toISOString();
             doc.lastModified = doc.created;
             
@@ -64,7 +57,6 @@ class DocumentStorage {
         });
     }
 
-    // Get all documents
     getAllDocuments() {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['documents'], 'readonly');
@@ -82,7 +74,6 @@ class DocumentStorage {
         });
     }
 
-    // Get a document by ID
     getDocument(id) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['documents'], 'readonly');
@@ -100,13 +91,11 @@ class DocumentStorage {
         });
     }
 
-    // Update a document
     updateDocument(doc) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['documents'], 'readwrite');
             const store = transaction.objectStore('documents');
             
-            // Update timestamp
             doc.lastModified = new Date().toISOString();
             
             const request = store.put(doc);
@@ -123,7 +112,6 @@ class DocumentStorage {
         });
     }
 
-    // Delete a document
     deleteDocument(id) {
         return new Promise((resolve, reject) => {
             const transaction = this.db.transaction(['documents'], 'readwrite');
@@ -143,47 +131,44 @@ class DocumentStorage {
     }
 }
 
-// Document Manager Class
 class DocumentManager {
     constructor() {
         this.storage = new DocumentStorage();
         this.currentDocument = null;
         this.editor = null;
         this.documentTypes = ['Document', 'Wiki', 'List', 'Interactive', 'Fiction'];
-        
-        // Initialize UI elements
+        this.unsavedChanges = false;
         this.initUI();
     }
 
-    // Initialize UI elements and event listeners
     async initUI() {
-        // Wait for DB to initialize
         await this.storage.initDB();
         
-        // Add event listener to new button
         const newButton = document.querySelector('.new-button');
         if (newButton) {
             newButton.addEventListener('click', () => this.showNewDocumentDialog());
         }
         
-        // Load existing documents
         this.loadDocuments();
         
-        // Initialize editor container
         this.createEditorContainer();
+        
+        document.addEventListener('click', (e) => {
+            const contextMenu = document.querySelector('.context-menu');
+            if (contextMenu && !e.target.closest('.context-menu')) {
+                contextMenu.remove();
+            }
+        });
     }
 
-    // Create editor container
     createEditorContainer() {
         const appContainer = document.querySelector('.app-container');
         
-        // Create editor container if it doesn't exist
         if (!document.querySelector('.editor-container')) {
             const editorContainer = document.createElement('div');
             editorContainer.className = 'editor-container';
             editorContainer.style.display = 'none';
             
-            // Editor header
             const editorHeader = document.createElement('div');
             editorHeader.className = 'editor-header';
             
@@ -206,47 +191,77 @@ class DocumentManager {
             editorHeader.appendChild(titleInput);
             editorHeader.appendChild(saveButton);
             
-            // Editor content
+            const toolbar = document.createElement('div');
+            toolbar.className = 'editor-toolbar';
+            
+            const formatActions = [
+                { icon: 'format_bold', command: 'bold' },
+                { icon: 'format_italic', command: 'italic' },
+                { icon: 'format_underlined', command: 'underline' },
+                { icon: 'format_list_bulleted', command: 'insertUnorderedList' },
+                { icon: 'format_list_numbered', command: 'insertOrderedList' }
+            ];
+            
+            formatActions.forEach(action => {
+                const button = document.createElement('button');
+                button.className = 'toolbar-button';
+                button.innerHTML = `<span class="material-symbols-rounded">${action.icon}</span>`;
+                button.addEventListener('click', () => {
+                    document.execCommand(action.command, false, null);
+                    this.editor.content.focus();
+                });
+                toolbar.appendChild(button);
+            });
+            
+            editorHeader.appendChild(toolbar);
+            
+            const optionsButton = document.createElement('button');
+            optionsButton.className = 'options-button';
+            optionsButton.innerHTML = '<span class="material-symbols-rounded">more_vert</span>';
+            optionsButton.addEventListener('click', (e) => this.showDocumentOptions(e));
+            
+            editorHeader.appendChild(optionsButton);
+            
             const editorContent = document.createElement('div');
             editorContent.className = 'editor-content';
             editorContent.contentEditable = 'true';
             editorContent.setAttribute('placeholder', 'Start typing your document here...');
             
-            // Add to container
             editorContainer.appendChild(editorHeader);
             editorContainer.appendChild(editorContent);
             
             appContainer.appendChild(editorContainer);
             
-            // Set editor reference
             this.editor = {
                 container: editorContainer,
                 title: titleInput,
                 content: editorContent
             };
+            
+            editorContent.addEventListener('input', () => {
+                this.unsavedChanges = true;
+            });
+            
+            titleInput.addEventListener('input', () => {
+                this.unsavedChanges = true;
+            });
         }
     }
 
-    // Show new document dialog
     showNewDocumentDialog() {
-        // Create dialog overlay
         const overlay = document.createElement('div');
         overlay.className = 'dialog-overlay';
         
-        // Create dialog
         const dialog = document.createElement('div');
         dialog.className = 'dialog new-document-dialog';
         
-        // Dialog header
         const dialogHeader = document.createElement('div');
         dialogHeader.className = 'dialog-header';
         dialogHeader.textContent = 'Create New Document';
         
-        // Dialog content
         const dialogContent = document.createElement('div');
         dialogContent.className = 'dialog-content';
         
-        // Title input
         const titleLabel = document.createElement('label');
         titleLabel.textContent = 'Title';
         titleLabel.setAttribute('for', 'document-title');
@@ -257,7 +272,6 @@ class DocumentManager {
         titleInput.className = 'document-title-input';
         titleInput.placeholder = 'Enter document title';
         
-        // Document type selection
         const typeLabel = document.createElement('label');
         typeLabel.textContent = 'Document Type';
         typeLabel.setAttribute('for', 'document-type');
@@ -273,7 +287,6 @@ class DocumentManager {
             typeSelect.appendChild(option);
         });
         
-        // Dialog actions
         const dialogActions = document.createElement('div');
         dialogActions.className = 'dialog-actions';
         
@@ -300,7 +313,6 @@ class DocumentManager {
             }
         });
         
-        // Assemble dialog
         dialogContent.appendChild(titleLabel);
         dialogContent.appendChild(titleInput);
         dialogContent.appendChild(typeLabel);
@@ -316,15 +328,12 @@ class DocumentManager {
         overlay.appendChild(dialog);
         document.body.appendChild(overlay);
         
-        // Focus title input
         titleInput.focus();
         
-        // Add ripple effect to buttons
         [cancelButton, createButton].forEach(button => {
             button.addEventListener('click', createRipple);
         });
         
-        // Add animation
         dialog.style.transform = 'scale(0.9)';
         dialog.style.opacity = '0';
         
@@ -335,22 +344,20 @@ class DocumentManager {
         }, 10);
     }
 
-    // Create a new document
     async createNewDocument(title, type) {
         const newDoc = {
             title: title,
             type: type,
             content: '',
-            author: 'You' // In a real app, this would be the current user
+            author: 'You'
         };
         
         try {
             const id = await this.storage.addDocument(newDoc);
             newDoc.id = id;
             this.openDocument(newDoc);
-            this.loadDocuments(); // Refresh document list
+            this.loadDocuments();
             
-            // Show success message
             this.showSnackbar(`Created new ${type}: ${title}`);
         } catch (error) {
             console.error('Error creating document:', error);
@@ -358,27 +365,22 @@ class DocumentManager {
         }
     }
 
-    // Open a document in the editor
     openDocument(doc) {
         this.currentDocument = doc;
         
-        // Update editor
         this.editor.title.value = doc.title;
         this.editor.content.innerHTML = doc.content;
         
-        // Get references to sections
         const documentsGrid = document.querySelector('.documents-grid');
         const filterSection = document.querySelector('.filter-section');
         let notificationSection = document.querySelector('.notification-section');
         
-        // Create notification section if it doesn't exist
         if (!notificationSection) {
             notificationSection = document.createElement('div');
             notificationSection.className = 'notification-section';
             documentsGrid.parentNode.insertBefore(notificationSection, documentsGrid.nextSibling);
         }
         
-        // Hide main view and show editor
         if (documentsGrid) documentsGrid.style.display = 'none';
         if (filterSection) filterSection.style.display = 'none';
         if (notificationSection) notificationSection.style.display = 'none';
@@ -387,21 +389,17 @@ class DocumentManager {
         this.editor.content.focus();
     }
 
-    // Close the editor and return to main view
     closeEditor() {
-        // Confirm if there are unsaved changes
-        if (this.hasUnsavedChanges()) {
-            if (!confirm('You have unsaved changes. Are you sure you want to close?')) {
-                return;
-            }
+        if (this.unsavedChanges && !confirm('You have unsaved changes. Are you sure you want to close?')) {
+            return;
         }
         
-        // Hide editor and show main view
+        this.unsavedChanges = false;
+        
         this.editor.container.style.display = 'none';
         document.querySelector('.documents-grid').style.display = 'grid';
         document.querySelector('.filter-section').style.display = 'block';
         
-        // Only show notification section if there are no user documents
         if (this.userHasNoDocuments()) {
             document.querySelector('.notification-section').style.display = 'grid';
         }
@@ -409,7 +407,6 @@ class DocumentManager {
         this.currentDocument = null;
     }
 
-    // Check if there are unsaved changes
     hasUnsavedChanges() {
         if (!this.currentDocument) return false;
         
@@ -420,17 +417,16 @@ class DocumentManager {
                currentContent !== this.currentDocument.content;
     }
 
-    // Save the current document
     async saveDocument() {
         if (!this.currentDocument) return;
         
-        // Update document with current values
         this.currentDocument.title = this.editor.title.value;
         this.currentDocument.content = this.editor.content.innerHTML;
         
         try {
             await this.storage.updateDocument(this.currentDocument);
-            this.loadDocuments(); // Refresh document list
+            this.loadDocuments();
+            this.unsavedChanges = false;
             this.showSnackbar('Document saved successfully');
         } catch (error) {
             console.error('Error saving document:', error);
@@ -438,7 +434,6 @@ class DocumentManager {
         }
     }
 
-    // Load documents from storage and display them
     async loadDocuments() {
         try {
             const documents = await this.storage.getAllDocuments();
@@ -450,17 +445,14 @@ class DocumentManager {
         }
     }
 
-    // Render documents in the grid
     renderDocuments(docs) {
         const grid = document.querySelector('.documents-grid');
         const notificationSection = document.querySelector('.notification-section');
         
         if (!grid) return;
         
-        // Clear the entire grid first
         grid.innerHTML = '';
         
-        // If no documents, create the original demo layout
         if (docs.length === 0) {
             grid.classList.remove('user-documents-grid');
             if (notificationSection) {
@@ -470,22 +462,18 @@ class DocumentManager {
             return;
         }
         
-        // Hide notification section and set user documents grid
         if (notificationSection) {
             notificationSection.style.display = 'none';
         }
         grid.classList.add('user-documents-grid');
         
-        // Sort documents by last modified date (newest first)
         docs.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
         
-        // Create new document cards
         docs.forEach(doc => {
             const card = this.createDocumentCard(doc);
             grid.appendChild(card);
         });
         
-        // Add a smooth transition effect
         setTimeout(() => {
             document.querySelectorAll('.document-card').forEach(card => {
                 card.style.opacity = '1';
@@ -493,13 +481,10 @@ class DocumentManager {
             });
         }, 10);
         
-        // Re-initialize ripple effects
         initRippleEffect();
     }
 
-    // Helper method to create the demo layout
     createDemoLayout(grid) {
-        // Create left large card
         const largeCard = document.createElement('div');
         largeCard.className = 'card large-card';
         largeCard.innerHTML = `
@@ -519,11 +504,9 @@ class DocumentManager {
             </div>
         `;
 
-        // Create middle mini-cards column
         const miniCardsColumn = document.createElement('div');
         miniCardsColumn.className = 'mini-cards-column';
 
-        // Mini card 1
         const miniCard1 = document.createElement('div');
         miniCard1.className = 'card mini-card';
         miniCard1.innerHTML = `
@@ -536,7 +519,6 @@ class DocumentManager {
             </div>
         `;
 
-        // Mini card 2
         const miniCard2 = document.createElement('div');
         miniCard2.className = 'card mini-card';
         miniCard2.innerHTML = `
@@ -549,7 +531,6 @@ class DocumentManager {
             </div>
         `;
 
-        // Mini card 3
         const miniCard3 = document.createElement('div');
         miniCard3.className = 'card mini-card';
         miniCard3.innerHTML = `
@@ -562,7 +543,6 @@ class DocumentManager {
             </div>
         `;
 
-        // Mini card 4
         const miniCard4 = document.createElement('div');
         miniCard4.className = 'card mini-card';
         miniCard4.innerHTML = `
@@ -580,30 +560,24 @@ class DocumentManager {
         miniCardsColumn.appendChild(miniCard3);
         miniCardsColumn.appendChild(miniCard4);
 
-        // Add all cards to grid
         grid.appendChild(largeCard);
         grid.appendChild(miniCardsColumn);
 
-        // Initialize ripple effects for the new cards
         initRippleEffect();
     }
 
-    // Create a document card element
     createDocumentCard(doc) {
         const card = document.createElement('div');
         card.className = 'card mini-card document-card';
         card.setAttribute('data-id', doc.id);
         
-        // Add initial styles for animation
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
         card.style.transition = 'opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         
-        // Format date
         const date = new Date(doc.lastModified);
         const formattedDate = this.formatDate(date);
         
-        // Create avatar with initial
         const avatar = document.createElement('div');
         avatar.className = `avatar ${this.getColorForType(doc.type)}`;
         avatar.setAttribute('data-initial', doc.title.charAt(0).toUpperCase());
@@ -612,7 +586,6 @@ class DocumentManager {
         initial.textContent = doc.title.charAt(0).toUpperCase();
         avatar.appendChild(initial);
         
-        // Card info
         const cardInfo = document.createElement('div');
         cardInfo.className = 'card-info';
         
@@ -630,7 +603,6 @@ class DocumentManager {
         card.appendChild(avatar);
         card.appendChild(cardInfo);
         
-        // Add click event to open document
         card.addEventListener('click', () => {
             this.getAndOpenDocument(doc.id);
         });
@@ -638,7 +610,6 @@ class DocumentManager {
         return card;
     }
 
-    // Get document by ID and open it
     async getAndOpenDocument(id) {
         try {
             const document = await this.storage.getDocument(id);
@@ -651,7 +622,6 @@ class DocumentManager {
         }
     }
 
-    // Format date for display
     formatDate(date) {
         const now = new Date();
         const diffMs = now - date;
@@ -673,40 +643,34 @@ class DocumentManager {
         }
     }
 
-    // Get color class based on document type
     getColorForType(type) {
         const colorMap = {
-            'document': 'blue',
-            'wiki': 'green',
-            'list': 'orange',
-            'interactive': 'purple',
-            'fiction': 'red'
+            'Document': 'blue',
+            'Wiki': 'green',
+            'List': 'orange',
+            'Interactive': 'purple',
+            'Fiction': 'red'
         };
         
         return colorMap[type.toLowerCase()] || 'blue';
     }
 
-    // Show a snackbar message
     showSnackbar(message, isError = false) {
-        // Remove existing snackbar
         const existingSnackbar = document.querySelector('.snackbar');
         if (existingSnackbar) {
             existingSnackbar.remove();
         }
         
-        // Create new snackbar
         const snackbar = document.createElement('div');
         snackbar.className = `snackbar ${isError ? 'error' : ''}`;
         snackbar.textContent = message;
         
         document.body.appendChild(snackbar);
         
-        // Show snackbar
         setTimeout(() => {
             snackbar.classList.add('show');
         }, 10);
         
-        // Hide snackbar after 3 seconds
         setTimeout(() => {
             snackbar.classList.remove('show');
             setTimeout(() => {
@@ -715,17 +679,101 @@ class DocumentManager {
         }, 3000);
     }
 
-    // Helper method to check if user has no documents
     userHasNoDocuments() {
         const grid = document.querySelector('.documents-grid');
         return !grid.querySelector('.document-card');
     }
+
+    showDocumentOptions(event) {
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+            return;
+        }
+        
+        const menu = document.createElement('div');
+        menu.className = 'context-menu';
+        
+        const options = [
+            { label: 'Rename', icon: 'drive_file_rename_outline', action: () => this.showRenameDialog() },
+            { label: 'Delete', icon: 'delete', action: () => this.deleteCurrentDocument() }
+        ];
+        
+        options.forEach(option => {
+            const button = document.createElement('button');
+            button.className = 'menu-item';
+            button.innerHTML = `
+                <span class="material-symbols-rounded">${option.icon}</span>
+                <span>${option.label}</span>
+            `;
+            button.addEventListener('click', option.action);
+            menu.appendChild(button);
+        });
+        
+        const buttonRect = event.target.closest('button').getBoundingClientRect();
+        menu.style.top = buttonRect.bottom + 8 + 'px';
+        menu.style.right = (window.innerWidth - buttonRect.right) + 'px';
+        
+        document.body.appendChild(menu);
+        event.stopPropagation();
+    }
+
+    showRenameDialog() {
+        const currentTitle = this.currentDocument.title;
+        
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-overlay';
+        dialog.innerHTML = `
+            <div class="dialog rename-dialog">
+                <div class="dialog-header">Rename Document</div>
+                <div class="dialog-content">
+                    <input type="text" class="rename-input" value="${currentTitle}" placeholder="Document title">
+                </div>
+                <div class="dialog-actions">
+                    <button class="cancel-button">Cancel</button>
+                    <button class="rename-button">Rename</button>
+                </div>
+            </div>
+        `;
+        
+        const input = dialog.querySelector('.rename-input');
+        input.select();
+        
+        dialog.querySelector('.cancel-button').addEventListener('click', () => {
+            dialog.remove();
+        });
+        
+        dialog.querySelector('.rename-button').addEventListener('click', async () => {
+            const newTitle = input.value.trim();
+            if (newTitle && newTitle !== currentTitle) {
+                this.currentDocument.title = newTitle;
+                this.editor.title.value = newTitle;
+                await this.storage.updateDocument(this.currentDocument);
+                this.loadDocuments();
+                this.showSnackbar('Document renamed successfully');
+            }
+            dialog.remove();
+        });
+        
+        document.body.appendChild(dialog);
+    }
+
+    async deleteCurrentDocument() {
+        if (confirm('Are you sure you want to delete this document? This action cannot be undone.')) {
+            try {
+                await this.storage.deleteDocument(this.currentDocument.id);
+                this.closeEditor();
+                this.loadDocuments();
+                this.showSnackbar('Document deleted successfully');
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                this.showSnackbar('Error deleting document', true);
+            }
+        }
+    }
 }
 
-// Initialize document manager when DOM is loaded
 document.addEventListener('DOMContentLoaded', () => {
     const documentManager = new DocumentManager();
-    
-    // Make available globally for debugging
     window.documentManager = documentManager;
 });
