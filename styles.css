@@ -11,7 +11,7 @@
     --md-sys-color-on-secondary-container: #101C2B;
     --md-sys-color-tertiary: #6B5778;
     --md-sys-color-on-tertiary: #FFFFFF;
-    --md-sys-color-tertiary-container: #F2DAFF;
+    --md-sys-color-tertiary-container: #dedaff;
     --md-sys-color-on-tertiary-container: #251431;
     --md-sys-color-error: #B3261E;
     --md-sys-color-on-error: #FFFFFF;
@@ -84,7 +84,7 @@ body {
 }
 
 .app-container {
-    max-width: 1440px;
+    max-width: calc(100% - 20px);
     width: 100%;
     margin: 0 auto;
     padding: 20px;
@@ -115,19 +115,21 @@ body {
 }
 
 .new-button {
-    background-color: var(--md-sys-color-primary-container);
-    color: var(--md-sys-color-on-primary-container);
+    background-color: var(--md-sys-color-tertiary-container);
+    color: var(--md-sys-color-on-tertiary-container);
     border: none;
-    border-radius: 100px;
-    padding: 10px 24px;
+    border-radius: 16px;
+    padding: 6px 12px;
+    font-family: 'Roboto', sans-serif;
     font-size: 14px;
     font-weight: 500;
     cursor: pointer;
+    border: 1px solid var(--md-sys-color-outline);
     transition: background-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .new-button:hover {
-    background-color: #B8D4FF;
+    background-color: #E8CCFF;
     box-shadow: var(--md-sys-elevation-level1);
 }
 

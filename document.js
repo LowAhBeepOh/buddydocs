@@ -137,6 +137,7 @@ class DocumentManager {
         this.currentDocument = null;
         this.editor = null;
         this.documentTypes = ['Document', 'Wiki', 'List', 'Interactive', 'Fiction'];
+        this.currentFilter = 'all'; // added currentFilter
         this.unsavedChanges = false;
         this.initUI();
     }
@@ -461,7 +462,10 @@ class DocumentManager {
             this.createDemoLayout(grid);
             return;
         }
-        
+        // filter docs if a filter is applied
+        if (this.currentFilter !== 'all') {
+            docs = docs.filter(doc => doc.type.toLowerCase() === this.currentFilter);
+        }
         if (notificationSection) {
             notificationSection.style.display = 'none';
         }
@@ -484,86 +488,9 @@ class DocumentManager {
         initRippleEffect();
     }
 
-    createDemoLayout(grid) {
-        const largeCard = document.createElement('div');
-        largeCard.className = 'card large-card';
-        largeCard.innerHTML = `
-            <div class="content-section">
-                <div class="card-header">
-                    <div class="avatar purple">
-                        <span class="material-symbols-rounded">book</span>
-                    </div>
-                    <div class="card-info">
-                        <div class="card-title">Welcome!</div>
-                        <div class="card-subtitle">Get started by pressing "New"</div>
-                    </div>
-                </div>
-            </div>
-            <div class="image-section">
-                <img src="data/assets/welcomeCanvasImage.png" alt="Welcome canvas">
-            </div>
-        `;
-
-        const miniCardsColumn = document.createElement('div');
-        miniCardsColumn.className = 'mini-cards-column';
-
-        const miniCard1 = document.createElement('div');
-        miniCard1.className = 'card mini-card';
-        miniCard1.innerHTML = `
-            <div class="avatar orange">
-                <span class="material-symbols-rounded">list_alt</span>
-            </div>
-            <div class="card-info">
-                <div class="card-title">List</div>
-                <div class="card-subtitle">Make a list of stuff</div>
-            </div>
-        `;
-
-        const miniCard2 = document.createElement('div');
-        miniCard2.className = 'card mini-card';
-        miniCard2.innerHTML = `
-            <div class="avatar green">
-                <span class="material-symbols-rounded">travel_explore</span>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Wiki</div>
-                <div class="card-subtitle">Create a knowledge base</div>
-            </div>
-        `;
-
-        const miniCard3 = document.createElement('div');
-        miniCard3.className = 'card mini-card';
-        miniCard3.innerHTML = `
-            <div class="avatar blue">
-                <span class="material-symbols-rounded">waving_hand</span>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Interactives</div>
-                <div class="card-subtitle">Make interactive pages (soon)</div>
-            </div>
-        `;
-
-        const miniCard4 = document.createElement('div');
-        miniCard4.className = 'card mini-card';
-        miniCard4.innerHTML = `
-            <div class="avatar red">
-                <span class="material-symbols-rounded">task</span>
-            </div>
-            <div class="card-info">
-                <div class="card-title">Buddy Docs</div>
-                <div class="card-subtitle">For students - Version 0.XA (Beta)</div>
-            </div>
-        `;
-
-        miniCardsColumn.appendChild(miniCard1);
-        miniCardsColumn.appendChild(miniCard2);
-        miniCardsColumn.appendChild(miniCard3);
-        miniCardsColumn.appendChild(miniCard4);
-
-        grid.appendChild(largeCard);
-        grid.appendChild(miniCardsColumn);
-
-        initRippleEffect();
+    filterDocuments(filter) { // new method
+        this.currentFilter = filter.toLowerCase();
+        this.loadDocuments();
     }
 
     createDocumentCard(doc) {

@@ -106,16 +106,49 @@ function initNotificationInteractions() {
 function initFilterDropdown() {
     const filterDropdown = document.querySelector('.filter-dropdown');
     if (filterDropdown) {
-        filterDropdown.addEventListener('click', function() {
-            // In a real app, this would show a dropdown menu
-            this.classList.toggle('active');
-            
-            // Visual feedback
-            if (this.classList.contains('active')) {
-                this.style.backgroundColor = 'var(--md-sys-color-surface-variant)';
-            } else {
-                this.style.backgroundColor = '';
+        filterDropdown.addEventListener('click', function(e) {
+            e.stopPropagation();
+            // Remove any existing dropdown menu
+            const existingMenu = document.querySelector('.dropdown-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+                return;
             }
+            // Create dropdown menu element
+            const options = ['All', 'Document', 'Wiki', 'List', 'Interactive', 'Fiction'];
+            const menu = document.createElement('div');
+            menu.className = 'dropdown-menu';
+            // Position menu below the filter dropdown
+            const rect = filterDropdown.getBoundingClientRect();
+            menu.style.position = 'absolute';
+            menu.style.top = rect.bottom + 'px';
+            menu.style.left = rect.left + 'px';
+            menu.style.backgroundColor = 'var(--md-sys-color-surface)';
+            menu.style.border = '1px solid var(--md-sys-color-outline-variant)';
+            menu.style.borderRadius = 'var(--md-sys-shape-corner-medium)';
+            menu.style.boxShadow = 'var(--md-sys-elevation-level2)';
+            options.forEach(option => {
+                const item = document.createElement('div');
+                item.textContent = option;
+                item.style.padding = '8px 16px';
+                item.style.cursor = 'pointer';
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    // Update filter dropdown text
+                    filterDropdown.querySelector('span').textContent = option;
+                    // Call filterDocuments on DocumentManager instance
+                    window.documentManager.filterDocuments(option);
+                    menu.remove();
+                });
+                item.addEventListener('mouseenter', function() {
+                    this.style.backgroundColor = 'var(--md-sys-color-surface-variant)';
+                });
+                item.addEventListener('mouseleave', function() {
+                    this.style.backgroundColor = '';
+                });
+                menu.appendChild(item);
+            });
+            document.body.appendChild(menu);
         });
     }
 }
