@@ -578,6 +578,9 @@ class DocumentManager {
         const date = new Date(doc.lastModified);
         const formattedDate = this.formatDate(date);
         
+        // Captialize the first shitty ahh letter of the doc type aaaaa
+        const displayType = doc.type.charAt(0).toUpperCase() + doc.type.slice(1);
+        
         const avatar = document.createElement('div');
         avatar.className = `avatar ${this.getColorForType(doc.type)}`;
         avatar.setAttribute('data-initial', doc.title.charAt(0).toUpperCase());
@@ -593,9 +596,10 @@ class DocumentManager {
         cardTitle.className = 'card-title';
         cardTitle.textContent = doc.title;
         
+        // meow meow here
         const cardSubtitle = document.createElement('div');
         cardSubtitle.className = 'card-subtitle';
-        cardSubtitle.textContent = `${doc.type} • ${formattedDate}`;
+        cardSubtitle.textContent = `${displayType} • ${formattedDate}`;
         
         cardInfo.appendChild(cardTitle);
         cardInfo.appendChild(cardSubtitle);
