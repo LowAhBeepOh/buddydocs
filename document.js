@@ -137,7 +137,8 @@ class DocumentManager {
         this.currentDocument = null;
         this.editor = null;
         this.documentTypes = ['Document', 'Wiki', 'List', 'Interactive', 'Fiction'];
-        this.currentFilter = 'all'; // added currentFilter
+        this.currentFilter = 'all';
+        this.searchQuery = ''; // new property for search query
         this.unsavedChanges = false;
         this.initUI();
     }
@@ -148,6 +149,26 @@ class DocumentManager {
         const newButton = document.querySelector('.new-button');
         if (newButton) {
             newButton.addEventListener('click', () => this.showNewDocumentDialog());
+        }
+        
+        // NEW SEARCH FEATURE: set up search input and toggle
+        const searchInput = document.querySelector('.search-input');
+        const searchButton = document.querySelector('.search-button');
+        if (searchButton && searchInput) {
+            searchButton.addEventListener('click', () => {
+                if (searchInput.style.display === 'none' || !searchInput.style.display) {
+                    searchInput.style.display = 'block';
+                    searchInput.focus();
+                } else {
+                    searchInput.style.display = 'none';
+                    this.searchQuery = '';
+                    this.loadDocuments();
+                }
+            });
+            searchInput.addEventListener('input', (e) => {
+                this.searchQuery = e.target.value.trim().toLowerCase();
+                this.loadDocuments();
+            });
         }
         
         this.loadDocuments();
@@ -462,9 +483,16 @@ class DocumentManager {
             this.createDemoLayout(grid);
             return;
         }
-        // filter docs if a filter is applied
+        // Apply type filter if any
         if (this.currentFilter !== 'all') {
             docs = docs.filter(doc => doc.type.toLowerCase() === this.currentFilter);
+        }
+        // NEW: Filter by search query (title or content)
+        if (this.searchQuery !== '') {
+            docs = docs.filter(doc => 
+                doc.title.toLowerCase().includes(this.searchQuery) ||
+                (doc.content && doc.content.toLowerCase().includes(this.searchQuery))
+            );
         }
         if (notificationSection) {
             notificationSection.style.display = 'none';
@@ -505,7 +533,7 @@ class DocumentManager {
         const date = new Date(doc.lastModified);
         const formattedDate = this.formatDate(date);
         
-        // Captialize the first shitty ahh letter of the doc type aaaaa
+        // Captialize first letter of the doc type
         const displayType = doc.type.charAt(0).toUpperCase() + doc.type.slice(1);
         
         const avatar = document.createElement('div');
@@ -523,13 +551,31 @@ class DocumentManager {
         cardTitle.className = 'card-title';
         cardTitle.textContent = doc.title;
         
-        // meow meow here
         const cardSubtitle = document.createElement('div');
         cardSubtitle.className = 'card-subtitle';
         cardSubtitle.textContent = `${displayType} • ${formattedDate}`;
         
         cardInfo.appendChild(cardTitle);
         cardInfo.appendChild(cardSubtitle);
+        
+        // NEW: If a search query is active, and (if title doesn't match) content does, display snippet.
+        if (this.searchQuery !== '') {
+            const titleMatch = doc.title.toLowerCase().includes(this.searchQuery);
+            if (!titleMatch && doc.content) {
+                const contentLower = doc.content.toLowerCase();
+                const index = contentLower.indexOf(this.searchQuery);
+                if (index !== -1) {
+                    const start = Math.max(0, index - 20);
+                    const end = Math.min(doc.content.length, index + 20);
+                    let snippet = doc.content.substring(start, end);
+                    snippet = `Matched in content: ...${snippet}...`;
+                    const searchInfo = document.createElement('div');
+                    searchInfo.className = 'search-info';
+                    searchInfo.textContent = snippet;
+                    cardInfo.appendChild(searchInfo);
+                }
+            }
+        }
         
         card.appendChild(avatar);
         card.appendChild(cardInfo);
