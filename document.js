@@ -645,11 +645,11 @@ class DocumentManager {
 
     getColorForType(type) {
         const colorMap = {
-            'Document': 'blue',
-            'Wiki': 'green',
-            'List': 'orange',
-            'Interactive': 'purple',
-            'Fiction': 'red'
+            'document': 'blue',
+            'wiki': 'green',
+            'list': 'orange',
+            'interactive': 'purple',
+            'fiction': 'red'
         };
         
         return colorMap[type.toLowerCase()] || 'blue';
