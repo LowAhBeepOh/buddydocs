@@ -679,6 +679,65 @@ class DocumentManager {
             }
         }
     }
+
+    showNewDocumentDialog() {
+        const dialog = document.createElement('div');
+        dialog.className = 'dialog-overlay';
+        dialog.innerHTML = `
+            <div class="dialog">
+                <div class="dialog-header">Create New Document</div>
+                <div class="dialog-content">
+                    <input type="text" class="create-input" placeholder="Document title">
+                    <select class="type-select">
+                        ${this.documentTypes.map(type => 
+                            `<option value="${type.toLowerCase()}">${type}</option>`
+                        ).join('')}
+                    </select>
+                </div>
+                <div class="dialog-actions">
+                    <button class="cancel-button">Cancel</button>
+                    <button class="create-button">Create</button>
+                </div>
+            </div>
+        `;
+
+        const input = dialog.querySelector('.create-input');
+        const select = dialog.querySelector('.type-select');
+
+        dialog.querySelector('.cancel-button').addEventListener('click', () => {
+            dialog.remove();
+        });
+
+        dialog.querySelector('.create-button').addEventListener('click', async () => {
+            const title = input.value.trim();
+            if (!title) {
+                input.classList.add('error');
+                setTimeout(() => input.classList.remove('error'), 300);
+                return;
+            }
+
+            const doc = {
+                title: title,
+                type: select.value,
+                content: ''
+            };
+
+            try {
+                const id = await this.storage.addDocument(doc);
+                doc.id = id;
+                this.loadDocuments();
+                dialog.remove();
+                this.openDocument(doc);
+                this.showSnackbar('Document created successfully');
+            } catch (error) {
+                console.error('Error creating document:', error);
+                this.showSnackbar('Error creating document', true);
+            }
+        });
+
+        document.body.appendChild(dialog);
+        input.focus();
+    }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
