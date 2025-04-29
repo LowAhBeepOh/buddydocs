@@ -140,6 +140,7 @@ class DocumentManager {
         this.currentFilter = 'all';
         this.searchQuery = ''; // new property for search query
         this.unsavedChanges = false;
+        this.isReaderMode = false;
         this.initUI();
     }
 
@@ -203,6 +204,15 @@ class DocumentManager {
             titleInput.type = 'text';
             titleInput.className = 'editor-title';
             titleInput.placeholder = 'Document Title';
+
+            // Add mode toggle button
+            const modeToggleButton = document.createElement('button');
+            modeToggleButton.className = 'mode-toggle-button';
+            modeToggleButton.innerHTML = `
+                <span class="material-symbols-rounded">edit</span>
+                <span class="toggle-text">Edit mode</span>
+            `;
+            modeToggleButton.addEventListener('click', () => this.toggleMode());
             
             const saveButton = document.createElement('button');
             saveButton.className = 'save-button';
@@ -211,6 +221,7 @@ class DocumentManager {
             
             editorHeader.appendChild(backButton);
             editorHeader.appendChild(titleInput);
+            editorHeader.appendChild(modeToggleButton);
             editorHeader.appendChild(saveButton);
             
             const toolbar = document.createElement('div');
@@ -270,120 +281,29 @@ class DocumentManager {
         }
     }
 
-    showNewDocumentDialog() {
-        const overlay = document.createElement('div');
-        overlay.className = 'dialog-overlay';
-        
-        const dialog = document.createElement('div');
-        dialog.className = 'dialog new-document-dialog';
-        
-        const dialogHeader = document.createElement('div');
-        dialogHeader.className = 'dialog-header';
-        dialogHeader.textContent = 'Create New Document';
-        
-        const dialogContent = document.createElement('div');
-        dialogContent.className = 'dialog-content';
-        
-        const titleLabel = document.createElement('label');
-        titleLabel.textContent = 'Title';
-        titleLabel.setAttribute('for', 'document-title');
-        
-        const titleInput = document.createElement('input');
-        titleInput.type = 'text';
-        titleInput.id = 'document-title';
-        titleInput.className = 'document-title-input';
-        titleInput.placeholder = 'Enter document title';
-        
-        const typeLabel = document.createElement('label');
-        typeLabel.textContent = 'Document Type';
-        typeLabel.setAttribute('for', 'document-type');
-        
-        const typeSelect = document.createElement('select');
-        typeSelect.id = 'document-type';
-        typeSelect.className = 'document-type-select';
-        
-        this.documentTypes.forEach(type => {
-            const option = document.createElement('option');
-            option.value = type.toLowerCase();
-            option.textContent = type;
-            typeSelect.appendChild(option);
-        });
-        
-        const dialogActions = document.createElement('div');
-        dialogActions.className = 'dialog-actions';
-        
-        const cancelButton = document.createElement('button');
-        cancelButton.className = 'cancel-button';
-        cancelButton.textContent = 'Cancel';
-        cancelButton.addEventListener('click', () => {
-            document.body.removeChild(overlay);
-        });
-        
-        const createButton = document.createElement('button');
-        createButton.className = 'create-button';
-        createButton.textContent = 'Create';
-        createButton.addEventListener('click', () => {
-            const title = titleInput.value.trim();
-            const type = typeSelect.value;
-            
-            if (title) {
-                this.createNewDocument(title, type);
-                document.body.removeChild(overlay);
-            } else {
-                titleInput.classList.add('error');
-                setTimeout(() => titleInput.classList.remove('error'), 1000);
-            }
-        });
-        
-        dialogContent.appendChild(titleLabel);
-        dialogContent.appendChild(titleInput);
-        dialogContent.appendChild(typeLabel);
-        dialogContent.appendChild(typeSelect);
-        
-        dialogActions.appendChild(cancelButton);
-        dialogActions.appendChild(createButton);
-        
-        dialog.appendChild(dialogHeader);
-        dialog.appendChild(dialogContent);
-        dialog.appendChild(dialogActions);
-        
-        overlay.appendChild(dialog);
-        document.body.appendChild(overlay);
-        
-        titleInput.focus();
-        
-        [cancelButton, createButton].forEach(button => {
-            button.addEventListener('click', createRipple);
-        });
-        
-        dialog.style.transform = 'scale(0.9)';
-        dialog.style.opacity = '0';
-        
-        setTimeout(() => {
-            dialog.style.transition = 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)';
-            dialog.style.transform = 'scale(1)';
-            dialog.style.opacity = '1';
-        }, 10);
-    }
+    toggleMode() {
+        this.isReaderMode = !this.isReaderMode;
+        const container = this.editor.container;
+        const modeButton = container.querySelector('.mode-toggle-button');
+        const content = this.editor.content;
+        const titleInput = this.editor.title;
 
-    async createNewDocument(title, type) {
-        const newDoc = {
-            title: title,
-            type: type,
-            content: '',
-            author: 'You'
-        };
-        
-        try {
-            const id = await this.storage.addDocument(newDoc);
-            newDoc.id = id;
-            this.openDocument(newDoc);
-            this.loadDocuments();
-            
-            this.showSnackbar(`Created new ${type}: ${title}`);
-        } catch (error) {
-            console.error('Error creating document:', error);
-            this.showSnackbar('Error creating document', true);
+        if (this.isReaderMode) {
+            container.classList.add('reader-mode');
+            content.contentEditable = 'false';
+            titleInput.readOnly = true;
+            modeButton.innerHTML = `
+                <span class="material-symbols-rounded">edit</span>
+                <span class="toggle-text">Edit mode</span>
+            `;
+        } else {
+            container.classList.remove('reader-mode');
+            content.contentEditable = 'true';
+            titleInput.readOnly = false;
+            modeButton.innerHTML = `
+                <span class="material-symbols-rounded">visibility</span>
+                <span class="toggle-text">Reader mode</span>
+            `;
         }
     }
 
@@ -409,6 +329,17 @@ class DocumentManager {
         
         this.editor.container.style.display = 'flex';
         this.editor.content.focus();
+        this.isReaderMode = false;
+        this.editor.container.classList.remove('reader-mode');
+        this.editor.content.contentEditable = 'true';
+        this.editor.title.readOnly = false;
+        const modeButton = this.editor.container.querySelector('.mode-toggle-button');
+        if (modeButton) {
+            modeButton.innerHTML = `
+                <span class="material-symbols-rounded">visibility</span>
+                <span class="toggle-text">Reader mode</span>
+            `;
+        }
     }
 
     closeEditor() {
