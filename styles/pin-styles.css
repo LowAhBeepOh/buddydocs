@@ -1,0 +1,71 @@
+/* Pin indicator styles */
+.pin-indicator {
+    position: absolute;
+    top: -2px;
+    right: -2px;
+    font-size: 12px;
+    background: var(--md-sys-color-primary);
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: var(--md-sys-elevation-level1);
+    z-index: 1;
+}
+
+/* Pinned document card styles */
+.document-card.pinned {
+    border: 2px solid var(--md-sys-color-primary);
+    background: linear-gradient(135deg, 
+        var(--md-sys-color-surface) 0%, 
+        var(--md-sys-color-primary-container) 100%);
+}
+
+.document-card.pinned .avatar {
+    position: relative;
+    border: 2px solid var(--md-sys-color-primary);
+}
+
+/* Context menu styles */
+.context-menu {
+    animation: contextMenuFadeIn 0.15s ease-out;
+}
+
+@keyframes contextMenuFadeIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-5px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+.context-menu-item {
+    user-select: none;
+    border-bottom: 1px solid var(--md-sys-color-outline-variant);
+}
+
+.context-menu-item:last-child {
+    border-bottom: none;
+}
+
+.context-menu-item:hover {
+    background-color: var(--md-sys-color-surface-container-high);
+}
+
+/* Responsive adjustments for pinned cards */
+@media (max-width: 768px) {
+    .pin-indicator {
+        width: 18px;
+        height: 18px;
+        font-size: 10px;
+    }
+    
+    .document-card.pinned {
+        border-width: 1px;
+    }
+}

@@ -1,0 +1,1293 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Docs - Editor</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0..200" />
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/document.css">
+    <link rel="stylesheet" href="styles/document2.css">
+    <style>
+        /* Additional styles specific to the editor page */
+        .editor-page {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .editor-header {
+            padding: 12px 20px;
+            box-shadow: var(--md-sys-elevation-level1);
+            z-index: 10;
+            background-color: var(--md-sys-color-surface);
+        }
+        
+        .editor-main {
+            display: flex;
+            flex: 1;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .editor-sidebar {
+            width: 250px;
+            background-color: var(--md-sys-color-surface);
+            border-right: 1px solid var(--md-sys-color-outline-variant);
+            overflow-y: auto;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            position: absolute;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            z-index: 5;
+        }
+        
+        .editor-content-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            width: 100%;
+        }
+        
+        .editor-toolbar {
+            padding: 8px 16px;
+            background-color: var(--md-sys-color-surface);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-start;
+        }
+        
+        .toolbar-group {
+            display: flex;
+            gap: 4px;
+            padding: 4px;
+            border-radius: 8px;
+            background-color: var(--md-sys-color-surface-variant);
+            margin-right: 8px;
+            flex-wrap: nowrap;
+        }
+        
+        .editor-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: var(--md-sys-color-background);
+            min-height: 300px;
+        }
+        
+        .editor-content:focus {
+            outline: none;
+        }
+        
+        .toolbar-button {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .toolbar-button:hover {
+            background-color: rgba(0, 0, 0, 0.08);
+        }
+        
+        .toolbar-button.active {
+            background-color: var(--md-sys-color-primary-container);
+            color: var(--md-sys-color-on-primary-container);
+        }
+        
+        .toolbar-select {
+            height: 36px;
+            border: none;
+            background-color: transparent;
+            padding: 0 8px;
+            font-family: 'Inter Tight', sans-serif;
+            border-radius: 4px;
+            cursor: pointer;
+            min-width: 120px;
+        }
+        
+        .toolbar-select:hover {
+            background-color: rgba(0, 0, 0, 0.08);
+        }
+        
+        .color-picker {
+            height: 36px;
+            width: 36px;
+            padding: 0;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            overflow: hidden;
+        }
+        
+        .bottom-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 16px;
+            background-color: var(--md-sys-color-surface);
+            border-top: 1px solid var(--md-sys-color-outline-variant);
+        }
+        
+        .word-count {
+            font-size: 12px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .action-buttons {
+            display: flex;
+            gap: 8px;
+        }
+        
+        /* Responsive styles */
+        @media (max-width: 768px) {
+            .editor-toolbar {
+                padding: 8px;
+                gap: 4px;
+                overflow-x: auto;
+                flex-wrap: nowrap;
+                justify-content: flex-start;
+                -webkit-overflow-scrolling: touch;
+                scrollbar-width: none; /* Firefox */
+            }
+            
+            .editor-toolbar::-webkit-scrollbar {
+                display: none; /* Chrome, Safari, Edge */
+            }
+            
+            .toolbar-group {
+                margin-right: 4px;
+                flex-shrink: 0;
+            }
+            
+            .toolbar-button {
+                width: 32px;
+                height: 32px;
+            }
+            
+            .editor-content {
+                padding: 16px 12px;
+            }
+            
+            .editor-header .header-content {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+            
+            .editor-header .header-content > div:last-child {
+                margin-top: 8px;
+                width: 100%;
+                justify-content: space-between;
+            }
+            
+            .editor-title {
+                width: 100%;
+                margin-top: 8px;
+            }
+            
+            .dialog {
+                max-width: 90%;
+                margin: 8px;
+            }
+        }
+        
+        @media (max-width: 480px) {
+            .toolbar-group {
+                padding: 2px;
+                gap: 1px;
+            }
+            
+            .toolbar-button {
+                width: 28px;
+                height: 28px;
+            }
+            
+            .toolbar-button .material-symbols-rounded {
+                font-size: 18px;
+            }
+            
+            .editor-content {
+                padding: 12px 8px;
+            }
+        }
+        
+        .snackbar {
+            position: fixed;
+            bottom: 24px;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 14px 16px;
+            background-color: var(--md-sys-color-inverse-surface);
+            color: var(--md-sys-color-inverse-on-surface);
+            border-radius: 100px;
+            box-shadow: var(--md-sys-elevation-level3);
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 1000;
+            opacity: 0;
+            transition: opacity 0.3s ease, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            min-width: 250px;
+            justify-content: space-between;
+            transform: translateX(-50%) translateY(100px);
+        }
+        
+        .snackbar.show {
+            opacity: 1;
+            transform: translateX(-50%) translateY(0);
+        }
+        
+        .snackbar-action {
+            background: none;
+            border: none;
+            color: var(--md-sys-color-primary);
+            font-weight: 500;
+            cursor: pointer;
+            text-transform: uppercase;
+            font-size: 14px;
+            padding: 4px 8px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .snackbar-action:hover {
+            background-color: rgba(255, 255, 255, 0.1);
+        }
+        
+        @media (max-width: 480px) {
+            .snackbar {
+                min-width: 85%;
+                max-width: 90%;
+                bottom: 16px;
+            }
+        }
+        
+        /* Table styles */
+        .editor-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin: 16px 0;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+        }
+        
+        .editor-content th, .editor-content td {
+            border: 1px solid var(--md-sys-color-outline-variant);
+            padding: 12px;
+            text-align: left;
+        }
+        
+        .editor-content th {
+            background-color: var(--md-sys-color-surface-variant);
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .editor-content tr:nth-child(even) {
+            background-color: rgba(0, 0, 0, 0.02);
+        }
+        
+        .editor-content tr:hover {
+            background-color: rgba(0, 0, 0, 0.04);
+        }
+        
+        /* Image styles */
+        .editor-content img {
+            max-width: 100%;
+            height: auto;
+        }
+        
+        /* Tooltip */
+        .tooltip {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .tooltip .tooltip-text {
+            visibility: hidden;
+            background-color: var(--md-sys-color-inverse-surface);
+            color: var(--md-sys-color-inverse-on-surface);
+            text-align: center;
+            padding: 4px 8px;
+            border-radius: 4px;
+            position: absolute;
+            z-index: 1;
+            bottom: 125%;
+            left: 50%;
+            transform: translateX(-50%);
+            opacity: 0;
+            transition: opacity 0.3s;
+            font-size: 12px;
+            white-space: nowrap;
+        }
+        
+        .tooltip:hover .tooltip-text {
+            visibility: visible;
+            opacity: 1;
+        }
+        
+        /* Dialog */
+        .dialog-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background-color: rgba(0, 0, 0, 0.5);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 1000;
+            opacity: 0;
+            visibility: hidden;
+            transition: opacity 0.3s ease, visibility 0.3s ease;
+        }
+        
+        .dialog-overlay.show {
+            opacity: 1;
+            visibility: visible;
+        }
+        
+        .dialog {
+            background-color: var(--md-sys-color-surface);
+            border-radius: 28px;
+            box-shadow: var(--md-sys-elevation-level3);
+            width: 100%;
+            max-width: 500px;
+            overflow: hidden;
+            animation: dialog-enter 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            margin: 16px;
+        }
+        
+        .dialog-header {
+            padding: 24px 24px 16px;
+            font-size: 24px;
+            font-weight: 500;
+            color: var(--md-sys-color-on-surface);
+        }
+        
+        .dialog-content {
+            padding: 0 24px 20px;
+        }
+        
+        .dialog-content .form-group {
+            margin-bottom: 16px;
+        }
+        
+        .dialog-content label {
+            display: block;
+            margin-bottom: 8px;
+            font-size: 14px;
+            color: var(--md-sys-color-on-surface-variant);
+        }
+        
+        .dialog-content input[type="number"],
+        .dialog-content input[type="text"] {
+            width: 100%;
+            padding: 12px 16px;
+            border: 1px solid var(--md-sys-color-outline);
+            border-radius: 4px;
+            font-size: 16px;
+            background-color: var(--md-sys-color-surface);
+            color: var(--md-sys-color-on-surface);
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+            font-family: 'Inter Tight', sans-serif;
+        }
+        
+        .dialog-content input[type="number"]:focus,
+        .dialog-content input[type="text"]:focus {
+            border-color: var(--md-sys-color-primary);
+            outline: none;
+            box-shadow: 0 0 0 1px var(--md-sys-color-primary-container);
+        }
+        
+        .dialog-content input::placeholder {
+            color: var(--md-sys-color-on-surface-variant);
+            opacity: 0.7;
+        }
+        
+        .dialog-actions {
+            display: flex;
+            justify-content: flex-end;
+            padding: 8px 24px 24px;
+            gap: 8px;
+        }
+        
+        .dialog-button {
+            padding: 10px 24px;
+            border: none;
+            border-radius: 100px;
+            font-size: 14px;
+            font-weight: 500;
+            cursor: pointer;
+            text-transform: uppercase;
+            letter-spacing: 0.1px;
+            transition: background-color 0.2s ease;
+        }
+        
+        .dialog-button.secondary {
+            background-color: transparent;
+            color: var(--md-sys-color-primary);
+        }
+        
+        .dialog-button.secondary:hover {
+            background-color: rgba(var(--md-sys-color-primary-rgb), 0.08);
+        }
+        
+        .dialog-button.primary {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+        }
+        
+        .dialog-button.primary:hover {
+            background-color: var(--md-sys-color-primary-hover, var(--md-sys-color-primary));
+        }
+        
+        @keyframes dialog-enter {
+            from {
+                opacity: 0;
+                transform: scale(0.9);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+        
+        /* Ripple effect */
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="editor-page">
+        <header class="editor-header">
+            <div class="header-content">
+                <div class="header-left">
+                    <a href="index.html" class="tooltip">
+                        <button class="back-button">
+                            <span class="material-symbols-rounded">arrow_back</span>
+                        </button>
+                        <span class="tooltip-text">Back to Documents</span>
+                    </a>
+                    <input type="text" class="editor-title" placeholder="Document Title" id="document-title">
+                </div>
+                <div class="header-right">
+                    <button class="save-button" id="save-button">
+                        <span class="material-symbols-rounded">save</span>
+                        Save
+                    </button>
+                    <div class="user-profile" data-initial="U">
+                        <img src="https://placehold.co/48x48/FF4D00/FFFFFF" alt="User profile">
+                    </div>
+                </div>
+            </div>
+        </header>
+        
+        <div class="editor-main">
+            <div class="editor-content-wrapper">
+                <div class="editor-toolbar">
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="bold">
+                                <span class="material-symbols-rounded">format_bold</span>
+                            </button>
+                            <span class="tooltip-text">Bold (Ctrl+B)</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="italic">
+                                <span class="material-symbols-rounded">format_italic</span>
+                            </button>
+                            <span class="tooltip-text">Italic (Ctrl+I)</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="underline">
+                                <span class="material-symbols-rounded">format_underlined</span>
+                            </button>
+                            <span class="tooltip-text">Underline (Ctrl+U)</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="strikeThrough">
+                                <span class="material-symbols-rounded">strikethrough_s</span>
+                            </button>
+                            <span class="tooltip-text">Strikethrough</span>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="justifyLeft">
+                                <span class="material-symbols-rounded">format_align_left</span>
+                            </button>
+                            <span class="tooltip-text">Align Left</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="justifyCenter">
+                                <span class="material-symbols-rounded">format_align_center</span>
+                            </button>
+                            <span class="tooltip-text">Align Center</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="justifyRight">
+                                <span class="material-symbols-rounded">format_align_right</span>
+                            </button>
+                            <span class="tooltip-text">Align Right</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="justifyFull">
+                                <span class="material-symbols-rounded">format_align_justify</span>
+                            </button>
+                            <span class="tooltip-text">Justify</span>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="insertUnorderedList">
+                                <span class="material-symbols-rounded">format_list_bulleted</span>
+                            </button>
+                            <span class="tooltip-text">Bullet List</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="insertOrderedList">
+                                <span class="material-symbols-rounded">format_list_numbered</span>
+                            </button>
+                            <span class="tooltip-text">Numbered List</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="indent">
+                                <span class="material-symbols-rounded">format_indent_increase</span>
+                            </button>
+                            <span class="tooltip-text">Indent</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" data-command="outdent">
+                                <span class="material-symbols-rounded">format_indent_decrease</span>
+                            </button>
+                            <span class="tooltip-text">Outdent</span>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <select class="toolbar-select" id="heading-select">
+                                <option value="">Paragraph</option>
+                                <option value="h1">Heading 1</option>
+                                <option value="h2">Heading 2</option>
+                                <option value="h3">Heading 3</option>
+                                <option value="h4">Heading 4</option>
+                            </select>
+                            <span class="tooltip-text">Paragraph Style</span>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <button class="toolbar-button" id="insert-link-button">
+                                <span class="material-symbols-rounded">link</span>
+                            </button>
+                            <span class="tooltip-text">Insert Link</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" id="insert-image-button">
+                                <span class="material-symbols-rounded">image</span>
+                            </button>
+                            <span class="tooltip-text">Insert Image</span>
+                        </div>
+                        <div class="tooltip">
+                            <button class="toolbar-button" id="insert-table-button">
+                                <span class="material-symbols-rounded">table</span>
+                            </button>
+                            <span class="tooltip-text">Insert Table</span>
+                        </div>
+                    </div>
+                    
+                    <div class="toolbar-group">
+                        <div class="tooltip">
+                            <input type="color" class="color-picker" id="forecolor" value="#000000">
+                            <span class="tooltip-text">Text Color</span>
+                        </div>
+                        <div class="tooltip">
+                            <input type="color" class="color-picker" id="backcolor" value="#ffffff">
+                            <span class="tooltip-text">Highlight Color</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="editor-content" id="editor-content" contenteditable="true" spellcheck="true"></div>
+                
+                <div class="bottom-bar">
+                <div class="word-count-container" style="display: flex; align-items: center;">
+                    <div class="word-count" id="word-count">0 words</div>
+                    <button id="deadline-button" class="toolbar-button" title="Set deadline" style="margin-left: 10px;">
+                        <span class="material-symbols-rounded">assignment_late</span>
+                    </button>
+                </div>
+                <div class="action-buttons">
+                    <button class="toolbar-button" id="undo-button">
+                        <span class="material-symbols-rounded">undo</span>
+                    </button>
+                    <button class="toolbar-button" id="redo-button">
+                        <span class="material-symbols-rounded">redo</span>
+                    </button>
+                </div>
+            </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Snackbar for notifications -->
+    <div class="snackbar" id="snackbar">
+        <span id="snackbar-message"></span>
+        <button class="snackbar-action" id="snackbar-action">DISMISS</button>
+    </div>
+    
+    <!-- Deadline Dialog -->
+    <div class="dialog-overlay" id="deadline-dialog-overlay">
+        <div class="dialog" id="deadline-dialog">
+            <div class="dialog-header">Set Document Deadline</div>
+            <div class="dialog-content">
+                <div class="form-group">
+                    <label for="deadline-date">Deadline Date</label>
+                    <input type="date" id="deadline-date">
+                </div>
+            </div>
+            <div class="dialog-actions">
+                <button class="dialog-button secondary" id="remove-deadline">Remove Deadline</button>
+                <button class="dialog-button secondary" id="cancel-deadline">Cancel</button>
+                <button class="dialog-button primary" id="set-deadline">Set Deadline</button>
+            </div>
+        </div>
+    </div>
+    
+    <script src="document.js"></script>
+    <script>
+        // Editor functionality
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initialize variables
+            let currentDocId = null;
+            const urlParams = new URLSearchParams(window.location.search);
+            const docId = urlParams.get('id');
+            const documentManager = new DocumentManager();
+            const editorContent = document.getElementById('editor-content');
+            const documentTitle = document.getElementById('document-title');
+            const saveButton = document.getElementById('save-button');
+            const wordCount = document.getElementById('word-count');
+            let unsavedChanges = false;
+            
+            // Load document if ID is provided
+            if (docId) {
+                // Wait for document manager to initialize before loading document
+                setTimeout(() => {
+                    loadDocument(parseInt(docId));
+                }, 100); // Small delay to ensure DB is ready
+            }
+            
+            // Set up toolbar buttons
+            document.querySelectorAll('.toolbar-button[data-command]').forEach(button => {
+                button.addEventListener('click', function() {
+                    const command = this.getAttribute('data-command');
+                    document.execCommand(command, false, null);
+                    editorContent.focus();
+                    updateButtonStates();
+                    markAsUnsaved();
+                });
+            });
+            
+            // Heading select
+            document.getElementById('heading-select').addEventListener('change', function() {
+                const value = this.value;
+                if (value) {
+                    document.execCommand('formatBlock', false, value);
+                } else {
+                    document.execCommand('formatBlock', false, 'p');
+                }
+                editorContent.focus();
+                markAsUnsaved();
+            });
+            
+            // Color pickers
+            document.getElementById('forecolor').addEventListener('input', function() {
+                document.execCommand('foreColor', false, this.value);
+                editorContent.focus();
+                markAsUnsaved();
+            });
+            
+            document.getElementById('backcolor').addEventListener('input', function() {
+                document.execCommand('hiliteColor', false, this.value);
+                editorContent.focus();
+                markAsUnsaved();
+            });
+            
+            // Undo/Redo
+            document.getElementById('undo-button').addEventListener('click', function() {
+                document.execCommand('undo', false, null);
+                editorContent.focus();
+            });
+            
+            document.getElementById('redo-button').addEventListener('click', function() {
+                document.execCommand('redo', false, null);
+                editorContent.focus();
+            });
+            
+            // Insert link with dialog
+            document.getElementById('insert-link-button').addEventListener('click', function() {
+                const selection = window.getSelection();
+                
+                // Create link dialog if it doesn't exist
+                if (!document.getElementById('link-dialog')) {
+                    const dialogOverlay = document.createElement('div');
+                    dialogOverlay.className = 'dialog-overlay';
+                    dialogOverlay.id = 'link-dialog-overlay';
+                    
+                    const dialogHTML = `
+                        <div class="dialog" id="link-dialog">
+                            <div class="dialog-header">Insert Link</div>
+                            <div class="dialog-content">
+                                <div class="form-group">
+                                    <label for="link-text">Link text</label>
+                                    <input type="text" id="link-text" placeholder="Text to display">
+                                </div>
+                                <div class="form-group">
+                                    <label for="link-url">URL</label>
+                                    <input type="text" id="link-url" placeholder="https://" value="https://">
+                                </div>
+                            </div>
+                            <div class="dialog-actions">
+                                <button class="dialog-button secondary" id="cancel-link">Cancel</button>
+                                <button class="dialog-button primary" id="insert-link">Insert</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    dialogOverlay.innerHTML = dialogHTML;
+                    document.body.appendChild(dialogOverlay);
+                    
+                    // Add event listeners
+                    document.getElementById('cancel-link').addEventListener('click', function() {
+                        document.getElementById('link-dialog-overlay').classList.remove('show');
+                    });
+                    
+                    document.getElementById('insert-link').addEventListener('click', function() {
+                        const linkText = document.getElementById('link-text').value.trim();
+                        const linkUrl = document.getElementById('link-url').value.trim();
+                        
+                        if (linkUrl) {
+                            // If we have selected text, create a link with that text
+                            if (window.getSelection().toString().length > 0) {
+                                document.execCommand('createLink', false, linkUrl);
+                            } 
+                            // If we have link text but no selection, insert new link
+                            else if (linkText) {
+                                const a = document.createElement('a');
+                                a.href = linkUrl;
+                                a.textContent = linkText;
+                                a.target = '_blank'; // Open in new tab
+                                
+                                const range = window.getSelection().getRangeAt(0);
+                                range.deleteContents();
+                                range.insertNode(a);
+                            } else {
+                                showSnackbar('Please enter link text or select text in the document');
+                                return;
+                            }
+                            
+                            markAsUnsaved();
+                        } else {
+                            showSnackbar('Please enter a valid URL');
+                            return;
+                        }
+                        
+                        // Hide dialog
+                        document.getElementById('link-dialog-overlay').classList.remove('show');
+                        editorContent.focus();
+                    });
+                }
+                
+                // Show dialog and populate with selected text if any
+                document.getElementById('link-dialog-overlay').classList.add('show');
+                if (selection.toString().length > 0) {
+                    document.getElementById('link-text').value = selection.toString();
+                } else {
+                    document.getElementById('link-text').value = '';
+                }
+                document.getElementById('link-url').focus();
+            });
+            
+            // Insert image with dialog
+            document.getElementById('insert-image-button').addEventListener('click', function() {
+                // Create image dialog if it doesn't exist
+                if (!document.getElementById('image-dialog')) {
+                    const dialogOverlay = document.createElement('div');
+                    dialogOverlay.className = 'dialog-overlay';
+                    dialogOverlay.id = 'image-dialog-overlay';
+                    
+                    const dialogHTML = `
+                        <div class="dialog" id="image-dialog">
+                            <div class="dialog-header">Insert Image</div>
+                            <div class="dialog-content">
+                                <div class="form-group">
+                                    <label for="image-url">Image URL</label>
+                                    <input type="text" id="image-url" placeholder="https://" value="https://">
+                                </div>
+                                <div class="form-group">
+                                    <label for="image-alt">Alt Text (for accessibility)</label>
+                                    <input type="text" id="image-alt" placeholder="Image description">
+                                </div>
+                            </div>
+                            <div class="dialog-actions">
+                                <button class="dialog-button secondary" id="cancel-image">Cancel</button>
+                                <button class="dialog-button primary" id="insert-image">Insert</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    dialogOverlay.innerHTML = dialogHTML;
+                    document.body.appendChild(dialogOverlay);
+                    
+                    // Add event listeners
+                    document.getElementById('cancel-image').addEventListener('click', function() {
+                        document.getElementById('image-dialog-overlay').classList.remove('show');
+                    });
+                    
+                    document.getElementById('insert-image').addEventListener('click', function() {
+                        const imageUrl = document.getElementById('image-url').value.trim();
+                        const imageAlt = document.getElementById('image-alt').value.trim();
+                        
+                        if (imageUrl) {
+                            // Create image element with alt text
+                            const img = document.createElement('img');
+                            img.src = imageUrl;
+                            if (imageAlt) {
+                                img.alt = imageAlt;
+                            }
+                            
+                            // Insert the image
+                            const range = window.getSelection().getRangeAt(0);
+                            range.deleteContents();
+                            range.insertNode(img);
+                            
+                            markAsUnsaved();
+                        } else {
+                            showSnackbar('Please enter a valid image URL');
+                            return;
+                        }
+                        
+                        // Hide dialog
+                        document.getElementById('image-dialog-overlay').classList.remove('show');
+                        editorContent.focus();
+                    });
+                }
+                
+                // Show dialog
+                document.getElementById('image-dialog-overlay').classList.add('show');
+                document.getElementById('image-url').focus();
+            });
+            
+            // Insert table with dialog
+            document.getElementById('insert-table-button').addEventListener('click', function() {
+                // Create table dialog if it doesn't exist
+                if (!document.getElementById('table-dialog')) {
+                    const dialogOverlay = document.createElement('div');
+                    dialogOverlay.className = 'dialog-overlay';
+                    dialogOverlay.id = 'table-dialog-overlay';
+                    
+                    const dialogHTML = `
+                        <div class="dialog" id="table-dialog">
+                            <div class="dialog-header">Insert Table</div>
+                            <div class="dialog-content">
+                                <div class="form-group">
+                                    <label for="table-rows">Number of rows</label>
+                                    <input type="number" id="table-rows" min="1" max="20" value="3">
+                                </div>
+                                <div class="form-group">
+                                    <label for="table-cols">Number of columns</label>
+                                    <input type="number" id="table-cols" min="1" max="10" value="3">
+                                </div>
+                            </div>
+                            <div class="dialog-actions">
+                                <button class="dialog-button secondary" id="cancel-table">Cancel</button>
+                                <button class="dialog-button primary" id="insert-table">Insert</button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    dialogOverlay.innerHTML = dialogHTML;
+                    document.body.appendChild(dialogOverlay);
+                    
+                    // Add event listeners
+                    document.getElementById('cancel-table').addEventListener('click', function() {
+                        document.getElementById('table-dialog-overlay').classList.remove('show');
+                    });
+                    
+                    document.getElementById('insert-table').addEventListener('click', function() {
+                        const rows = parseInt(document.getElementById('table-rows').value) || 3;
+                        const cols = parseInt(document.getElementById('table-cols').value) || 3;
+                        
+                        if (rows > 0 && cols > 0) {
+                            const table = document.createElement('table');
+                            
+                            // Create header row
+                            const thead = document.createElement('thead');
+                            const headerRow = document.createElement('tr');
+                            
+                            for (let i = 0; i < cols; i++) {
+                                const th = document.createElement('th');
+                                th.textContent = `Header ${i+1}`;
+                                headerRow.appendChild(th);
+                            }
+                            
+                            thead.appendChild(headerRow);
+                            table.appendChild(thead);
+                            
+                            // Create body rows
+                            const tbody = document.createElement('tbody');
+                            
+                            for (let i = 0; i < rows - 1; i++) {
+                                const row = document.createElement('tr');
+                                
+                                for (let j = 0; j < cols; j++) {
+                                    const cell = document.createElement('td');
+                                    cell.textContent = `Cell ${i+1},${j+1}`;
+                                    row.appendChild(cell);
+                                }
+                                
+                                tbody.appendChild(row);
+                            }
+                            
+                            table.appendChild(tbody);
+                            
+                            // Insert the table
+                            const range = window.getSelection().getRangeAt(0);
+                            range.deleteContents();
+                            range.insertNode(table);
+                            
+                            markAsUnsaved();
+                        }
+                        
+                        // Hide dialog
+                        document.getElementById('table-dialog-overlay').classList.remove('show');
+                        editorContent.focus();
+                    });
+                }
+                
+                // Show dialog
+                document.getElementById('table-dialog-overlay').classList.add('show');
+                document.getElementById('table-rows').focus();
+            });
+            
+            // Save document
+            saveButton.addEventListener('click', saveDocument);
+            
+            // Track changes
+            editorContent.addEventListener('input', function() {
+                updateWordCount();
+                markAsUnsaved();
+            });
+            
+            // Deadline functionality
+            const deadlineButton = document.getElementById('deadline-button');
+            const deadlineDialogOverlay = document.getElementById('deadline-dialog-overlay');
+            const deadlineDateInput = document.getElementById('deadline-date');
+            const setDeadlineButton = document.getElementById('set-deadline');
+            const cancelDeadlineButton = document.getElementById('cancel-deadline');
+            const removeDeadlineButton = document.getElementById('remove-deadline');
+            
+            deadlineButton.addEventListener('click', function() {
+                // If we have a current document with a deadline, show it in the input
+                if (currentDocId) {
+                    documentManager.storage.getDocument(currentDocId).then(doc => {
+                        if (doc && doc.deadline) {
+                            // Format date as YYYY-MM-DD for the input
+                            const deadlineDate = new Date(doc.deadline);
+                            const year = deadlineDate.getFullYear();
+                            const month = String(deadlineDate.getMonth() + 1).padStart(2, '0');
+                            const day = String(deadlineDate.getDate()).padStart(2, '0');
+                            deadlineDateInput.value = `${year}-${month}-${day}`;
+                        } else {
+                            deadlineDateInput.value = '';
+                        }
+                        deadlineDialogOverlay.classList.add('show');
+                    });
+                } else {
+                    deadlineDateInput.value = '';
+                    deadlineDialogOverlay.classList.add('show');
+                }
+            });
+            
+            setDeadlineButton.addEventListener('click', function() {
+                const deadlineDate = deadlineDateInput.value;
+                if (!deadlineDate) {
+                    showSnackbar('Please select a deadline date');
+                    return;
+                }
+                
+                if (currentDocId) {
+                    documentManager.storage.getDocument(currentDocId).then(doc => {
+                        if (doc) {
+                            doc.deadline = new Date(deadlineDate).toISOString();
+                            doc.completed = false; // Reset completed status when setting a new deadline
+                            documentManager.storage.updateDocument(doc).then(() => {
+                                showSnackbar('Deadline set successfully');
+                                markAsUnsaved(); // Mark as unsaved to prompt save
+                            });
+                        }
+                    });
+                } else {
+                    // Store the deadline to be saved with the document later
+                    window.tempDeadline = new Date(deadlineDate).toISOString();
+                    showSnackbar('Deadline will be set when document is saved');
+                }
+                
+                deadlineDialogOverlay.classList.remove('show');
+            });
+            
+            cancelDeadlineButton.addEventListener('click', function() {
+                deadlineDialogOverlay.classList.remove('show');
+            });
+            
+            removeDeadlineButton.addEventListener('click', function() {
+                if (currentDocId) {
+                    documentManager.storage.getDocument(currentDocId).then(doc => {
+                        if (doc) {
+                            delete doc.deadline;
+                            delete doc.completed;
+                            documentManager.storage.updateDocument(doc).then(() => {
+                                showSnackbar('Deadline removed');
+                                markAsUnsaved(); // Mark as unsaved to prompt save
+                            });
+                        }
+                    });
+                } else {
+                    window.tempDeadline = null;
+                    showSnackbar('No deadline will be set');
+                }
+                
+                deadlineDialogOverlay.classList.remove('show');
+            });
+            
+            documentTitle.addEventListener('input', function() {
+                markAsUnsaved();
+            });
+            
+            // Update word count on load
+            updateWordCount();
+            
+            // Handle keyboard shortcuts
+            editorContent.addEventListener('keydown', function(e) {
+                // Save on Ctrl+S
+                if (e.ctrlKey && e.key === 's') {
+                    e.preventDefault();
+                    saveDocument();
+                }
+                
+                // Update button states when typing
+                setTimeout(updateButtonStates, 0);
+            });
+            
+            // Update button states when clicking in the editor
+            editorContent.addEventListener('click', updateButtonStates);
+            
+            // Snackbar dismiss
+            document.getElementById('snackbar-action').addEventListener('click', function() {
+                hideSnackbar();
+            });
+            
+            // Before unload warning
+            window.addEventListener('beforeunload', function(e) {
+                if (unsavedChanges) {
+                    e.preventDefault();
+                    e.returnValue = 'You have unsaved changes. Are you sure you want to leave?';
+                    return e.returnValue;
+                }
+            });
+            
+            // Functions
+            function loadDocument(id) {
+                // Ensure the document manager's storage is initialized
+                if (!documentManager.storage.db) {
+                    console.log('Database not ready, initializing...');
+                    documentManager.storage.initDB()
+                        .then(db => {
+                            console.log('Database initialized, now loading document');
+                            loadDocumentFromDB(id);
+                        })
+                        .catch(error => {
+                            console.error('Failed to initialize database:', error);
+                            showSnackbar('Error connecting to database');
+                        });
+                } else {
+                    loadDocumentFromDB(id);
+                }
+            }
+            
+            function loadDocumentFromDB(id) {
+                documentManager.storage.getDocument(id).then(doc => {
+                    if (doc) {
+                        currentDocId = doc.id;
+                        documentTitle.value = doc.title;
+                        editorContent.innerHTML = doc.content;
+                        updateWordCount();
+                        unsavedChanges = false;
+                    } else {
+                        showSnackbar('Document not found');
+                    }
+                }).catch(error => {
+                    console.error('Error loading document:', error);
+                    showSnackbar('Error loading document: ' + error.message);
+                });
+            }
+            
+            function saveDocument() {
+                if (!documentTitle.value.trim()) {
+                    showSnackbar('Please enter a document title');
+                    documentTitle.focus();
+                    return;
+                }
+                
+                const doc = {
+                    title: documentTitle.value.trim(),
+                    content: editorContent.innerHTML,
+                    type: 'document' // Default type
+                };
+                
+                // Add deadline if it exists in the temporary storage
+                if (window.tempDeadline) {
+                    doc.deadline = window.tempDeadline;
+                    doc.completed = false;
+                    window.tempDeadline = null; // Clear temporary storage
+                }
+                
+                if (currentDocId) {
+                    doc.id = currentDocId;
+                    // Get the existing document to preserve deadline if it exists
+                    documentManager.storage.getDocument(currentDocId).then(existingDoc => {
+                        // Preserve deadline and completed status if they exist and weren't changed
+                        if (existingDoc.deadline && !doc.deadline) {
+                            doc.deadline = existingDoc.deadline;
+                            doc.completed = existingDoc.completed;
+                        }
+                        
+                        documentManager.storage.updateDocument(doc).then(() => {
+                            unsavedChanges = false;
+                            showSnackbar('Document saved successfully');
+                        }).catch(error => {
+                            console.error('Error saving document:', error);
+                            showSnackbar('Error saving document');
+                        });
+                    });
+                } else {
+                    documentManager.storage.addDocument(doc).then(id => {
+                        currentDocId = id;
+                        unsavedChanges = false;
+                        // Update URL with the new document ID
+                        const newUrl = `${window.location.pathname}?id=${id}`;
+                        window.history.replaceState({}, '', newUrl);
+                        showSnackbar('Document created successfully');
+                    }).catch(error => {
+                        console.error('Error creating document:', error);
+                        showSnackbar('Error creating document');
+                    });
+                }
+            }
+            
+            function updateWordCount() {
+                const text = editorContent.innerText || '';
+                const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+                wordCount.textContent = `${words} word${words !== 1 ? 's' : ''}`;
+            }
+            
+            function updateButtonStates() {
+                document.querySelectorAll('.toolbar-button[data-command]').forEach(button => {
+                    const command = button.getAttribute('data-command');
+                    if (document.queryCommandState(command)) {
+                        button.classList.add('active');
+                    } else {
+                        button.classList.remove('active');
+                    }
+                });
+            }
+            
+            function markAsUnsaved() {
+                unsavedChanges = true;
+            }
+            
+            function showSnackbar(message, duration = 3000) {
+                const snackbar = document.getElementById('snackbar');
+                const snackbarMessage = document.getElementById('snackbar-message');
+                
+                snackbarMessage.textContent = message;
+                snackbar.classList.add('show');
+                
+                setTimeout(hideSnackbar, duration);
+            }
+            
+            function hideSnackbar() {
+                const snackbar = document.getElementById('snackbar');
+                snackbar.classList.remove('show');
+            }
+            
+            // Add ripple effect to buttons
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', createRipple);
+            });
+            
+            function createRipple(event) {
+                const button = event.currentTarget;
+                const ripple = document.createElement('span');
+                const rect = button.getBoundingClientRect();
+                
+                const size = Math.max(rect.width, rect.height);
+                const x = event.clientX - rect.left - size / 2;
+                const y = event.clientY - rect.top - size / 2;
+                
+                ripple.style.width = ripple.style.height = `${size}px`;
+                ripple.style.left = `${x}px`;
+                ripple.style.top = `${y}px`;
+                ripple.className = 'ripple';
+                
+                button.appendChild(ripple);
+                
+                setTimeout(() => {
+                    ripple.remove();
+                }, 600);
+            }
+        });
+    </script>
+</body>
+</html>

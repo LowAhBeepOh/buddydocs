@@ -29,6 +29,8 @@ class DocumentStorage {
                     store.createIndex('title', 'title', { unique: false });
                     store.createIndex('type', 'type', { unique: false });
                     store.createIndex('lastModified', 'lastModified', { unique: false });
+                    store.createIndex('deadline', 'deadline', { unique: false });
+                    store.createIndex('completed', 'completed', { unique: false });
                     console.log('Object store created');
                 }
             };
@@ -37,6 +39,22 @@ class DocumentStorage {
 
     addDocument(doc) {
         return new Promise((resolve, reject) => {
+            if (!this.db) {
+                this.initDB().then(db => {
+                    this.db = db;
+                    this._addDocumentToDB(doc, resolve, reject);
+                }).catch(err => {
+                    console.error('Failed to initialize database:', err);
+                    reject(err);
+                });
+            } else {
+                this._addDocumentToDB(doc, resolve, reject);
+            }
+        });
+    }
+    
+    _addDocumentToDB(doc, resolve, reject) {
+        try {
             const transaction = this.db.transaction(['documents'], 'readwrite');
             const store = transaction.objectStore('documents');
             
@@ -54,11 +72,30 @@ class DocumentStorage {
                 console.error('Error adding document:', event.target.error);
                 reject(event.target.error);
             };
-        });
+        } catch (err) {
+            console.error('Error accessing database:', err);
+            reject(err);
+        }
     }
 
     getAllDocuments() {
         return new Promise((resolve, reject) => {
+            if (!this.db) {
+                this.initDB().then(db => {
+                    this.db = db;
+                    this._getAllDocumentsFromDB(resolve, reject);
+                }).catch(err => {
+                    console.error('Failed to initialize database:', err);
+                    reject(err);
+                });
+            } else {
+                this._getAllDocumentsFromDB(resolve, reject);
+            }
+        });
+    }
+    
+    _getAllDocumentsFromDB(resolve, reject) {
+        try {
             const transaction = this.db.transaction(['documents'], 'readonly');
             const store = transaction.objectStore('documents');
             const request = store.getAll();
@@ -71,11 +108,30 @@ class DocumentStorage {
                 console.error('Error getting documents:', event.target.error);
                 reject(event.target.error);
             };
-        });
+        } catch (err) {
+            console.error('Error accessing database:', err);
+            reject(err);
+        }
     }
 
     getDocument(id) {
         return new Promise((resolve, reject) => {
+            if (!this.db) {
+                this.initDB().then(db => {
+                    this.db = db;
+                    this._getDocumentFromDB(id, resolve, reject);
+                }).catch(err => {
+                    console.error('Failed to initialize database:', err);
+                    reject(err);
+                });
+            } else {
+                this._getDocumentFromDB(id, resolve, reject);
+            }
+        });
+    }
+    
+    _getDocumentFromDB(id, resolve, reject) {
+        try {
             const transaction = this.db.transaction(['documents'], 'readonly');
             const store = transaction.objectStore('documents');
             const request = store.get(id);
@@ -88,11 +144,30 @@ class DocumentStorage {
                 console.error('Error getting document:', event.target.error);
                 reject(event.target.error);
             };
-        });
+        } catch (err) {
+            console.error('Error accessing database:', err);
+            reject(err);
+        }
     }
 
     updateDocument(doc) {
         return new Promise((resolve, reject) => {
+            if (!this.db) {
+                this.initDB().then(db => {
+                    this.db = db;
+                    this._updateDocumentInDB(doc, resolve, reject);
+                }).catch(err => {
+                    console.error('Failed to initialize database:', err);
+                    reject(err);
+                });
+            } else {
+                this._updateDocumentInDB(doc, resolve, reject);
+            }
+        });
+    }
+    
+    _updateDocumentInDB(doc, resolve, reject) {
+        try {
             const transaction = this.db.transaction(['documents'], 'readwrite');
             const store = transaction.objectStore('documents');
             
@@ -109,11 +184,30 @@ class DocumentStorage {
                 console.error('Error updating document:', event.target.error);
                 reject(event.target.error);
             };
-        });
+        } catch (err) {
+            console.error('Error accessing database:', err);
+            reject(err);
+        }
     }
 
     deleteDocument(id) {
         return new Promise((resolve, reject) => {
+            if (!this.db) {
+                this.initDB().then(db => {
+                    this.db = db;
+                    this._deleteDocumentFromDB(id, resolve, reject);
+                }).catch(err => {
+                    console.error('Failed to initialize database:', err);
+                    reject(err);
+                });
+            } else {
+                this._deleteDocumentFromDB(id, resolve, reject);
+            }
+        });
+    }
+    
+    _deleteDocumentFromDB(id, resolve, reject) {
+        try {
             const transaction = this.db.transaction(['documents'], 'readwrite');
             const store = transaction.objectStore('documents');
             const request = store.delete(id);
@@ -127,7 +221,10 @@ class DocumentStorage {
                 console.error('Error deleting document:', event.target.error);
                 reject(event.target.error);
             };
-        });
+        } catch (err) {
+            console.error('Error accessing database:', err);
+            reject(err);
+        }
     }
 }
 
@@ -138,7 +235,7 @@ class DocumentManager {
         this.editor = null;
         this.documentTypes = ['Document', 'Wiki', 'List', 'Interactive', 'Fiction'];
         this.currentFilter = 'all';
-        this.searchQuery = ''; // new property for search query
+        this.searchQuery = '';
         this.unsavedChanges = false;
         this.initUI();
     }
@@ -151,7 +248,6 @@ class DocumentManager {
             newButton.addEventListener('click', () => this.showNewDocumentDialog());
         }
         
-        // NEW SEARCH FEATURE: set up search input and toggle
         const searchInput = document.querySelector('.search-input');
         const searchButton = document.querySelector('.search-button');
         if (searchButton && searchInput) {
@@ -185,6 +281,12 @@ class DocumentManager {
 
     createEditorContainer() {
         const appContainer = document.querySelector('.app-container');
+        const editorPage = document.querySelector('.editor-page');
+        
+        if (editorPage || !appContainer) {
+            console.log('Editor container not created: already on editor page or app container not found');
+            return;
+        }
         
         if (!document.querySelector('.editor-container')) {
             const editorContainer = document.createElement('div');
@@ -388,27 +490,7 @@ class DocumentManager {
     }
 
     openDocument(doc) {
-        this.currentDocument = doc;
-        
-        this.editor.title.value = doc.title;
-        this.editor.content.innerHTML = doc.content;
-        
-        const documentsGrid = document.querySelector('.documents-grid');
-        const filterSection = document.querySelector('.filter-section');
-        let notificationSection = document.querySelector('.notification-section');
-        
-        if (!notificationSection) {
-            notificationSection = document.createElement('div');
-            notificationSection.className = 'notification-section';
-            documentsGrid.parentNode.insertBefore(notificationSection, documentsGrid.nextSibling);
-        }
-        
-        if (documentsGrid) documentsGrid.style.display = 'none';
-        if (filterSection) filterSection.style.display = 'none';
-        if (notificationSection) notificationSection.style.display = 'none';
-        
-        this.editor.container.style.display = 'flex';
-        this.editor.content.focus();
+        window.location.href = `editor.html?id=${doc.id}`;
     }
 
     closeEditor() {
@@ -483,11 +565,11 @@ class DocumentManager {
             this.createDemoLayout(grid);
             return;
         }
-        // Apply type filter if any
+        
         if (this.currentFilter !== 'all') {
             docs = docs.filter(doc => doc.type.toLowerCase() === this.currentFilter);
         }
-        // NEW: Filter by search query (title or content)
+        
         if (this.searchQuery !== '') {
             docs = docs.filter(doc => 
                 doc.title.toLowerCase().includes(this.searchQuery) ||
@@ -499,7 +581,27 @@ class DocumentManager {
         }
         grid.classList.add('user-documents-grid');
         
-        docs.sort((a, b) => new Date(b.lastModified) - new Date(a.lastModified));
+        // Sort documents: deadlines (not completed) first, then pinned, then by last modified date
+        docs.sort((a, b) => {
+            // First priority: documents with deadlines that aren't completed
+            const aHasActiveDeadline = a.deadline && !a.completed;
+            const bHasActiveDeadline = b.deadline && !b.completed;
+            
+            if (aHasActiveDeadline && !bHasActiveDeadline) return -1;
+            if (!aHasActiveDeadline && bHasActiveDeadline) return 1;
+            
+            // If both have active deadlines, sort by closest deadline first
+            if (aHasActiveDeadline && bHasActiveDeadline) {
+                return new Date(a.deadline) - new Date(b.deadline);
+            }
+            
+            // Second priority: pinned status
+            if (a.pinned && !b.pinned) return -1;
+            if (!a.pinned && b.pinned) return 1;
+            
+            // Third priority: last modified date
+            return new Date(b.lastModified) - new Date(a.lastModified);
+        });
         
         docs.forEach(doc => {
             const card = this.createDocumentCard(doc);
@@ -516,7 +618,7 @@ class DocumentManager {
         initRippleEffect();
     }
 
-    filterDocuments(filter) { // new method
+    filterDocuments(filter) {
         this.currentFilter = filter.toLowerCase();
         this.loadDocuments();
     }
@@ -526,14 +628,46 @@ class DocumentManager {
         card.className = 'card mini-card document-card';
         card.setAttribute('data-id', doc.id);
         
+        if (doc.pinned) {
+            card.classList.add('pinned');
+        }
+        
+        // Add class for documents with deadlines
+        if (doc.deadline) {
+            card.classList.add('has-deadline');
+            if (doc.completed) {
+                card.classList.add('deadline-completed');
+            }
+        }
+        
         card.style.opacity = '0';
         card.style.transform = 'translateY(20px)';
         card.style.transition = 'opacity 0.3s ease-out, transform 0.3s cubic-bezier(0.4, 0, 0.2, 1)';
         
-        const date = new Date(doc.lastModified);
-        const formattedDate = this.formatDate(date);
+        // Determine what date to show (deadline or last modified)
+        let dateText;
+        if (doc.deadline && !doc.completed) {
+            const deadlineDate = new Date(doc.deadline);
+            const now = new Date();
+            const diffTime = deadlineDate - now;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            
+            if (diffDays < 0) {
+                dateText = `${Math.abs(diffDays)} day${Math.abs(diffDays) !== 1 ? 's' : ''} overdue`;
+                card.classList.add('deadline-overdue');
+            } else if (diffDays === 0) {
+                dateText = 'Due today';
+                card.classList.add('deadline-today');
+            } else {
+                dateText = `${diffDays} day${diffDays !== 1 ? 's' : ''} left`;
+            }
+        } else if (doc.deadline && doc.completed) {
+            dateText = 'Completed';
+        } else {
+            const date = new Date(doc.lastModified);
+            dateText = this.formatDate(date);
+        }
         
-        // Captialize first letter of the doc type
         const displayType = doc.type.charAt(0).toUpperCase() + doc.type.slice(1);
         
         const avatar = document.createElement('div');
@@ -544,6 +678,36 @@ class DocumentManager {
         initial.textContent = doc.title.charAt(0).toUpperCase();
         avatar.appendChild(initial);
         
+        // Add indicators
+        if (doc.pinned) {
+            const pinIndicator = document.createElement('div');
+            pinIndicator.className = 'pin-indicator';
+            pinIndicator.innerHTML = '📌';
+            avatar.appendChild(pinIndicator);
+        }
+        
+        if (doc.deadline && !doc.completed) {
+            const deadlineIndicator = document.createElement('div');
+            deadlineIndicator.className = 'deadline-indicator';
+            deadlineIndicator.innerHTML = '<span class="material-symbols-rounded">assignment_late</span>';
+            deadlineIndicator.style.position = 'absolute';
+            deadlineIndicator.style.top = '5px';
+            deadlineIndicator.style.right = '5px';
+            deadlineIndicator.style.color = '#ff4d00';
+            deadlineIndicator.style.fontSize = '18px';
+            avatar.appendChild(deadlineIndicator);
+        } else if (doc.deadline && doc.completed) {
+            const completedIndicator = document.createElement('div');
+            completedIndicator.className = 'completed-indicator';
+            completedIndicator.innerHTML = '<span class="material-symbols-rounded">task_alt</span>';
+            completedIndicator.style.position = 'absolute';
+            completedIndicator.style.top = '5px';
+            completedIndicator.style.right = '5px';
+            completedIndicator.style.color = '#4caf50';
+            completedIndicator.style.fontSize = '18px';
+            avatar.appendChild(completedIndicator);
+        }
+        
         const cardInfo = document.createElement('div');
         cardInfo.className = 'card-info';
         
@@ -553,12 +717,22 @@ class DocumentManager {
         
         const cardSubtitle = document.createElement('div');
         cardSubtitle.className = 'card-subtitle';
-        cardSubtitle.textContent = `${displayType} • ${formattedDate}`;
+        cardSubtitle.textContent = `${displayType} • ${dateText}`;
+        
+        // Add special styling for deadlines
+        if (doc.deadline && !doc.completed) {
+            if (card.classList.contains('deadline-overdue')) {
+                cardSubtitle.style.color = '#ff4d00';
+                cardSubtitle.style.fontWeight = 'bold';
+            } else if (card.classList.contains('deadline-today')) {
+                cardSubtitle.style.color = '#ff9800';
+                cardSubtitle.style.fontWeight = 'bold';
+            }
+        }
         
         cardInfo.appendChild(cardTitle);
         cardInfo.appendChild(cardSubtitle);
         
-        // NEW: If a search query is active, and (if title doesn't match) content does, display snippet.
         if (this.searchQuery !== '') {
             const titleMatch = doc.title.toLowerCase().includes(this.searchQuery);
             if (!titleMatch && doc.content) {
@@ -584,7 +758,194 @@ class DocumentManager {
             this.getAndOpenDocument(doc.id);
         });
         
+        card.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            this.showContextMenu(e, doc);
+        });
+        
         return card;
+    }
+
+    showContextMenu(event, doc) {
+        const existingMenu = document.querySelector('.context-menu');
+        if (existingMenu) {
+            existingMenu.remove();
+        }
+
+        const contextMenu = document.createElement('div');
+        contextMenu.className = 'context-menu';
+        contextMenu.style.position = 'fixed';
+        contextMenu.style.left = event.clientX + 'px';
+        contextMenu.style.top = event.clientY + 'px';
+        contextMenu.style.zIndex = '1000';
+        contextMenu.style.backgroundColor = 'var(--md-sys-color-surface-container)';
+        contextMenu.style.border = '1px solid var(--md-sys-color-outline-variant)';
+        contextMenu.style.borderRadius = '12px';
+        contextMenu.style.boxShadow = 'var(--md-sys-elevation-level2)';
+        contextMenu.style.minWidth = '120px';
+        contextMenu.style.overflow = 'hidden';
+
+        // Add Mark Done/Mark Undone option for documents with deadlines
+        if (doc.deadline) {
+            const completionOption = document.createElement('div');
+            completionOption.className = 'context-menu-item';
+            completionOption.style.padding = '12px 16px';
+            completionOption.style.cursor = 'pointer';
+            completionOption.style.display = 'flex';
+            completionOption.style.alignItems = 'center';
+            completionOption.style.gap = '12px';
+            completionOption.style.fontSize = '14px';
+            completionOption.style.color = 'var(--md-sys-color-on-surface)';
+            completionOption.style.transition = 'background-color 0.2s';
+            
+            const completionIcon = document.createElement('span');
+            completionIcon.className = 'material-symbols-rounded';
+            completionIcon.style.fontSize = '16px';
+            completionIcon.textContent = doc.completed ? 'remove_done' : 'task_alt';
+            
+            const completionText = document.createElement('span');
+            completionText.textContent = doc.completed ? 'Mark Undone' : 'Mark Done';
+            
+            completionOption.appendChild(completionIcon);
+            completionOption.appendChild(completionText);
+            
+            completionOption.addEventListener('mouseenter', () => {
+                completionOption.style.backgroundColor = 'var(--md-sys-color-surface-container-high)';
+            });
+            
+            completionOption.addEventListener('mouseleave', () => {
+                completionOption.style.backgroundColor = 'transparent';
+            });
+            
+            completionOption.addEventListener('click', () => {
+                this.toggleDocumentCompletion(doc);
+                contextMenu.remove();
+            });
+            
+            contextMenu.appendChild(completionOption);
+        }
+
+        const pinOption = document.createElement('div');
+        pinOption.className = 'context-menu-item';
+        pinOption.style.padding = '12px 16px';
+        pinOption.style.cursor = 'pointer';
+        pinOption.style.display = 'flex';
+        pinOption.style.alignItems = 'center';
+        pinOption.style.gap = '12px';
+        pinOption.style.fontSize = '14px';
+        pinOption.style.color = 'var(--md-sys-color-on-surface)';
+        pinOption.style.transition = 'background-color 0.2s';
+        
+        const pinIcon = document.createElement('span');
+        pinIcon.style.fontSize = '16px';
+        pinIcon.textContent = doc.pinned ? '📌' : '📌';
+        
+        const pinText = document.createElement('span');
+        pinText.textContent = doc.pinned ? 'Unpin' : 'Pin to top';
+        
+        pinOption.appendChild(pinIcon);
+        pinOption.appendChild(pinText);
+        
+        pinOption.addEventListener('mouseenter', () => {
+            pinOption.style.backgroundColor = 'var(--md-sys-color-surface-container-high)';
+        });
+        
+        pinOption.addEventListener('mouseleave', () => {
+            pinOption.style.backgroundColor = 'transparent';
+        });
+        
+        pinOption.addEventListener('click', () => {
+            this.togglePinDocument(doc);
+            contextMenu.remove();
+        });
+
+        const deleteOption = document.createElement('div');
+        deleteOption.className = 'context-menu-item';
+        deleteOption.style.padding = '12px 16px';
+        deleteOption.style.cursor = 'pointer';
+        deleteOption.style.display = 'flex';
+        deleteOption.style.alignItems = 'center';
+        deleteOption.style.gap = '12px';
+        deleteOption.style.fontSize = '14px';
+        deleteOption.style.color = 'var(--md-sys-color-error)';
+        deleteOption.style.transition = 'background-color 0.2s';
+        
+        const deleteIcon = document.createElement('span');
+        deleteIcon.style.fontSize = '16px';
+        deleteIcon.textContent = '🗑️';
+        
+        const deleteText = document.createElement('span');
+        deleteText.textContent = 'Delete';
+        
+        deleteOption.appendChild(deleteIcon);
+        deleteOption.appendChild(deleteText);
+        
+        deleteOption.addEventListener('mouseenter', () => {
+            deleteOption.style.backgroundColor = 'var(--md-sys-color-error-container)';
+        });
+        
+        deleteOption.addEventListener('mouseleave', () => {
+            deleteOption.style.backgroundColor = 'transparent';
+        });
+        
+        deleteOption.addEventListener('click', () => {
+            this.deleteDocumentFromCard(doc);
+            contextMenu.remove();
+        });
+
+        contextMenu.appendChild(pinOption);
+        contextMenu.appendChild(deleteOption);
+        document.body.appendChild(contextMenu);
+
+        const closeMenu = (e) => {
+            if (!contextMenu.contains(e.target)) {
+                contextMenu.remove();
+                document.removeEventListener('click', closeMenu);
+            }
+        };
+        
+        setTimeout(() => {
+            document.addEventListener('click', closeMenu);
+        }, 0);
+    }
+
+    async togglePinDocument(doc) {
+        try {
+            doc.pinned = !doc.pinned;
+            await this.storage.updateDocument(doc);
+            this.loadDocuments();
+            const action = doc.pinned ? 'pinned' : 'unpinned';
+            this.showSnackbar(`Document ${action} successfully`);
+        } catch (error) {
+            console.error('Error toggling pin status:', error);
+            this.showSnackbar('Error updating document', true);
+        }
+    }
+
+    async deleteDocumentFromCard(doc) {
+        if (confirm(`Are you sure you want to delete "${doc.title}"? This action cannot be undone.`)) {
+            try {
+                await this.storage.deleteDocument(doc.id);
+                this.loadDocuments();
+                this.showSnackbar('Document deleted successfully');
+            } catch (error) {
+                console.error('Error deleting document:', error);
+                this.showSnackbar('Error deleting document', true);
+            }
+        }
+    }
+    
+    async toggleDocumentCompletion(doc) {
+        try {
+            doc.completed = !doc.completed;
+            await this.storage.updateDocument(doc);
+            this.loadDocuments();
+            const action = doc.completed ? 'marked as done' : 'marked as not done';
+            this.showSnackbar(`Document ${action} successfully`);
+        } catch (error) {
+            console.error('Error toggling document completion status:', error);
+            this.showSnackbar('Error updating document', true);
+        }
     }
 
     async getAndOpenDocument(id) {
@@ -659,6 +1020,229 @@ class DocumentManager {
     userHasNoDocuments() {
         const grid = document.querySelector('.documents-grid');
         return !grid.querySelector('.document-card');
+    }
+
+    createDemoLayout(grid) {
+        // Create welcome container
+        const welcomeContainer = document.createElement('div');
+        welcomeContainer.className = 'welcome-container';
+        welcomeContainer.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 60px 20px;
+            text-align: center;
+            min-height: 400px;
+            gap: 40px;
+        `;
+
+        // Create welcome content section
+        const welcomeContent = document.createElement('div');
+        welcomeContent.className = 'welcome-content';
+        welcomeContent.style.cssText = `
+            display: flex;
+            align-items: center;
+            gap: 60px;
+            max-width: 1000px;
+            width: 100%;
+        `;
+
+        // Create left side with welcome text and demo cards
+        const leftSide = document.createElement('div');
+        leftSide.className = 'welcome-left';
+        leftSide.style.cssText = `
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 40px;
+        `;
+
+        // Welcome text section
+        const welcomeText = document.createElement('div');
+        welcomeText.className = 'welcome-text';
+        welcomeText.innerHTML = `
+            <h1 style="
+                font-size: 32px;
+                font-weight: 500;
+                color: var(--md-sys-color-on-surface);
+                margin: 0 0 16px 0;
+                font-family: 'Inter Tight', sans-serif;
+            ">Welcome to Buddy Docs!</h1>
+            <p style="
+                font-size: 18px;
+                color: var(--md-sys-color-on-surface-variant);
+                margin: 0 0 24px 0;
+                line-height: 1.5;
+            ">Let's get started</p>
+            <div style="
+                text-align: left;
+                color: var(--md-sys-color-on-surface-variant);
+                font-size: 16px;
+                line-height: 1.6;
+            ">
+                <p style="margin: 8px 0;">• Create different types of docs</p>
+                <p style="margin: 8px 0;">• Summarize documents</p>
+                <p style="margin: 8px 0;">• Less lag on old laptops</p>
+                <p style="margin: 8px 0;">• Personalized to you</p>
+                <p style="margin: 8px 0;">• Many customization options</p>
+                <p style="margin: 8px 0;">• No tracking, and no login needed</p>
+                <p style="margin: 8px 0;">• Put deadlines on documents</p>
+                <p style="margin: 8px 0;">• Easily export to Google Docs</p>
+                <p style="margin: 8px 0;">• Integrated with apps from us</p>
+                <p style="margin: 8px 0;">• Make interactive documents</p>
+            </div>
+        `;
+
+        // Demo cards section
+        const demoCards = document.createElement('div');
+        demoCards.className = 'demo-cards';
+        demoCards.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        `;
+
+        // Create demo document cards
+        const demoCardData = [
+            { title: 'Try making a document!', subtitle: 'Get Started', avatar: '📝', color: '#FF4D00' },
+            { title: 'Edit your profile', subtitle: 'Get Started', avatar: '👤', color: '#FF4D00' },
+            { title: 'Customize the app', subtitle: 'Get Started', avatar: '⚙️', color: '#FF4D00' },
+            { title: 'Buddy Docs', subtitle: 'In development - ver 0.0.6', avatar: '🚀', color: '#FF4D00' }
+        ];
+
+        demoCardData.forEach(cardData => {
+            const card = document.createElement('div');
+            card.className = 'demo-card';
+            card.style.cssText = `
+                width: 300px;
+                height: 80px;
+                background: var(--md-sys-color-surface-container-low);
+                border: 1px solid var(--md-sys-color-outline-variant);
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                padding: 16px;
+                gap: 16px;
+                cursor: pointer;
+                transition: all 0.2s ease;
+            `;
+
+            card.innerHTML = `
+                <div style="
+                    width: 40px;
+                    height: 40px;
+                    background: ${cardData.color};
+                    border-radius: 50%;
+                    display: flex;
+                    align-items: center;
+                    justify-content: center;
+                    font-size: 20px;
+                ">${cardData.avatar}</div>
+                <div style="flex: 1;">
+                    <div style="
+                        font-size: 16px;
+                        font-weight: 500;
+                        color: var(--md-sys-color-on-surface);
+                        margin-bottom: 4px;
+                    ">${cardData.title}</div>
+                    <div style="
+                        font-size: 14px;
+                        color: var(--md-sys-color-on-surface-variant);
+                    ">${cardData.subtitle}</div>
+                </div>
+            `;
+
+            card.addEventListener('mouseenter', () => {
+                card.style.backgroundColor = 'var(--md-sys-color-surface-container)';
+                card.style.transform = 'translateY(-2px)';
+                card.style.boxShadow = 'var(--md-sys-elevation-level2)';
+            });
+
+            card.addEventListener('mouseleave', () => {
+                card.style.backgroundColor = 'var(--md-sys-color-surface-container-low)';
+                card.style.transform = 'translateY(0)';
+                card.style.boxShadow = 'none';
+            });
+
+            // Add click handler for the first card to open new document dialog
+            if (cardData.title === 'Try making a document!') {
+                card.addEventListener('click', () => {
+                    this.showNewDocumentDialog();
+                });
+            }
+
+            demoCards.appendChild(card);
+        });
+
+        // Right side with welcome image
+        const rightSide = document.createElement('div');
+        rightSide.className = 'welcome-right';
+        rightSide.style.cssText = `
+            flex-shrink: 0;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        `;
+
+        const welcomeImage = document.createElement('img');
+        welcomeImage.src = 'data/assets/welcomeCanvasImage.png';
+        welcomeImage.alt = 'Welcome to Buddy Docs';
+        welcomeImage.style.cssText = `
+            width: 300px;
+            height: 300px;
+            object-fit: contain;
+            border-radius: 12px;
+        `;
+
+        // Handle image load error
+        welcomeImage.addEventListener('error', () => {
+            // Create a placeholder if image fails to load
+            const placeholder = document.createElement('div');
+            placeholder.style.cssText = `
+                width: 300px;
+                height: 300px;
+                background: linear-gradient(135deg, var(--md-sys-color-primary-container), var(--md-sys-color-tertiary-container));
+                border-radius: 12px;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                font-size: 64px;
+                color: var(--md-sys-color-on-primary-container);
+            `;
+            placeholder.textContent = '📚';
+            rightSide.replaceChild(placeholder, welcomeImage);
+        });
+
+        rightSide.appendChild(welcomeImage);
+
+        // Assemble the layout
+        leftSide.appendChild(welcomeText);
+        leftSide.appendChild(demoCards);
+        welcomeContent.appendChild(leftSide);
+        welcomeContent.appendChild(rightSide);
+        welcomeContainer.appendChild(welcomeContent);
+
+        // Add responsive styles
+        const mediaQuery = window.matchMedia('(max-width: 768px)');
+        const handleResponsive = (e) => {
+            if (e.matches) {
+                welcomeContent.style.flexDirection = 'column';
+                welcomeContent.style.gap = '40px';
+                leftSide.style.alignItems = 'center';
+                welcomeText.style.textAlign = 'center';
+            } else {
+                welcomeContent.style.flexDirection = 'row';
+                welcomeContent.style.gap = '60px';
+                leftSide.style.alignItems = 'stretch';
+                welcomeText.style.textAlign = 'left';
+            }
+        };
+        
+        handleResponsive(mediaQuery);
+        mediaQuery.addListener(handleResponsive);
+
+        grid.appendChild(welcomeContainer);
     }
 
     showDocumentOptions(event) {
