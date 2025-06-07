@@ -1,0 +1,502 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Docs - Interactive Viewer</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0..200" />
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="styles/document.css">
+    <style>
+        /* Additional styles specific to the interactive viewer */
+        .interactive-page {
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            max-width: 100%;
+            overflow-x: hidden;
+        }
+        
+        .interactive-header {
+            padding: 12px 12px;
+            box-shadow: var(--md-sys-elevation-level1);
+            z-index: 10;
+            background-color: var(--md-sys-color-surface);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        
+        .interactive-title {
+            font-size: 18px;
+            font-weight: 500;
+        }
+        
+        .interactive-container {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .interactive-content {
+            flex: 1;
+            border: none;
+            width: 100%;
+            height: 100%;
+        }
+        
+        .upload-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 20px;
+            text-align: center;
+        }
+        
+        .upload-icon {
+            font-size: 64px;
+            color: var(--md-sys-color-primary);
+            margin-bottom: 20px;
+        }
+        
+        .upload-title {
+            font-size: 24px;
+            font-weight: 500;
+            margin-bottom: 10px;
+        }
+        
+        .upload-description {
+            font-size: 16px;
+            color: var(--md-sys-color-on-surface-variant);
+            margin-bottom: 30px;
+            max-width: 500px;
+        }
+        
+        .upload-area {
+            border: 2px dashed var(--md-sys-color-outline);
+            border-radius: 12px;
+            padding: 40px;
+            width: 100%;
+            max-width: 500px;
+            margin-bottom: 20px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .upload-area:hover {
+            border-color: var(--md-sys-color-primary);
+            background-color: var(--md-sys-color-surface-variant);
+        }
+        
+        .upload-area.drag-over {
+            border-color: var(--md-sys-color-primary);
+            background-color: var(--md-sys-color-primary-container);
+        }
+        
+        .upload-button {
+            background-color: var(--md-sys-color-primary);
+            color: var(--md-sys-color-on-primary);
+            border: none;
+            border-radius: 20px;
+            padding: 10px 20px;
+            font-size: 16px;
+            font-weight: 500;
+            cursor: pointer;
+            transition: background-color 0.2s ease;
+            margin-top: 20px;
+        }
+        
+        .upload-button:hover {
+            background-color: #004d8c;
+        }
+        
+        .file-input {
+            display: none;
+        }
+        
+        .ripple {
+            position: absolute;
+            border-radius: 50%;
+            background-color: rgba(255, 255, 255, 0.7);
+            transform: scale(0);
+            animation: ripple 0.6s linear;
+            pointer-events: none;
+        }
+        
+        @keyframes ripple {
+            to {
+                transform: scale(4);
+                opacity: 0;
+            }
+        }
+    </style>
+    <link rel="icon" href="data/assets/buddydocs.svg" type="image/svg+xml">
+</head>
+<body>
+    <div class="interactive-page">
+        <header class="interactive-header">
+            <div class="header-left">
+                <button class="back-button">
+                    <span class="material-symbols-rounded">arrow_back</span>
+                </button>
+                <div class="interactive-title">Interactive Document</div>
+            </div>
+            <div class="header-right">
+                <button class="save-button">Save</button>
+            </div>
+        </header>
+        
+        <div class="interactive-container">
+            <div class="upload-container">
+                <span class="material-symbols-rounded upload-icon">html</span>
+                <h2 class="upload-title">Upload HTML Content</h2>
+                <p class="upload-description">Upload your HTML file(s) to create an interactive document. You can drag and drop files or click to browse.</p>
+                
+                <div class="upload-area" id="dropArea">
+                    <p>Drag and drop HTML files here</p>
+                    <p>or</p>
+                    <button class="upload-button">Browse Files</button>
+                    <input type="file" class="file-input" id="fileInput" accept=".html,.htm" multiple>
+                </div>
+            </div>
+            
+            <iframe class="interactive-content" style="display: none;"></iframe>
+        </div>
+    </div>
+    
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const backButton = document.querySelector('.back-button');
+            const saveButton = document.querySelector('.save-button');
+            const dropArea = document.getElementById('dropArea');
+            const fileInput = document.getElementById('fileInput');
+            const uploadButton = document.querySelector('.upload-button');
+            const uploadContainer = document.querySelector('.upload-container');
+            const iframe = document.querySelector('.interactive-content');
+            const interactiveTitle = document.querySelector('.interactive-title');
+            
+            // Get document ID from URL if it exists
+            const urlParams = new URLSearchParams(window.location.search);
+            const documentId = urlParams.get('id');
+            
+            let htmlContent = '';
+            let documentTitle = 'Interactive Document';
+            
+            // Initialize document storage
+            class DocumentStorage {
+                constructor() {
+                    this.dbName = 'buddyDocsDB';
+                    this.dbVersion = 1;
+                    this.db = null;
+                    this.initDB();
+                }
+
+                initDB() {
+                    return new Promise((resolve, reject) => {
+                        const request = indexedDB.open(this.dbName, this.dbVersion);
+
+                        request.onerror = (event) => {
+                            console.error('Error opening database:', event.target.error);
+                            reject(event.target.error);
+                        };
+
+                        request.onsuccess = (event) => {
+                            this.db = event.target.result;
+                            console.log('Database opened successfully');
+                            resolve(this.db);
+                        };
+
+                        request.onupgradeneeded = (event) => {
+                            const db = event.target.result;
+                            
+                            if (!db.objectStoreNames.contains('documents')) {
+                                const store = db.createObjectStore('documents', { keyPath: 'id', autoIncrement: true });
+                                store.createIndex('title', 'title', { unique: false });
+                                store.createIndex('type', 'type', { unique: false });
+                                store.createIndex('lastModified', 'lastModified', { unique: false });
+                                console.log('Object store created');
+                            }
+                        };
+                    });
+                }
+
+                getDocument(id) {
+                    return new Promise((resolve, reject) => {
+                        if (!this.db) {
+                            this.initDB().then(db => {
+                                this.db = db;
+                                this._getDocumentFromDB(id, resolve, reject);
+                            }).catch(err => {
+                                console.error('Failed to initialize database:', err);
+                                reject(err);
+                            });
+                        } else {
+                            this._getDocumentFromDB(id, resolve, reject);
+                        }
+                    });
+                }
+                
+                _getDocumentFromDB(id, resolve, reject) {
+                    try {
+                        const transaction = this.db.transaction(['documents'], 'readonly');
+                        const store = transaction.objectStore('documents');
+                        const request = store.get(parseInt(id));
+                        
+                        request.onsuccess = (event) => {
+                            resolve(event.target.result);
+                        };
+                        
+                        request.onerror = (event) => {
+                            console.error('Error getting document:', event.target.error);
+                            reject(event.target.error);
+                        };
+                    } catch (err) {
+                        console.error('Error accessing database:', err);
+                        reject(err);
+                    }
+                }
+
+                updateDocument(doc) {
+                    return new Promise((resolve, reject) => {
+                        if (!this.db) {
+                            this.initDB().then(db => {
+                                this.db = db;
+                                this._updateDocumentInDB(doc, resolve, reject);
+                            }).catch(err => {
+                                console.error('Failed to initialize database:', err);
+                                reject(err);
+                            });
+                        } else {
+                            this._updateDocumentInDB(doc, resolve, reject);
+                        }
+                    });
+                }
+                
+                _updateDocumentInDB(doc, resolve, reject) {
+                    try {
+                        const transaction = this.db.transaction(['documents'], 'readwrite');
+                        const store = transaction.objectStore('documents');
+                        
+                        doc.lastModified = new Date().toISOString();
+                        
+                        const request = store.put(doc);
+                        
+                        request.onsuccess = (event) => {
+                            console.log('Document updated successfully');
+                            resolve(event.target.result);
+                        };
+                        
+                        request.onerror = (event) => {
+                            console.error('Error updating document:', event.target.error);
+                            reject(event.target.error);
+                        };
+                    } catch (err) {
+                        console.error('Error accessing database:', err);
+                        reject(err);
+                    }
+                }
+            }
+            
+            const storage = new DocumentStorage();
+            
+            // Load document if ID is provided
+            if (documentId) {
+                storage.getDocument(documentId).then(doc => {
+                    if (doc && doc.type === 'interactive') {
+                        documentTitle = doc.title;
+                        interactiveTitle.textContent = documentTitle;
+                        
+                        if (doc.content) {
+                            htmlContent = doc.content;
+                            showInteractiveContent();
+                        }
+                    }
+                }).catch(error => {
+                    console.error('Error loading document:', error);
+                    showSnackbar('Error loading document', true);
+                });
+            }
+            
+            // Back button handler
+            backButton.addEventListener('click', () => {
+                window.location.href = 'index.html';
+            });
+            
+            // Save button handler
+            saveButton.addEventListener('click', async () => {
+                if (!documentId || !htmlContent) return;
+                
+                try {
+                    const doc = await storage.getDocument(documentId);
+                    if (doc) {
+                        doc.content = htmlContent;
+                        await storage.updateDocument(doc);
+                        showSnackbar('Document saved successfully');
+                    }
+                } catch (error) {
+                    console.error('Error saving document:', error);
+                    showSnackbar('Error saving document', true);
+                }
+            });
+            
+            // Upload button click handler
+            uploadButton.addEventListener('click', () => {
+                fileInput.click();
+            });
+            
+            // File input change handler
+            fileInput.addEventListener('change', handleFiles);
+            
+            // Drag and drop handlers
+            dropArea.addEventListener('dragover', (e) => {
+                e.preventDefault();
+                dropArea.classList.add('drag-over');
+            });
+            
+            dropArea.addEventListener('dragleave', () => {
+                dropArea.classList.remove('drag-over');
+            });
+            
+            dropArea.addEventListener('drop', (e) => {
+                e.preventDefault();
+                dropArea.classList.remove('drag-over');
+                
+                if (e.dataTransfer.files.length > 0) {
+                    handleFiles({ target: { files: e.dataTransfer.files } });
+                }
+            });
+            
+            // Handle file upload
+            function handleFiles(e) {
+                const files = Array.from(e.target.files);
+                const htmlFiles = files.filter(file => 
+                    file.type === 'text/html' || 
+                    file.name.endsWith('.html') || 
+                    file.name.endsWith('.htm')
+                );
+                
+                if (htmlFiles.length === 0) {
+                    showSnackbar('Please select HTML files only', true);
+                    return;
+                }
+                
+                // Process the first HTML file
+                const mainFile = htmlFiles[0];
+                const reader = new FileReader();
+                
+                reader.onload = (e) => {
+                    htmlContent = e.target.result;
+                    showInteractiveContent();
+                };
+                
+                reader.onerror = () => {
+                    showSnackbar('Error reading file', true);
+                };
+                
+                reader.readAsText(mainFile);
+            }
+            
+            // Show interactive content in iframe
+            function showInteractiveContent() {
+                uploadContainer.style.display = 'none';
+                iframe.style.display = 'block';
+                
+                // Write content to iframe
+                const iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+                iframeDoc.open();
+                iframeDoc.write(htmlContent);
+                iframeDoc.close();
+            }
+            
+            // Show snackbar message
+            function showSnackbar(message, isError = false) {
+                const existingSnackbar = document.querySelector('.snackbar');
+                if (existingSnackbar) {
+                    existingSnackbar.remove();
+                }
+                
+                const snackbar = document.createElement('div');
+                snackbar.className = `snackbar ${isError ? 'error' : ''}`;
+                snackbar.textContent = message;
+                snackbar.style.position = 'fixed';
+                snackbar.style.bottom = '20px';
+                snackbar.style.left = '50%';
+                snackbar.style.transform = 'translateX(-50%)';
+                snackbar.style.backgroundColor = isError ? 'var(--md-sys-color-error)' : 'var(--md-sys-color-secondary-container)';
+                snackbar.style.color = isError ? 'var(--md-sys-color-on-error)' : 'var(--md-sys-color-on-secondary-container)';
+                snackbar.style.padding = '12px 16px';
+                snackbar.style.borderRadius = '4px';
+                snackbar.style.boxShadow = 'var(--md-sys-elevation-level2)';
+                snackbar.style.zIndex = '1000';
+                snackbar.style.opacity = '0';
+                snackbar.style.transition = 'opacity 0.3s ease';
+                
+                document.body.appendChild(snackbar);
+                
+                setTimeout(() => {
+                    snackbar.style.opacity = '1';
+                }, 10);
+                
+                setTimeout(() => {
+                    snackbar.style.opacity = '0';
+                    setTimeout(() => {
+                        snackbar.remove();
+                    }, 300);
+                }, 3000);
+            }
+            
+            // Add ripple effect to buttons
+            function createRipple(event) {
+                const button = event.currentTarget;
+                
+                const ripple = button.querySelector('.ripple');
+                if (ripple) {
+                    ripple.remove();
+                }
+                
+                const circle = document.createElement('span');
+                const diameter = Math.max(button.clientWidth, button.clientHeight);
+                const radius = diameter / 2;
+                
+                circle.style.width = circle.style.height = `${diameter}px`;
+                circle.style.left = `${event.clientX - button.getBoundingClientRect().left - radius}px`;
+                circle.style.top = `${event.clientY - button.getBoundingClientRect().top - radius}px`;
+                circle.classList.add('ripple');
+                
+                button.appendChild(circle);
+                
+                setTimeout(() => {
+                    if (circle) {
+                        circle.remove();
+                    }
+                }, 600);
+            }
+            
+            const buttons = document.querySelectorAll('button');
+            buttons.forEach(button => {
+                button.addEventListener('click', createRipple);
+            });
+        });
+    </script>
+</body>
+</html>

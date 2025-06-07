@@ -23,10 +23,71 @@
         }
         
         .editor-header {
-            padding: 12px 20px;
+            padding: 12px 12px;
             box-shadow: var(--md-sys-elevation-level1);
             z-index: 10;
             background-color: var(--md-sys-color-surface);
+        }
+        
+        .header-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            width: 100%;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            margin-left: 0;
+            flex: 1;
+        }
+        
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            margin-right: 0;
+        }
+        
+        .editor-title {
+            margin-left: 8px;
+            flex: 1;
+        }
+        
+        .editor-toolbar {
+            padding: 8px 16px;
+            background-color: var(--md-sys-color-surface);
+            border-bottom: 1px solid var(--md-sys-color-outline-variant);
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px;
+            align-items: center;
+            justify-content: flex-start;
+            border-radius: 0;
+            box-shadow: var(--md-sys-elevation-level1);
+        }
+        
+        .toolbar-button {
+            width: 36px;
+            height: 36px;
+            border-radius: 4px;
+            transition: background-color 0.2s ease, color 0.2s ease;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            overflow: hidden;
+            border: none;
+            background: transparent;
+            cursor: pointer;
+        }
+        
+        .toolbar-separator {
+            height: 24px;
+            width: 1px;
+            background-color: var(--md-sys-color-outline-variant);
+            margin: 0 8px;
         }
         
         .editor-main {
@@ -57,27 +118,6 @@
             width: 100%;
         }
         
-        .editor-toolbar {
-            padding: 8px 16px;
-            background-color: var(--md-sys-color-surface);
-            border-bottom: 1px solid var(--md-sys-color-outline-variant);
-            display: flex;
-            flex-wrap: wrap;
-            gap: 8px;
-            align-items: center;
-            justify-content: flex-start;
-        }
-        
-        .toolbar-group {
-            display: flex;
-            gap: 4px;
-            padding: 4px;
-            border-radius: 8px;
-            background-color: var(--md-sys-color-surface-variant);
-            margin-right: 8px;
-            flex-wrap: nowrap;
-        }
-        
         .editor-content {
             flex: 1;
             padding: 20px;
@@ -88,21 +128,6 @@
         
         .editor-content:focus {
             outline: none;
-        }
-        
-        .toolbar-button {
-            width: 36px;
-            height: 36px;
-            border-radius: 4px;
-            transition: background-color 0.2s ease, color 0.2s ease;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            overflow: hidden;
-            border: none;
-            background: transparent;
-            cursor: pointer;
         }
         
         .toolbar-button:hover {
@@ -238,7 +263,6 @@
             padding: 14px 16px;
             background-color: var(--md-sys-color-inverse-surface);
             color: var(--md-sys-color-inverse-on-surface);
-            border-radius: 100px;
             box-shadow: var(--md-sys-elevation-level3);
             display: flex;
             align-items: center;
@@ -518,136 +542,134 @@
             </div>
         </header>
         
+        <div class="editor-toolbar">
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="bold">
+                    <span class="material-symbols-rounded">format_bold</span>
+                </button>
+                <span class="tooltip-text">Bold (Ctrl+B)</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="italic">
+                    <span class="material-symbols-rounded">format_italic</span>
+                </button>
+                <span class="tooltip-text">Italic (Ctrl+I)</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="underline">
+                    <span class="material-symbols-rounded">format_underlined</span>
+                </button>
+                <span class="tooltip-text">Underline (Ctrl+U)</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="strikeThrough">
+                    <span class="material-symbols-rounded">strikethrough_s</span>
+                </button>
+                <span class="tooltip-text">Strikethrough</span>
+            </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="justifyLeft">
+                    <span class="material-symbols-rounded">format_align_left</span>
+                </button>
+                <span class="tooltip-text">Align Left</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="justifyCenter">
+                    <span class="material-symbols-rounded">format_align_center</span>
+                </button>
+                <span class="tooltip-text">Align Center</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="justifyRight">
+                    <span class="material-symbols-rounded">format_align_right</span>
+                </button>
+                <span class="tooltip-text">Align Right</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="justifyFull">
+                    <span class="material-symbols-rounded">format_align_justify</span>
+                </button>
+                <span class="tooltip-text">Justify</span>
+            </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="insertUnorderedList">
+                    <span class="material-symbols-rounded">format_list_bulleted</span>
+                </button>
+                <span class="tooltip-text">Bullet List</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="insertOrderedList">
+                    <span class="material-symbols-rounded">format_list_numbered</span>
+                </button>
+                <span class="tooltip-text">Numbered List</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="indent">
+                    <span class="material-symbols-rounded">format_indent_increase</span>
+                </button>
+                <span class="tooltip-text">Indent</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" data-command="outdent">
+                    <span class="material-symbols-rounded">format_indent_decrease</span>
+                </button>
+                <span class="tooltip-text">Outdent</span>
+            </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <div class="tooltip">
+                <select class="toolbar-select" id="heading-select">
+                    <option value="">Paragraph</option>
+                    <option value="h1">Heading 1</option>
+                    <option value="h2">Heading 2</option>
+                    <option value="h3">Heading 3</option>
+                    <option value="h4">Heading 4</option>
+                </select>
+                <span class="tooltip-text">Paragraph Style</span>
+            </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <div class="tooltip">
+                <button class="toolbar-button" id="insert-link-button">
+                    <span class="material-symbols-rounded">link</span>
+                </button>
+                <span class="tooltip-text">Insert Link</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" id="insert-image-button">
+                    <span class="material-symbols-rounded">image</span>
+                </button>
+                <span class="tooltip-text">Insert Image</span>
+            </div>
+            <div class="tooltip">
+                <button class="toolbar-button" id="insert-table-button">
+                    <span class="material-symbols-rounded">table</span>
+                </button>
+                <span class="tooltip-text">Insert Table</span>
+            </div>
+            
+            <div class="toolbar-separator"></div>
+            
+            <div class="tooltip">
+                <input type="color" class="color-picker" id="forecolor" value="#000000">
+                <span class="tooltip-text">Text Color</span>
+            </div>
+            <div class="tooltip">
+                <input type="color" class="color-picker" id="backcolor" value="#ffffff">
+                <span class="tooltip-text">Highlight Color</span>
+            </div>
+        </div>
+        
         <div class="editor-main">
             <div class="editor-content-wrapper">
-                <div class="editor-toolbar">
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="bold">
-                                <span class="material-symbols-rounded">format_bold</span>
-                            </button>
-                            <span class="tooltip-text">Bold (Ctrl+B)</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="italic">
-                                <span class="material-symbols-rounded">format_italic</span>
-                            </button>
-                            <span class="tooltip-text">Italic (Ctrl+I)</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="underline">
-                                <span class="material-symbols-rounded">format_underlined</span>
-                            </button>
-                            <span class="tooltip-text">Underline (Ctrl+U)</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="strikeThrough">
-                                <span class="material-symbols-rounded">strikethrough_s</span>
-                            </button>
-                            <span class="tooltip-text">Strikethrough</span>
-                        </div>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="justifyLeft">
-                                <span class="material-symbols-rounded">format_align_left</span>
-                            </button>
-                            <span class="tooltip-text">Align Left</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="justifyCenter">
-                                <span class="material-symbols-rounded">format_align_center</span>
-                            </button>
-                            <span class="tooltip-text">Align Center</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="justifyRight">
-                                <span class="material-symbols-rounded">format_align_right</span>
-                            </button>
-                            <span class="tooltip-text">Align Right</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="justifyFull">
-                                <span class="material-symbols-rounded">format_align_justify</span>
-                            </button>
-                            <span class="tooltip-text">Justify</span>
-                        </div>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="insertUnorderedList">
-                                <span class="material-symbols-rounded">format_list_bulleted</span>
-                            </button>
-                            <span class="tooltip-text">Bullet List</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="insertOrderedList">
-                                <span class="material-symbols-rounded">format_list_numbered</span>
-                            </button>
-                            <span class="tooltip-text">Numbered List</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="indent">
-                                <span class="material-symbols-rounded">format_indent_increase</span>
-                            </button>
-                            <span class="tooltip-text">Indent</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" data-command="outdent">
-                                <span class="material-symbols-rounded">format_indent_decrease</span>
-                            </button>
-                            <span class="tooltip-text">Outdent</span>
-                        </div>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <select class="toolbar-select" id="heading-select">
-                                <option value="">Paragraph</option>
-                                <option value="h1">Heading 1</option>
-                                <option value="h2">Heading 2</option>
-                                <option value="h3">Heading 3</option>
-                                <option value="h4">Heading 4</option>
-                            </select>
-                            <span class="tooltip-text">Paragraph Style</span>
-                        </div>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <button class="toolbar-button" id="insert-link-button">
-                                <span class="material-symbols-rounded">link</span>
-                            </button>
-                            <span class="tooltip-text">Insert Link</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" id="insert-image-button">
-                                <span class="material-symbols-rounded">image</span>
-                            </button>
-                            <span class="tooltip-text">Insert Image</span>
-                        </div>
-                        <div class="tooltip">
-                            <button class="toolbar-button" id="insert-table-button">
-                                <span class="material-symbols-rounded">table</span>
-                            </button>
-                            <span class="tooltip-text">Insert Table</span>
-                        </div>
-                    </div>
-                    
-                    <div class="toolbar-group">
-                        <div class="tooltip">
-                            <input type="color" class="color-picker" id="forecolor" value="#000000">
-                            <span class="tooltip-text">Text Color</span>
-                        </div>
-                        <div class="tooltip">
-                            <input type="color" class="color-picker" id="backcolor" value="#ffffff">
-                            <span class="tooltip-text">Highlight Color</span>
-                        </div>
-                    </div>
-                </div>
-                
                 <div class="editor-content" id="editor-content" contenteditable="true" spellcheck="true"></div>
                 
                 <div class="bottom-bar">

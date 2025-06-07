@@ -75,7 +75,6 @@
 .editor-toolbar {
     display: flex;
     gap: 8px;
-    margin-left: 16px;
     padding: 4px 12px;
     background: var(--md-sys-color-surface-variant);
     border-radius: 100px;

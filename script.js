@@ -235,29 +235,157 @@ function initMobileResponsiveness() {
     window.addEventListener('resize', handleResize);
 }
 
-document.addEventListener('DOMContentLoaded', function() {
-    const style = document.createElement('style');
-    style.textContent = `
-        @keyframes fadeOut {
-            from { opacity: 1; transform: translateY(0); }
-            to { opacity: 0; transform: translateY(10px); }
-        }
-        
-        .clicked {
-            transform: scale(0.95);
-            transition: transform 0.1s ease;
-        }
-    `;
-    document.head.appendChild(style);
+function initProfileDropdown() {
+    const userProfile = document.querySelector('.user-profile');
+    if (userProfile) {
+        userProfile.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const existingMenu = document.querySelector('.profile-dropdown-menu');
+            if (existingMenu) {
+                existingMenu.remove();
+                return;
+            }
+            
+            const options = [
+                { label: 'My Account', icon: 'person' },
+                { label: 'Settings', icon: 'settings' },
+                { label: 'Help', icon: 'help' }
+            ];
+            
+            const menu = document.createElement('div');
+            menu.className = 'context-menu profile-dropdown-menu';
+            
+            const rect = userProfile.getBoundingClientRect();
+            menu.style.position = 'absolute';
+            menu.style.top = rect.bottom + 8 + 'px';
+            menu.style.right = (window.innerWidth - rect.right) + 'px';
+            
+            options.forEach(option => {
+                const item = document.createElement('button');
+                item.className = 'menu-item';
+                item.innerHTML = `
+                    <span class="material-symbols-rounded">${option.icon}</span>
+                    <span>${option.label}</span>
+                `;
+                
+                item.addEventListener('click', function(e) {
+                    e.stopPropagation();
+                    // Handle menu item click
+                    console.log(`Clicked on ${option.label}`);
+                    menu.remove();
+                    
+                    if (option.label === 'Settings') {
+                        showSettingsContainer();
+                    }
+                });
+                
+                menu.appendChild(item);
+            });
+            
+            document.body.appendChild(menu);
+        });
+    }
     
+    // Close dropdown when clicking elsewhere
+    document.addEventListener('click', function() {
+        const menu = document.querySelector('.profile-dropdown-menu');
+        if (menu) {
+            menu.remove();
+        }
+    });
+}
+
+// Function to show settings container
+function showSettingsContainer() {
+    // Hide any existing settings container
+    const existingSettings = document.querySelector('.settings-container');
+    if (existingSettings) {
+        existingSettings.remove();
+        return;
+    }
+    
+    // Create settings container
+    const settingsContainer = document.createElement('div');
+    settingsContainer.className = 'settings-container';
+    
+    // Create settings sidebar
+    const settingsSidebar = document.createElement('div');
+    settingsSidebar.className = 'settings-sidebar';
+    
+    // Create settings content area
+    const settingsContent = document.createElement('div');
+    settingsContent.className = 'settings-content';
+    
+    // Add settings categories
+    const categories = [
+        { name: 'General', icon: 'settings' },
+        { name: 'User', icon: 'person' },
+        { name: 'Appearance', icon: 'palette' },
+        { name: 'Data', icon: 'database' },
+        { name: 'Accessibility', icon: 'accessibility' },
+        { name: 'About', icon: 'info' }
+    ];
+    
+    categories.forEach((category, index) => {
+        const categoryItem = document.createElement('div');
+        categoryItem.className = 'settings-category' + (index === 0 ? ' active' : '');
+        categoryItem.innerHTML = `
+            <span class="material-symbols-rounded">${category.icon}</span>
+            <span>${category.name}</span>
+        `;
+        
+        categoryItem.addEventListener('click', function() {
+            // Remove active class from all categories
+            document.querySelectorAll('.settings-category').forEach(item => {
+                item.classList.remove('active');
+            });
+            
+            // Add active class to clicked category
+            categoryItem.classList.add('active');
+            
+            // Update content area
+            settingsContent.innerHTML = `
+                <h2>${category.name}</h2>
+                <p>Y'all I haven't added this is yet sry</p>
+                <p>I HAVEN'T ADDED ANYTHING YET</p>
+            `;
+        });
+        
+        settingsSidebar.appendChild(categoryItem);
+    });
+    
+    // Add close button
+    const closeButton = document.createElement('button');
+    closeButton.className = 'settings-close-button';
+    closeButton.innerHTML = '<span class="material-symbols-rounded">close</span>';
+    closeButton.addEventListener('click', function() {
+        settingsContainer.remove();
+    });
+    
+    // Set initial content
+    settingsContent.innerHTML = `
+        <h2>General</h2>
+        <p>Y'all I haven't added this is yet sry</p>
+    `;
+    
+    // Assemble settings container
+    settingsContainer.appendChild(closeButton);
+    settingsContainer.appendChild(settingsSidebar);
+    settingsContainer.appendChild(settingsContent);
+    
+    // Add to document
+    document.querySelector('.app-container').appendChild(settingsContainer);
+}
+
+// Initialize all UI components
+document.addEventListener('DOMContentLoaded', function() {
     initRippleEffect();
     initStateAnimations();
     initNotificationInteractions();
     initFilterDropdown();
+    initNewButton();
+    animateCardsStaggered();
     initProfilePictures();
-    
-    window.createRipple = createRipple;
-    window.initRippleEffect = initRippleEffect;
-    
-    setTimeout(animateCardsStaggered, 100);
+    initMobileResponsiveness();
+    initProfileDropdown(); // Add this line to initialize the profile dropdown
 });

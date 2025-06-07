@@ -410,7 +410,11 @@ class DocumentManager {
     }
 
     openDocument(doc) {
-        window.location.href = `editor.html?id=${doc.id}`;
+        if (doc.type === 'interactive') {
+            window.location.href = `interactive-viewer.html?id=${doc.id}`;
+        } else {
+            window.location.href = `editor.html?id=${doc.id}`;
+        }
     }
 
     closeEditor() {
