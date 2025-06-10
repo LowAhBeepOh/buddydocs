@@ -806,7 +806,8 @@
                                 </div>
                                 <div class="form-group">
                                     <label for="link-url">URL</label>
-                                    <input type="text" id="link-url" placeholder="https://" value="https://">
+                                    <input type="text" id="link-url" placeholder="https://example.com" value="https://">
+                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Links will open in a new tab</small>
                                 </div>
                             </div>
                             <div class="dialog-actions">
@@ -828,35 +829,63 @@
                         const linkText = document.getElementById('link-text').value.trim();
                         const linkUrl = document.getElementById('link-url').value.trim();
                         
-                        if (linkUrl) {
-                            // If we have selected text, create a link with that text
-                            if (window.getSelection().toString().length > 0) {
-                                document.execCommand('createLink', false, linkUrl);
-                            } 
-                            // If we have link text but no selection, insert new link
-                            else if (linkText) {
-                                const a = document.createElement('a');
-                                a.href = linkUrl;
-                                a.textContent = linkText;
-                                a.target = '_blank'; // Open in new tab
-                                
-                                const range = window.getSelection().getRangeAt(0);
-                                range.deleteContents();
-                                range.insertNode(a);
-                            } else {
-                                showSnackbar('Please enter link text or select text in the document');
-                                return;
-                            }
-                            
-                            markAsUnsaved();
-                        } else {
+                        if (!linkUrl || linkUrl === 'https://') {
                             showSnackbar('Please enter a valid URL');
                             return;
                         }
                         
+                        // Validate URL format
+                        try {
+                            new URL(linkUrl);
+                        } catch {
+                            showSnackbar('Please enter a valid URL (e.g., https://example.com)');
+                            return;
+                        }
+                        
+                        // Focus editor content first
+                        editorContent.focus();
+                        
+                        // If we have selected text, create a link with that text
+                        const selection = window.getSelection();
+                        if (selection.toString().length > 0) {
+                            document.execCommand('createLink', false, linkUrl);
+                            // Set target to _blank for external links
+                            const links = editorContent.querySelectorAll('a[href="' + linkUrl + '"]');
+                            links.forEach(link => link.target = '_blank');
+                        } 
+                        // If we have link text but no selection, insert new link
+                        else if (linkText) {
+                            const a = document.createElement('a');
+                            a.href = linkUrl;
+                            a.textContent = linkText;
+                            a.target = '_blank';
+                            a.style.color = 'var(--md-sys-color-primary)';
+                            a.style.textDecoration = 'underline';
+                            
+                            // Insert at cursor position or at the end
+                            if (selection.rangeCount > 0) {
+                                const range = selection.getRangeAt(0);
+                                range.deleteContents();
+                                range.insertNode(a);
+                                // Move cursor after the link
+                                range.setStartAfter(a);
+                                range.collapse(true);
+                                selection.removeAllRanges();
+                                selection.addRange(range);
+                            } else {
+                                editorContent.appendChild(a);
+                            }
+                        } else {
+                            showSnackbar('Please enter link text or select text in the document');
+                            return;
+                        }
+                        
+                        markAsUnsaved();
+                        
                         // Hide dialog
                         document.getElementById('link-dialog-overlay').classList.remove('show');
                         editorContent.focus();
+                        showSnackbar('Link inserted successfully');
                     });
                 }
                 
@@ -884,11 +913,13 @@
                             <div class="dialog-content">
                                 <div class="form-group">
                                     <label for="image-url">Image URL</label>
-                                    <input type="text" id="image-url" placeholder="https://" value="https://">
+                                    <input type="text" id="image-url" placeholder="https://example.com/image.jpg" value="https://">
+                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Supported formats: JPG, PNG, GIF, WebP, SVG</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="image-alt">Alt Text (for accessibility)</label>
-                                    <input type="text" id="image-alt" placeholder="Image description">
+                                    <input type="text" id="image-alt" placeholder="Describe what the image shows">
+                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">This helps screen readers and improves accessibility</small>
                                 </div>
                             </div>
                             <div class="dialog-actions">
@@ -910,24 +941,66 @@
                         const imageUrl = document.getElementById('image-url').value.trim();
                         const imageAlt = document.getElementById('image-alt').value.trim();
                         
-                        if (imageUrl) {
-                            // Create image element with alt text
-                            const img = document.createElement('img');
-                            img.src = imageUrl;
-                            if (imageAlt) {
-                                img.alt = imageAlt;
-                            }
-                            
-                            // Insert the image
-                            const range = window.getSelection().getRangeAt(0);
-                            range.deleteContents();
-                            range.insertNode(img);
-                            
-                            markAsUnsaved();
-                        } else {
+                        if (!imageUrl || imageUrl === 'https://') {
                             showSnackbar('Please enter a valid image URL');
                             return;
                         }
+                        
+                        // Validate URL format
+                        try {
+                            new URL(imageUrl);
+                        } catch {
+                            showSnackbar('Please enter a valid image URL');
+                            return;
+                        }
+                        
+                        // Focus editor content first
+                        editorContent.focus();
+                        
+                        // Create image element with enhanced features
+                        const img = document.createElement('img');
+                        img.src = imageUrl;
+                        img.alt = imageAlt || 'Inserted image';
+                        img.style.maxWidth = '100%';
+                        img.style.height = 'auto';
+                        img.style.borderRadius = '8px';
+                        img.style.margin = '8px 0';
+                        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                        img.loading = 'lazy';
+                        
+                        // Add error handling
+                        img.onerror = function() {
+                            showSnackbar('Failed to load image. Please check the URL.');
+                            this.remove();
+                        };
+                        
+                        img.onload = function() {
+                            showSnackbar('Image loaded successfully');
+                        };
+                        
+                        // Insert the image
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            range.deleteContents();
+                            
+                            // Create a paragraph wrapper for better formatting
+                            const p = document.createElement('p');
+                            p.appendChild(img);
+                            range.insertNode(p);
+                            
+                            // Move cursor after the image
+                            range.setStartAfter(p);
+                            range.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        } else {
+                            const p = document.createElement('p');
+                            p.appendChild(img);
+                            editorContent.appendChild(p);
+                        }
+                        
+                        markAsUnsaved();
                         
                         // Hide dialog
                         document.getElementById('image-dialog-overlay').classList.remove('show');
@@ -955,10 +1028,18 @@
                                 <div class="form-group">
                                     <label for="table-rows">Number of rows</label>
                                     <input type="number" id="table-rows" min="1" max="20" value="3">
+                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Maximum 20 rows (includes header row)</small>
                                 </div>
                                 <div class="form-group">
                                     <label for="table-cols">Number of columns</label>
                                     <input type="number" id="table-cols" min="1" max="10" value="3">
+                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Maximum 10 columns</small>
+                                </div>
+                                <div class="form-group">
+                                    <label>
+                                        <input type="checkbox" id="table-striped" checked style="margin-right: 8px;">
+                                        Add alternating row colors
+                                    </label>
                                 </div>
                             </div>
                             <div class="dialog-actions">
@@ -980,50 +1061,100 @@
                         const rows = parseInt(document.getElementById('table-rows').value) || 3;
                         const cols = parseInt(document.getElementById('table-cols').value) || 3;
                         
-                        if (rows > 0 && cols > 0) {
-                            const table = document.createElement('table');
-                            
-                            // Create header row
-                            const thead = document.createElement('thead');
-                            const headerRow = document.createElement('tr');
-                            
-                            for (let i = 0; i < cols; i++) {
-                                const th = document.createElement('th');
-                                th.textContent = `Header ${i+1}`;
-                                headerRow.appendChild(th);
-                            }
-                            
-                            thead.appendChild(headerRow);
-                            table.appendChild(thead);
-                            
-                            // Create body rows
-                            const tbody = document.createElement('tbody');
-                            
-                            for (let i = 0; i < rows - 1; i++) {
-                                const row = document.createElement('tr');
-                                
-                                for (let j = 0; j < cols; j++) {
-                                    const cell = document.createElement('td');
-                                    cell.textContent = `Cell ${i+1},${j+1}`;
-                                    row.appendChild(cell);
-                                }
-                                
-                                tbody.appendChild(row);
-                            }
-                            
-                            table.appendChild(tbody);
-                            
-                            // Insert the table
-                            const range = window.getSelection().getRangeAt(0);
-                            range.deleteContents();
-                            range.insertNode(table);
-                            
-                            markAsUnsaved();
+                        if (rows < 1 || rows > 20 || cols < 1 || cols > 10) {
+                            showSnackbar('Please enter valid table dimensions (1-20 rows, 1-10 columns)');
+                            return;
                         }
+                        
+                        // Focus editor content first
+                        editorContent.focus();
+                        
+                        // Create table with enhanced styling
+                        const table = document.createElement('table');
+                        table.style.width = '100%';
+                        table.style.borderCollapse = 'collapse';
+                        table.style.margin = '16px 0';
+                        table.style.borderRadius = '8px';
+                        table.style.overflow = 'hidden';
+                        table.style.boxShadow = '0 1px 3px rgba(0,0,0,0.1)';
+                        
+                        // Create header row
+                        const thead = document.createElement('thead');
+                        const headerRow = document.createElement('tr');
+                        
+                        for (let i = 0; i < cols; i++) {
+                            const th = document.createElement('th');
+                            th.textContent = `Header ${i+1}`;
+                            th.style.padding = '12px';
+                            th.style.backgroundColor = 'var(--md-sys-color-surface-variant)';
+                            th.style.color = 'var(--md-sys-color-on-surface-variant)';
+                            th.style.fontWeight = '500';
+                            th.style.border = '1px solid var(--md-sys-color-outline-variant)';
+                            th.style.textAlign = 'left';
+                            th.contentEditable = 'true';
+                            headerRow.appendChild(th);
+                        }
+                        
+                        thead.appendChild(headerRow);
+                        table.appendChild(thead);
+                        
+                        // Create body rows
+                        const tbody = document.createElement('tbody');
+                        
+                        for (let i = 0; i < rows - 1; i++) {
+                            const row = document.createElement('tr');
+                            
+                            for (let j = 0; j < cols; j++) {
+                                const cell = document.createElement('td');
+                                cell.textContent = `Cell ${i+1},${j+1}`;
+                                cell.style.padding = '12px';
+                                cell.style.border = '1px solid var(--md-sys-color-outline-variant)';
+                                cell.contentEditable = 'true';
+                                
+                                // Add hover effect
+                                cell.addEventListener('mouseenter', function() {
+                                    this.style.backgroundColor = 'rgba(0,0,0,0.04)';
+                                });
+                                cell.addEventListener('mouseleave', function() {
+                                    this.style.backgroundColor = '';
+                                });
+                                
+                                row.appendChild(cell);
+                            }
+                            
+                            tbody.appendChild(row);
+                        }
+                        
+                        table.appendChild(tbody);
+                        
+                        // Insert the table
+                        const selection = window.getSelection();
+                        if (selection.rangeCount > 0) {
+                            const range = selection.getRangeAt(0);
+                            range.deleteContents();
+                            
+                            // Create a wrapper div for better formatting
+                            const wrapper = document.createElement('div');
+                            wrapper.appendChild(table);
+                            range.insertNode(wrapper);
+                            
+                            // Move cursor after the table
+                            range.setStartAfter(wrapper);
+                            range.collapse(true);
+                            selection.removeAllRanges();
+                            selection.addRange(range);
+                        } else {
+                            const wrapper = document.createElement('div');
+                            wrapper.appendChild(table);
+                            editorContent.appendChild(wrapper);
+                        }
+                        
+                        markAsUnsaved();
                         
                         // Hide dialog
                         document.getElementById('table-dialog-overlay').classList.remove('show');
                         editorContent.focus();
+                        showSnackbar('Table inserted successfully');
                     });
                 }
                 
