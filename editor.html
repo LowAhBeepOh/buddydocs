@@ -908,18 +908,60 @@
                     dialogOverlay.id = 'image-dialog-overlay';
                     
                     const dialogHTML = `
-                        <div class="dialog" id="image-dialog">
+                        <div class="dialog" id="image-dialog" style="max-width: 500px;">
                             <div class="dialog-header">Insert Image</div>
                             <div class="dialog-content">
-                                <div class="form-group">
-                                    <label for="image-url">Image URL</label>
-                                    <input type="text" id="image-url" placeholder="https://example.com/image.jpg" value="https://">
-                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Supported formats: JPG, PNG, GIF, WebP, SVG</small>
+                                <!-- Upload Methods Tabs -->
+                                <div class="upload-tabs" style="display: flex; margin-bottom: 16px; border-bottom: 1px solid var(--md-sys-color-outline-variant);">
+                                    <button class="tab-button active" data-tab="upload" style="flex: 1; padding: 8px 16px; border: none; background: none; cursor: pointer; border-bottom: 2px solid var(--md-sys-color-primary);">Upload File</button>
+                                    <button class="tab-button" data-tab="url" style="flex: 1; padding: 8px 16px; border: none; background: none; cursor: pointer; border-bottom: 2px solid transparent;">From URL</button>
                                 </div>
-                                <div class="form-group">
-                                    <label for="image-alt">Alt Text (for accessibility)</label>
-                                    <input type="text" id="image-alt" placeholder="Describe what the image shows">
-                                    <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">This helps screen readers and improves accessibility</small>
+                                
+                                <!-- Upload File Tab -->
+                                <div class="tab-content" id="upload-tab">
+                                    <div class="form-group">
+                                        <label>Upload Image File</label>
+                                        <div class="file-upload-area" id="file-upload-area" style="
+                                            border: 2px dashed var(--md-sys-color-outline);
+                                            border-radius: 8px;
+                                            padding: 24px;
+                                            text-align: center;
+                                            cursor: pointer;
+                                            transition: all 0.2s ease;
+                                            margin: 8px 0;
+                                        ">
+                                            <div class="upload-icon" style="font-size: 48px; color: var(--md-sys-color-on-surface-variant); margin-bottom: 8px;">📁</div>
+                                            <div class="upload-text">
+                                                <strong>Click to browse</strong> or drag and drop an image here
+                                            </div>
+                                            <small style="color: var(--md-sys-color-on-surface-variant); display: block; margin-top: 4px;">Supports: JPG, PNG, GIF, WebP, SVG (max 10MB)</small>
+                                        </div>
+                                        <input type="file" id="image-file-input" accept="image/*" style="display: none;">
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="image-alt-upload">Alt Text (for accessibility)</label>
+                                        <input type="text" id="image-alt-upload" placeholder="Describe what the image shows">
+                                    </div>
+                                </div>
+                                
+                                <!-- URL Tab -->
+                                <div class="tab-content" id="url-tab" style="display: none;">
+                                    <div class="form-group">
+                                        <label for="image-url">Image URL</label>
+                                        <input type="text" id="image-url" placeholder="https://example.com/image.jpg" value="https://">
+                                        <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">Supported formats: JPG, PNG, GIF, WebP, SVG</small>
+                                    </div>
+                                    <div class="form-group">
+                                        <label for="image-alt">Alt Text (for accessibility)</label>
+                                        <input type="text" id="image-alt" placeholder="Describe what the image shows">
+                                        <small style="color: var(--md-sys-color-on-surface-variant); font-size: 12px; margin-top: 4px; display: block;">This helps screen readers and improves accessibility</small>
+                                    </div>
+                                </div>
+                                
+                                <!-- Preview Area -->
+                                <div class="image-preview" id="image-preview" style="display: none; margin: 16px 0; text-align: center;">
+                                    <img id="preview-img" style="max-width: 100%; max-height: 200px; border-radius: 4px; box-shadow: 0 2px 8px rgba(0,0,0,0.1);">
+                                    <div style="margin-top: 8px; font-size: 12px; color: var(--md-sys-color-on-surface-variant);" id="image-info"></div>
                                 </div>
                             </div>
                             <div class="dialog-actions">
@@ -935,75 +977,111 @@
                     // Add event listeners
                     document.getElementById('cancel-image').addEventListener('click', function() {
                         document.getElementById('image-dialog-overlay').classList.remove('show');
+                        resetImageDialog();
+                    });
+                    
+                    // Tab switching functionality
+                    document.querySelectorAll('.tab-button').forEach(button => {
+                        button.addEventListener('click', function() {
+                            const tabName = this.getAttribute('data-tab');
+                            
+                            // Update tab buttons
+                            document.querySelectorAll('.tab-button').forEach(btn => {
+                                btn.classList.remove('active');
+                                btn.style.borderBottom = '2px solid transparent';
+                            });
+                            this.classList.add('active');
+                            this.style.borderBottom = '2px solid var(--md-sys-color-primary)';
+                            
+                            // Update tab content
+                            document.querySelectorAll('.tab-content').forEach(content => {
+                                content.style.display = 'none';
+                            });
+                            document.getElementById(tabName + '-tab').style.display = 'block';
+                        });
+                    });
+                    
+                    // File upload area click handler
+                    document.getElementById('file-upload-area').addEventListener('click', function() {
+                        document.getElementById('image-file-input').click();
+                    });
+                    
+                    // File input change handler
+                    document.getElementById('image-file-input').addEventListener('change', function(e) {
+                        const file = e.target.files[0];
+                        if (file) {
+                            handleImageFile(file);
+                        }
+                    });
+                    
+                    // Drag and drop handlers for upload area
+                    const uploadArea = document.getElementById('file-upload-area');
+                    
+                    uploadArea.addEventListener('dragover', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = 'var(--md-sys-color-primary)';
+                        this.style.backgroundColor = 'rgba(var(--md-sys-color-primary-rgb), 0.04)';
+                    });
+                    
+                    uploadArea.addEventListener('dragleave', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = 'var(--md-sys-color-outline)';
+                        this.style.backgroundColor = '';
+                    });
+                    
+                    uploadArea.addEventListener('drop', function(e) {
+                        e.preventDefault();
+                        this.style.borderColor = 'var(--md-sys-color-outline)';
+                        this.style.backgroundColor = '';
+                        
+                        const files = e.dataTransfer.files;
+                        if (files.length > 0 && files[0].type.startsWith('image/')) {
+                            handleImageFile(files[0]);
+                        } else {
+                            showSnackbar('Please drop a valid image file');
+                        }
                     });
                     
                     document.getElementById('insert-image').addEventListener('click', function() {
-                        const imageUrl = document.getElementById('image-url').value.trim();
-                        const imageAlt = document.getElementById('image-alt').value.trim();
+                        const activeTab = document.querySelector('.tab-button.active').getAttribute('data-tab');
+                        let imageSrc, imageAlt;
                         
-                        if (!imageUrl || imageUrl === 'https://') {
-                            showSnackbar('Please enter a valid image URL');
-                            return;
-                        }
-                        
-                        // Validate URL format
-                        try {
-                            new URL(imageUrl);
-                        } catch {
-                            showSnackbar('Please enter a valid image URL');
-                            return;
-                        }
-                        
-                        // Focus editor content first
-                        editorContent.focus();
-                        
-                        // Create image element with enhanced features
-                        const img = document.createElement('img');
-                        img.src = imageUrl;
-                        img.alt = imageAlt || 'Inserted image';
-                        img.style.maxWidth = '100%';
-                        img.style.height = 'auto';
-                        img.style.borderRadius = '8px';
-                        img.style.margin = '8px 0';
-                        img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
-                        img.loading = 'lazy';
-                        
-                        // Add error handling
-                        img.onerror = function() {
-                            showSnackbar('Failed to load image. Please check the URL.');
-                            this.remove();
-                        };
-                        
-                        img.onload = function() {
-                            showSnackbar('Image loaded successfully');
-                        };
-                        
-                        // Insert the image
-                        const selection = window.getSelection();
-                        if (selection.rangeCount > 0) {
-                            const range = selection.getRangeAt(0);
-                            range.deleteContents();
-                            
-                            // Create a paragraph wrapper for better formatting
-                            const p = document.createElement('p');
-                            p.appendChild(img);
-                            range.insertNode(p);
-                            
-                            // Move cursor after the image
-                            range.setStartAfter(p);
-                            range.collapse(true);
-                            selection.removeAllRanges();
-                            selection.addRange(range);
+                        if (activeTab === 'upload') {
+                            // Handle file upload
+                            const previewImg = document.getElementById('preview-img');
+                            if (!previewImg.src || previewImg.src === window.location.href) {
+                                showSnackbar('Please select an image file first');
+                                return;
+                            }
+                            imageSrc = previewImg.src;
+                            imageAlt = document.getElementById('image-alt-upload').value.trim() || 'Uploaded image';
                         } else {
-                            const p = document.createElement('p');
-                            p.appendChild(img);
-                            editorContent.appendChild(p);
+                            // Handle URL input
+                            const imageUrl = document.getElementById('image-url').value.trim();
+                            imageAlt = document.getElementById('image-alt').value.trim();
+                            
+                            if (!imageUrl || imageUrl === 'https://') {
+                                showSnackbar('Please enter a valid image URL');
+                                return;
+                            }
+                            
+                            // Validate URL format
+                            try {
+                                new URL(imageUrl);
+                            } catch {
+                                showSnackbar('Please enter a valid image URL');
+                                return;
+                            }
+                            
+                            imageSrc = imageUrl;
+                            imageAlt = imageAlt || 'Inserted image';
                         }
                         
-                        markAsUnsaved();
+                        insertImageIntoEditor(imageSrc, imageAlt);
                         
-                        // Hide dialog
+                        // Hide dialog and reset
                         document.getElementById('image-dialog-overlay').classList.remove('show');
+                        resetImageDialog();
                         editorContent.focus();
                     });
                 }
@@ -1011,6 +1089,210 @@
                 // Show dialog
                 document.getElementById('image-dialog-overlay').classList.add('show');
                 document.getElementById('image-url').focus();
+            });
+            
+            // Helper function to handle image files
+            function handleImageFile(file) {
+                // Validate file type
+                if (!file.type.startsWith('image/')) {
+                    showSnackbar('Please select a valid image file');
+                    return;
+                }
+                
+                // Validate file size (10MB limit)
+                if (file.size > 10 * 1024 * 1024) {
+                    showSnackbar('Image file is too large. Please select a file smaller than 10MB.');
+                    return;
+                }
+                
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    const previewImg = document.getElementById('preview-img');
+                    const imagePreview = document.getElementById('image-preview');
+                    const imageInfo = document.getElementById('image-info');
+                    
+                    previewImg.src = e.target.result;
+                    imagePreview.style.display = 'block';
+                    
+                    // Show file info
+                    const fileSize = (file.size / 1024).toFixed(1);
+                    imageInfo.textContent = `${file.name} (${fileSize} KB)`;
+                    
+                    // Auto-fill alt text with filename (without extension)
+                    const altInput = document.getElementById('image-alt-upload');
+                    if (!altInput.value) {
+                        const fileName = file.name.replace(/\.[^/.]+$/, '');
+                        altInput.value = fileName.replace(/[-_]/g, ' ');
+                    }
+                };
+                reader.readAsDataURL(file);
+            }
+            
+            // Helper function to insert image into editor
+            function insertImageIntoEditor(imageSrc, imageAlt) {
+                // Focus editor content first
+                editorContent.focus();
+                
+                // Create image element with enhanced features
+                const img = document.createElement('img');
+                img.src = imageSrc;
+                img.alt = imageAlt;
+                img.style.maxWidth = '100%';
+                img.style.height = 'auto';
+                img.style.borderRadius = '8px';
+                img.style.margin = '8px 0';
+                img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
+                img.loading = 'lazy';
+                
+                // Add error handling for URL images
+                if (imageSrc.startsWith('http')) {
+                    img.onerror = function() {
+                        showSnackbar('Failed to load image. Please check the URL.');
+                        this.remove();
+                    };
+                    
+                    img.onload = function() {
+                        showSnackbar('Image loaded successfully');
+                    };
+                } else {
+                    showSnackbar('Image inserted successfully');
+                }
+                
+                // Insert the image
+                const selection = window.getSelection();
+                if (selection.rangeCount > 0) {
+                    const range = selection.getRangeAt(0);
+                    range.deleteContents();
+                    
+                    // Create a paragraph wrapper for better formatting
+                    const p = document.createElement('p');
+                    p.appendChild(img);
+                    range.insertNode(p);
+                    
+                    // Move cursor after the image
+                    range.setStartAfter(p);
+                    range.collapse(true);
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                } else {
+                    const p = document.createElement('p');
+                    p.appendChild(img);
+                    editorContent.appendChild(p);
+                }
+                
+                markAsUnsaved();
+            }
+            
+            // Helper function to reset image dialog
+            function resetImageDialog() {
+                // Reset form inputs
+                document.getElementById('image-url').value = 'https://';
+                document.getElementById('image-alt').value = '';
+                document.getElementById('image-alt-upload').value = '';
+                document.getElementById('image-file-input').value = '';
+                
+                // Hide preview
+                document.getElementById('image-preview').style.display = 'none';
+                
+                // Reset to upload tab
+                document.querySelectorAll('.tab-button').forEach(btn => {
+                    btn.classList.remove('active');
+                    btn.style.borderBottom = '2px solid transparent';
+                });
+                document.querySelector('[data-tab="upload"]').classList.add('active');
+                document.querySelector('[data-tab="upload"]').style.borderBottom = '2px solid var(--md-sys-color-primary)';
+                
+                document.querySelectorAll('.tab-content').forEach(content => {
+                    content.style.display = 'none';
+                });
+                document.getElementById('upload-tab').style.display = 'block';
+            }
+            
+            // Global drag and drop functionality for direct image insertion
+            editorContent.addEventListener('dragover', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                editorContent.style.backgroundColor = 'rgba(103, 80, 164, 0.1)';
+                editorContent.style.border = '2px dashed var(--md-sys-color-primary)';
+            });
+            
+            editorContent.addEventListener('dragleave', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                // Only remove styling if we're leaving the editor entirely
+                if (!editorContent.contains(e.relatedTarget)) {
+                    editorContent.style.backgroundColor = '';
+                    editorContent.style.border = '';
+                }
+            });
+            
+            editorContent.addEventListener('drop', function(e) {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                // Reset styling
+                editorContent.style.backgroundColor = '';
+                editorContent.style.border = '';
+                
+                const files = Array.from(e.dataTransfer.files);
+                const imageFiles = files.filter(file => file.type.startsWith('image/'));
+                
+                if (imageFiles.length === 0) {
+                    showSnackbar('No image files found in the dropped items');
+                    return;
+                }
+                
+                // Set cursor position at drop location
+                const range = document.caretRangeFromPoint(e.clientX, e.clientY);
+                if (range) {
+                    const selection = window.getSelection();
+                    selection.removeAllRanges();
+                    selection.addRange(range);
+                }
+                
+                // Process each image file
+                imageFiles.forEach((file, index) => {
+                    const reader = new FileReader();
+                    reader.onload = function(event) {
+                        const altText = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
+                        insertImageIntoEditor(event.target.result, altText);
+                    };
+                    reader.readAsDataURL(file);
+                });
+                
+                if (imageFiles.length === 1) {
+                    showSnackbar('Image dropped successfully');
+                } else {
+                    showSnackbar(`${imageFiles.length} images dropped successfully`);
+                }
+            });
+            
+            // Global paste functionality for direct image insertion
+            editorContent.addEventListener('paste', function(e) {
+                const items = Array.from(e.clipboardData.items);
+                const imageItems = items.filter(item => item.type.startsWith('image/'));
+                
+                if (imageItems.length > 0) {
+                    e.preventDefault();
+                    
+                    imageItems.forEach(item => {
+                        const file = item.getAsFile();
+                        if (file) {
+                            const reader = new FileReader();
+                            reader.onload = function(event) {
+                                const altText = 'Pasted image';
+                                insertImageIntoEditor(event.target.result, altText);
+                            };
+                            reader.readAsDataURL(file);
+                        }
+                    });
+                    
+                    if (imageItems.length === 1) {
+                        showSnackbar('Image pasted successfully');
+                    } else {
+                        showSnackbar(`${imageItems.length} images pasted successfully`);
+                    }
+                }
             });
             
             // Insert table with dialog
