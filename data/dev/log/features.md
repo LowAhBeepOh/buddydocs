@@ -79,3 +79,4 @@
   - Show word count, character count, and reading time
   - Track writing/editing time per document
   - Provide visualizations of writing patterns
+  

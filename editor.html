@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buddy Docs - Editor</title>
+    <title>Untitled - Buddy Docs</title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
@@ -1537,9 +1537,9 @@
             
             documentTitle.addEventListener('input', function() {
                 markAsUnsaved();
+                document.title = documentTitle.value || "Untitled - Buddy Docs";
             });
             
-            // Update word count on load
             updateWordCount();
             
             // Handle keyboard shortcuts
@@ -1592,18 +1592,11 @@
             
             function loadDocumentFromDB(id) {
                 documentManager.storage.getDocument(id).then(doc => {
-                    if (doc) {
-                        currentDocId = doc.id;
-                        documentTitle.value = doc.title;
-                        editorContent.innerHTML = doc.content;
-                        updateWordCount();
-                        unsavedChanges = false;
-                    } else {
-                        showSnackbar('Document not found');
-                    }
+                    // Set document title in browser tab
+                    document.title = doc.title || "Untitled - Buddy Docs";
                 }).catch(error => {
-                    console.error('Error loading document:', error);
                     showSnackbar('Error loading document: ' + error.message);
+                    document.title = "Error - Buddy Docs";
                 });
             }
             
