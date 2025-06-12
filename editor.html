@@ -1099,32 +1099,75 @@
                     return;
                 }
                 
-                // Validate file size (10MB limit)
-                if (file.size > 10 * 1024 * 1024) {
-                    showSnackbar('Image file is too large. Please select a file smaller than 10MB.');
+                // Validate file size (5MB limit - reduced from 10MB)
+                if (file.size > 5 * 1024 * 1024) {
+                    showSnackbar('Image file is too large. Please select a file smaller than 5MB.');
                     return;
                 }
                 
+                // Create a new FileReader for each image
                 const reader = new FileReader();
+                
                 reader.onload = function(e) {
-                    const previewImg = document.getElementById('preview-img');
-                    const imagePreview = document.getElementById('image-preview');
-                    const imageInfo = document.getElementById('image-info');
+                    // Compress image before preview
+                    const img = new Image();
+                    img.onload = function() {
+                        // Create canvas for compression
+                        const canvas = document.createElement('canvas');
+                        let width = img.width;
+                        let height = img.height;
+                        
+                        // Calculate new dimensions (max 1920px width/height)
+                        const maxDim = 1920;
+                        if (width > maxDim || height > maxDim) {
+                            if (width > height) {
+                                height = Math.round((height * maxDim) / width);
+                                width = maxDim;
+                            } else {
+                                width = Math.round((width * maxDim) / height);
+                                height = maxDim;
+                            }
+                        }
+                        
+                        canvas.width = width;
+                        canvas.height = height;
+                        
+                        // Draw and compress
+                        const ctx = canvas.getContext('2d');
+                        ctx.drawImage(img, 0, 0, width, height);
+                        
+                        // Get compressed data URL (0.85 quality)
+                        const compressedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+                        
+                        // Update preview
+                        const previewImg = document.getElementById('preview-img');
+                        const imagePreview = document.getElementById('image-preview');
+                        const imageInfo = document.getElementById('image-info');
+                        
+                        previewImg.src = compressedDataUrl;
+                        imagePreview.style.display = 'block';
+                        
+                        // Show file info with compressed size
+                        const originalSize = (file.size / 1024).toFixed(1);
+                        const compressedSize = (compressedDataUrl.length * 0.75 / 1024).toFixed(1);
+                        imageInfo.textContent = `${file.name} (Original: ${originalSize}KB, Compressed: ${compressedSize}KB)`;
+                        
+                        // Auto-fill alt text
+                        const altInput = document.getElementById('image-alt-upload');
+                        if (!altInput.value) {
+                            const fileName = file.name.replace(/\.[^/.]+$/, '');
+                            altInput.value = fileName.replace(/[-_]/g, ' ');
+                        }
+                        
+                        // Cleanup
+                        canvas.remove();
+                        URL.revokeObjectURL(img.src);
+                    };
                     
-                    previewImg.src = e.target.result;
-                    imagePreview.style.display = 'block';
-                    
-                    // Show file info
-                    const fileSize = (file.size / 1024).toFixed(1);
-                    imageInfo.textContent = `${file.name} (${fileSize} KB)`;
-                    
-                    // Auto-fill alt text with filename (without extension)
-                    const altInput = document.getElementById('image-alt-upload');
-                    if (!altInput.value) {
-                        const fileName = file.name.replace(/\.[^/.]+$/, '');
-                        altInput.value = fileName.replace(/[-_]/g, ' ');
-                    }
+                    img.src = e.target.result;
                 };
+                
+                // Read as URL instead of Data URL for better memory usage
                 reader.readAsDataURL(file);
             }
             
@@ -1208,6 +1251,47 @@
                 document.getElementById('upload-tab').style.display = 'block';
             }
             
+            // Function to attach editor event listeners
+            function attachEditorEventListeners() {
+                // Input event for content changes
+                editorContent.addEventListener('input', function() {
+                    updateWordCount();
+                    markAsUnsaved();
+                });
+                
+                // Keydown for shortcuts
+                editorContent.addEventListener('keydown', function(e) {
+                    if (e.ctrlKey && e.key === 's') {
+                        e.preventDefault();
+                        saveDocument();
+                    }
+                    setTimeout(updateButtonStates, 0);
+                });
+                
+                // Click for button states
+                editorContent.addEventListener('click', updateButtonStates);
+                
+                // Drag and drop handlers
+                editorContent.addEventListener('dragover', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    this.style.backgroundColor = 'rgba(103, 80, 164, 0.1)';
+                    this.style.border = '2px dashed var(--md-sys-color-primary)';
+                });
+                
+                editorContent.addEventListener('dragleave', function(e) {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    if (!this.contains(e.relatedTarget)) {
+                        this.style.backgroundColor = '';
+                        this.style.border = '';
+                    }
+                });
+                
+                editorContent.addEventListener('drop', handleImageDrop);
+                editorContent.addEventListener('paste', handleImagePaste);
+            }
+
             // Global drag and drop functionality for direct image insertion
             editorContent.addEventListener('dragover', function(e) {
                 e.preventDefault();
@@ -1592,8 +1676,40 @@
             
             function loadDocumentFromDB(id) {
                 documentManager.storage.getDocument(id).then(doc => {
-                    // Set document title in browser tab
+                    // Set document title in browser tab and input field
                     document.title = doc.title || "Untitled - Buddy Docs";
+                    documentTitle.value = doc.title || "";
+                    
+                    // Cleanup existing content and event listeners
+                    if (editorContent.firstChild) {
+                        const oldContent = editorContent.cloneNode(false);
+                        editorContent.parentNode.replaceChild(oldContent, editorContent);
+                        editorContent = oldContent;
+                        
+                        // Reattach necessary event listeners
+                        attachEditorEventListeners();
+                    }
+                    
+                    // Load document content into editor with size check
+                    const contentSize = (doc.content || "").length;
+                    if (contentSize > 10 * 1024 * 1024) { // 10MB limit
+                        showSnackbar('Warning: Large document may affect performance');
+                    }
+                    editorContent.innerHTML = doc.content || "";
+                    
+                    // Set current document ID
+                    currentDocId = id;
+                    
+                    // Reset unsaved changes flag
+                    unsavedChanges = false;
+                    
+                    // Update word count
+                    updateWordCount();
+                    
+                    // Run garbage collection hint
+                    if (window.gc) {
+                        window.gc();
+                    }
                 }).catch(error => {
                     showSnackbar('Error loading document: ' + error.message);
                     document.title = "Error - Buddy Docs";
