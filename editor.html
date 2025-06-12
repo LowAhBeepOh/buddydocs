@@ -1143,14 +1143,15 @@
                         const previewImg = document.getElementById('preview-img');
                         const imagePreview = document.getElementById('image-preview');
                         const imageInfo = document.getElementById('image-info');
-                        
                         previewImg.src = compressedDataUrl;
                         imagePreview.style.display = 'block';
-                        
-                        // Show file info with compressed size
-                        const originalSize = (file.size / 1024).toFixed(1);
-                        const compressedSize = (compressedDataUrl.length * 0.75 / 1024).toFixed(1);
-                        imageInfo.textContent = `${file.name} (Original: ${originalSize}KB, Compressed: ${compressedSize}KB)`;
+                        previewImg.style.width = '100%';
+                        previewImg.style.height = 'auto';
+                    
+                    // Show file info with compressed size
+                    const originalSize = (file.size / 1024).toFixed(1);
+                    const compressedSize = (compressedDataUrl.length * 0.75 / 1024).toFixed(1);
+                    imageInfo.textContent = `${file.name} (Original: ${originalSize}KB, Compressed: ${compressedSize}KB)`;
                         
                         // Auto-fill alt text
                         const altInput = document.getElementById('image-alt-upload');
@@ -1167,7 +1168,6 @@
                     img.src = e.target.result;
                 };
                 
-                // Read as URL instead of Data URL for better memory usage
                 reader.readAsDataURL(file);
             }
             
@@ -1180,10 +1180,11 @@
                 const img = document.createElement('img');
                 img.src = imageSrc;
                 img.alt = imageAlt;
-                img.style.maxWidth = '100%';
-                img.style.height = 'auto';
+                img.style.width = '100%'; // Force full width
+                img.style.height = 'auto'; // Maintain aspect ratio
+                img.style.display = 'block'; // Prevent inline spacing issues
                 img.style.borderRadius = '8px';
-                img.style.margin = '8px 0';
+                img.style.margin = '16px 0'; // Increased margin for better spacing
                 img.style.boxShadow = '0 2px 8px rgba(0,0,0,0.1)';
                 img.loading = 'lazy';
                 
