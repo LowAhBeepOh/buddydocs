@@ -1320,4 +1320,9 @@ class DocumentManager {
 document.addEventListener('DOMContentLoaded', () => {
     const documentManager = new DocumentManager();
     window.documentManager = documentManager;
+    
+    // Expose the document storage globally for settings integration
+    if (window.globalDocumentStorage === undefined) {
+        window.globalDocumentStorage = documentManager.storage;
+    }
 });

@@ -1,8 +1,8 @@
 // IndexedDB Service for data management
 class IndexedDBService {
     constructor() {
-        this.dbName = 'BuddyDocsDB';
-        this.version = 1;
+        this.dbName = 'buddyDocsDB';
+        this.version = 2;
         this.db = null;
     }
 
@@ -31,10 +31,14 @@ class IndexedDBService {
                     settingsStore.createIndex('id', 'id', { unique: true });
                 }
                 
-                // Documents store
+                // Documents store (already exists from document.js)
                 if (!db.objectStoreNames.contains('documents')) {
-                    const documentsStore = db.createObjectStore('documents', { keyPath: 'id' });
-                    documentsStore.createIndex('id', 'id', { unique: true });
+                    const documentsStore = db.createObjectStore('documents', { keyPath: 'id', autoIncrement: true });
+                    documentsStore.createIndex('title', 'title', { unique: false });
+                    documentsStore.createIndex('type', 'type', { unique: false });
+                    documentsStore.createIndex('lastModified', 'lastModified', { unique: false });
+                    documentsStore.createIndex('deadline', 'deadline', { unique: false });
+                    documentsStore.createIndex('completed', 'completed', { unique: false });
                 }
             };
         });
@@ -74,22 +78,7 @@ class IndexedDBService {
         });
     }
 
-    async saveDocument(document) {
-        const transaction = this.db.transaction(['documents'], 'readwrite');
-        const store = transaction.objectStore('documents');
-        return store.put(document);
-    }
 
-    async getAllDocuments() {
-        const transaction = this.db.transaction(['documents'], 'readonly');
-        const store = transaction.objectStore('documents');
-        const request = store.getAll();
-        
-        return new Promise((resolve, reject) => {
-            request.onsuccess = () => resolve(request.result || []);
-            request.onerror = () => reject(request.error);
-        });
-    }
 
     async deleteUserProfile() {
         const transaction = this.db.transaction(['userProfile'], 'readwrite');
@@ -103,18 +92,23 @@ class IndexedDBService {
         return store.delete('current');
     }
 
-    async deleteAllDocuments() {
-        const transaction = this.db.transaction(['documents'], 'readwrite');
-        const store = transaction.objectStore('documents');
-        return store.clear();
-    }
+
 
     async exportData() {
-        const [userProfile, settings, documents] = await Promise.all([
+        const [userProfile, settings] = await Promise.all([
             this.getUserProfile(),
-            this.getSettings(),
-            this.getAllDocuments()
+            this.getSettings()
         ]);
+
+        // Get documents from global storage if available
+        let documents = [];
+        if (window.globalDocumentStorage) {
+            try {
+                documents = await window.globalDocumentStorage.getAllDocuments();
+            } catch (error) {
+                console.error('Error getting documents for export:', error);
+            }
+        }
 
         return {
             userProfile,
@@ -127,6 +121,9 @@ class IndexedDBService {
 
 // Global IndexedDB service instance
 const dbService = new IndexedDBService();
+
+// Global document storage instance (will be initialized when document.js loads)
+let globalDocumentStorage = null;
 
 function createRipple(event) {
     const button = event.currentTarget;
@@ -549,11 +546,6 @@ async function showUserSettings(settingsContent) {
                     <input type="text" id="full-name" value="${userProfile.fullName || ''}" placeholder="Enter your full name">
                 </div>
                 
-                <div class="form-group">
-                    <label for="email">Email</label>
-                    <input type="email" id="email" value="${userProfile.email || ''}" placeholder="Enter your email">
-                </div>
-                
                 <div class="form-actions">
                     <button class="save-button" onclick="saveUserProfile()">
                         <span class="material-symbols-rounded">save</span>
@@ -582,10 +574,19 @@ async function showUserSettings(settingsContent) {
 
 // Function to show data settings
 async function showDataSettings(settingsContent) {
-    const [userProfile, settings, documents] = await Promise.all([
+    // Get documents from the global document storage if available
+    let documents = [];
+    if (window.globalDocumentStorage) {
+        try {
+            documents = await window.globalDocumentStorage.getAllDocuments();
+        } catch (error) {
+            console.error('Error getting documents:', error);
+        }
+    }
+    
+    const [userProfile, settings] = await Promise.all([
         dbService.getUserProfile(),
-        dbService.getSettings(),
-        dbService.getAllDocuments()
+        dbService.getSettings()
     ]);
     
     settingsContent.innerHTML = `
@@ -652,13 +653,11 @@ async function showDataSettings(settingsContent) {
 async function saveUserProfile() {
     const displayName = document.getElementById('display-name').value;
     const fullName = document.getElementById('full-name').value;
-    const email = document.getElementById('email').value;
     const profilePicture = document.getElementById('profile-preview').src;
     
     const userProfile = {
         displayName,
         fullName,
-        email,
         profilePicture,
         lastUpdated: new Date().toISOString()
     };
@@ -692,7 +691,17 @@ async function exportSelectedData() {
     }
     
     if (document.getElementById('toggle-documents').checked) {
-        selectedData.documents = await dbService.getAllDocuments();
+        if (window.globalDocumentStorage) {
+            try {
+                selectedData.documents = await window.globalDocumentStorage.getAllDocuments();
+            } catch (error) {
+                console.error('Error getting documents for export:', error);
+                showNotification('Failed to export documents', 'error');
+                return;
+            }
+        } else {
+            selectedData.documents = [];
+        }
     }
     
     if (Object.keys(selectedData).length === 0) {
@@ -752,7 +761,18 @@ async function deleteSelectedData() {
         }
         
         if (document.getElementById('toggle-documents').checked) {
-            await dbService.deleteAllDocuments();
+            if (window.globalDocumentStorage) {
+                // Get all documents and delete them one by one
+                const documents = await window.globalDocumentStorage.getAllDocuments();
+                for (const doc of documents) {
+                    await window.globalDocumentStorage.deleteDocument(doc.id);
+                }
+                
+                // Refresh the document manager if it exists
+                if (window.documentManager) {
+                    window.documentManager.loadDocuments();
+                }
+            }
         }
         
         showNotification('Selected data deleted successfully!', 'success');
