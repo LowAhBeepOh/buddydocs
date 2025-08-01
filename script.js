@@ -1,3 +1,133 @@
+// IndexedDB Service for data management
+class IndexedDBService {
+    constructor() {
+        this.dbName = 'BuddyDocsDB';
+        this.version = 1;
+        this.db = null;
+    }
+
+    async init() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open(this.dbName, this.version);
+            
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                this.db = request.result;
+                resolve(this.db);
+            };
+            
+            request.onupgradeneeded = (event) => {
+                const db = event.target.result;
+                
+                // User Profile store
+                if (!db.objectStoreNames.contains('userProfile')) {
+                    const userStore = db.createObjectStore('userProfile', { keyPath: 'id' });
+                    userStore.createIndex('id', 'id', { unique: true });
+                }
+                
+                // Settings store
+                if (!db.objectStoreNames.contains('settings')) {
+                    const settingsStore = db.createObjectStore('settings', { keyPath: 'id' });
+                    settingsStore.createIndex('id', 'id', { unique: true });
+                }
+                
+                // Documents store
+                if (!db.objectStoreNames.contains('documents')) {
+                    const documentsStore = db.createObjectStore('documents', { keyPath: 'id' });
+                    documentsStore.createIndex('id', 'id', { unique: true });
+                }
+            };
+        });
+    }
+
+    async saveUserProfile(profile) {
+        const transaction = this.db.transaction(['userProfile'], 'readwrite');
+        const store = transaction.objectStore('userProfile');
+        return store.put({ id: 'current', ...profile });
+    }
+
+    async getUserProfile() {
+        const transaction = this.db.transaction(['userProfile'], 'readonly');
+        const store = transaction.objectStore('userProfile');
+        const request = store.get('current');
+        
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => resolve(request.result || {});
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async saveSettings(settings) {
+        const transaction = this.db.transaction(['settings'], 'readwrite');
+        const store = transaction.objectStore('settings');
+        return store.put({ id: 'current', ...settings });
+    }
+
+    async getSettings() {
+        const transaction = this.db.transaction(['settings'], 'readonly');
+        const store = transaction.objectStore('settings');
+        const request = store.get('current');
+        
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => resolve(request.result || {});
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async saveDocument(document) {
+        const transaction = this.db.transaction(['documents'], 'readwrite');
+        const store = transaction.objectStore('documents');
+        return store.put(document);
+    }
+
+    async getAllDocuments() {
+        const transaction = this.db.transaction(['documents'], 'readonly');
+        const store = transaction.objectStore('documents');
+        const request = store.getAll();
+        
+        return new Promise((resolve, reject) => {
+            request.onsuccess = () => resolve(request.result || []);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async deleteUserProfile() {
+        const transaction = this.db.transaction(['userProfile'], 'readwrite');
+        const store = transaction.objectStore('userProfile');
+        return store.delete('current');
+    }
+
+    async deleteSettings() {
+        const transaction = this.db.transaction(['settings'], 'readwrite');
+        const store = transaction.objectStore('settings');
+        return store.delete('current');
+    }
+
+    async deleteAllDocuments() {
+        const transaction = this.db.transaction(['documents'], 'readwrite');
+        const store = transaction.objectStore('documents');
+        return store.clear();
+    }
+
+    async exportData() {
+        const [userProfile, settings, documents] = await Promise.all([
+            this.getUserProfile(),
+            this.getSettings(),
+            this.getAllDocuments()
+        ]);
+
+        return {
+            userProfile,
+            settings,
+            documents,
+            exportDate: new Date().toISOString()
+        };
+    }
+}
+
+// Global IndexedDB service instance
+const dbService = new IndexedDBService();
+
 function createRipple(event) {
     const button = event.currentTarget;
     
@@ -296,12 +426,17 @@ function initProfileDropdown() {
 }
 
 // Function to show settings container
-function showSettingsContainer() {
+async function showSettingsContainer() {
     // Hide any existing settings container
     const existingSettings = document.querySelector('.settings-container');
     if (existingSettings) {
         existingSettings.remove();
         return;
+    }
+    
+    // Initialize IndexedDB if not already done
+    if (!dbService.db) {
+        await dbService.init();
     }
     
     // Create settings container
@@ -334,7 +469,7 @@ function showSettingsContainer() {
             <span>${category.name}</span>
         `;
         
-        categoryItem.addEventListener('click', function() {
+        categoryItem.addEventListener('click', async function() {
             // Remove active class from all categories
             document.querySelectorAll('.settings-category').forEach(item => {
                 item.classList.remove('active');
@@ -343,12 +478,17 @@ function showSettingsContainer() {
             // Add active class to clicked category
             categoryItem.classList.add('active');
             
-            // Update content area
-            settingsContent.innerHTML = `
-                <h2>${category.name}</h2>
-                <p>Y'all I haven't added this is yet sry</p>
-                <p>I HAVEN'T ADDED ANYTHING YET</p>
-            `;
+            // Update content area based on category
+            if (category.name === 'User') {
+                await showUserSettings(settingsContent);
+            } else if (category.name === 'Data') {
+                await showDataSettings(settingsContent);
+            } else {
+                settingsContent.innerHTML = `
+                    <h2>${category.name}</h2>
+                    <p>This section is coming soon!</p>
+                `;
+            }
         });
         
         settingsSidebar.appendChild(categoryItem);
@@ -365,7 +505,7 @@ function showSettingsContainer() {
     // Set initial content
     settingsContent.innerHTML = `
         <h2>General</h2>
-        <p>Y'all I haven't added this is yet sry</p>
+        <p>This section is coming soon!</p>
     `;
     
     // Assemble settings container
@@ -377,8 +517,310 @@ function showSettingsContainer() {
     document.querySelector('.app-container').appendChild(settingsContainer);
 }
 
+// Function to show user settings
+async function showUserSettings(settingsContent) {
+    const userProfile = await dbService.getUserProfile();
+    
+    settingsContent.innerHTML = `
+        <h2>User Profile</h2>
+        <div class="settings-section">
+            <div class="profile-picture-section">
+                <div class="profile-picture-preview">
+                    <img id="profile-preview" src="${userProfile.profilePicture || 'https://placehold.co/120x120/FF4D00/FFFFFF'}" alt="Profile Picture">
+                    <div class="profile-picture-overlay">
+                        <span class="material-symbols-rounded">photo_camera</span>
+                    </div>
+                </div>
+                <input type="file" id="profile-picture-input" accept="image/*" style="display: none;">
+                <button class="upload-button" onclick="document.getElementById('profile-picture-input').click()">
+                    <span class="material-symbols-rounded">upload</span>
+                    Upload Photo
+                </button>
+            </div>
+            
+            <div class="profile-form">
+                <div class="form-group">
+                    <label for="display-name">Display Name</label>
+                    <input type="text" id="display-name" value="${userProfile.displayName || ''}" placeholder="Enter your display name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="full-name">Full Name</label>
+                    <input type="text" id="full-name" value="${userProfile.fullName || ''}" placeholder="Enter your full name">
+                </div>
+                
+                <div class="form-group">
+                    <label for="email">Email</label>
+                    <input type="email" id="email" value="${userProfile.email || ''}" placeholder="Enter your email">
+                </div>
+                
+                <div class="form-actions">
+                    <button class="save-button" onclick="saveUserProfile()">
+                        <span class="material-symbols-rounded">save</span>
+                        Save Changes
+                    </button>
+                </div>
+            </div>
+        </div>
+    `;
+    
+    // Handle profile picture upload
+    const profileInput = document.getElementById('profile-picture-input');
+    const profilePreview = document.getElementById('profile-preview');
+    
+    profileInput.addEventListener('change', function(e) {
+        const file = e.target.files[0];
+        if (file) {
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                profilePreview.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    });
+}
+
+// Function to show data settings
+async function showDataSettings(settingsContent) {
+    const [userProfile, settings, documents] = await Promise.all([
+        dbService.getUserProfile(),
+        dbService.getSettings(),
+        dbService.getAllDocuments()
+    ]);
+    
+    settingsContent.innerHTML = `
+        <h2>Data Management</h2>
+        <div class="settings-section">
+            <p class="data-description">Manage your data and export or delete specific information from Buddy Docs.</p>
+            
+            <div class="data-options">
+                <div class="data-option">
+                    <div class="data-option-header">
+                        <div class="data-option-info">
+                            <h3>User Profile</h3>
+                            <p>Your personal information and profile picture</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-user-profile" ${Object.keys(userProfile).length > 0 ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="data-option">
+                    <div class="data-option-header">
+                        <div class="data-option-info">
+                            <h3>Settings Data</h3>
+                            <p>Your app preferences and settings</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-settings" ${Object.keys(settings).length > 0 ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+                
+                <div class="data-option">
+                    <div class="data-option-header">
+                        <div class="data-option-info">
+                            <h3>Document Data</h3>
+                            <p>All your documents and content (${documents.length} documents)</p>
+                        </div>
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="toggle-documents" ${documents.length > 0 ? 'checked' : ''}>
+                            <span class="toggle-slider"></span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="data-actions">
+                <button class="export-button" onclick="exportSelectedData()">
+                    <span class="material-symbols-rounded">download</span>
+                    Export Selected Data
+                </button>
+                <button class="delete-button" onclick="deleteSelectedData()">
+                    <span class="material-symbols-rounded">delete</span>
+                    Delete Selected Data
+                </button>
+            </div>
+        </div>
+    `;
+}
+
+// Function to save user profile
+async function saveUserProfile() {
+    const displayName = document.getElementById('display-name').value;
+    const fullName = document.getElementById('full-name').value;
+    const email = document.getElementById('email').value;
+    const profilePicture = document.getElementById('profile-preview').src;
+    
+    const userProfile = {
+        displayName,
+        fullName,
+        email,
+        profilePicture,
+        lastUpdated: new Date().toISOString()
+    };
+    
+    try {
+        await dbService.saveUserProfile(userProfile);
+        
+        // Update the header profile picture
+        const headerProfile = document.querySelector('.user-profile img');
+        if (headerProfile) {
+            headerProfile.src = profilePicture;
+        }
+        
+        showNotification('Profile saved successfully!', 'success');
+    } catch (error) {
+        showNotification('Failed to save profile', 'error');
+        console.error('Error saving profile:', error);
+    }
+}
+
+// Function to export selected data
+async function exportSelectedData() {
+    const selectedData = {};
+    
+    if (document.getElementById('toggle-user-profile').checked) {
+        selectedData.userProfile = await dbService.getUserProfile();
+    }
+    
+    if (document.getElementById('toggle-settings').checked) {
+        selectedData.settings = await dbService.getSettings();
+    }
+    
+    if (document.getElementById('toggle-documents').checked) {
+        selectedData.documents = await dbService.getAllDocuments();
+    }
+    
+    if (Object.keys(selectedData).length === 0) {
+        showNotification('Please select at least one data type to export', 'warning');
+        return;
+    }
+    
+    selectedData.exportDate = new Date().toISOString();
+    
+    const dataStr = JSON.stringify(selectedData, null, 2);
+    const dataBlob = new Blob([dataStr], { type: 'application/json' });
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `buddydocs-export-${new Date().toISOString().split('T')[0]}.json`;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+    
+    showNotification('Data exported successfully!', 'success');
+}
+
+// Function to delete selected data
+async function deleteSelectedData() {
+    const selectedTypes = [];
+    
+    if (document.getElementById('toggle-user-profile').checked) {
+        selectedTypes.push('User Profile');
+    }
+    
+    if (document.getElementById('toggle-settings').checked) {
+        selectedTypes.push('Settings Data');
+    }
+    
+    if (document.getElementById('toggle-documents').checked) {
+        selectedTypes.push('Document Data');
+    }
+    
+    if (selectedTypes.length === 0) {
+        showNotification('Please select at least one data type to delete', 'warning');
+        return;
+    }
+    
+    const confirmed = confirm(`Are you sure you want to delete the following data?\n\n${selectedTypes.join('\n')}\n\nThis action cannot be undone.`);
+    
+    if (!confirmed) return;
+    
+    try {
+        if (document.getElementById('toggle-user-profile').checked) {
+            await dbService.deleteUserProfile();
+        }
+        
+        if (document.getElementById('toggle-settings').checked) {
+            await dbService.deleteSettings();
+        }
+        
+        if (document.getElementById('toggle-documents').checked) {
+            await dbService.deleteAllDocuments();
+        }
+        
+        showNotification('Selected data deleted successfully!', 'success');
+        
+        // Refresh the data settings view
+        const settingsContent = document.querySelector('.settings-content');
+        if (settingsContent) {
+            await showDataSettings(settingsContent);
+        }
+    } catch (error) {
+        showNotification('Failed to delete data', 'error');
+        console.error('Error deleting data:', error);
+    }
+}
+
+// Function to show notifications
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.className = `notification-toast ${type}`;
+    notification.innerHTML = `
+        <span class="material-symbols-rounded">${type === 'success' ? 'check_circle' : type === 'error' ? 'error' : type === 'warning' ? 'warning' : 'info'}</span>
+        <span>${message}</span>
+    `;
+    
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.classList.add('show');
+    }, 100);
+    
+    setTimeout(() => {
+        notification.classList.remove('show');
+        setTimeout(() => {
+            if (notification.parentNode) {
+                notification.parentNode.removeChild(notification);
+            }
+        }, 300);
+    }, 3000);
+}
+
+// Function to load user profile
+async function loadUserProfile() {
+    try {
+        const userProfile = await dbService.getUserProfile();
+        if (userProfile.profilePicture) {
+            const headerProfile = document.querySelector('.user-profile img');
+            if (headerProfile) {
+                headerProfile.src = userProfile.profilePicture;
+            }
+        }
+    } catch (error) {
+        console.error('Failed to load user profile:', error);
+    }
+}
+
 // Initialize all UI components
-document.addEventListener('DOMContentLoaded', function() {
+document.addEventListener('DOMContentLoaded', async function() {
+    // Initialize IndexedDB
+    try {
+        await dbService.init();
+        console.log('IndexedDB initialized successfully');
+        
+        // Load user profile after IndexedDB is initialized
+        await loadUserProfile();
+    } catch (error) {
+        console.error('Failed to initialize IndexedDB:', error);
+    }
+    
     initRippleEffect();
     initStateAnimations();
     initNotificationInteractions();
@@ -387,5 +829,5 @@ document.addEventListener('DOMContentLoaded', function() {
     animateCardsStaggered();
     initProfilePictures();
     initMobileResponsiveness();
-    initProfileDropdown(); // Add this line to initialize the profile dropdown
+    initProfileDropdown();
 });
