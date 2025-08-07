@@ -2,17 +2,33 @@ import { getSetting, setSetting } from './idb.js';
 
 const root = document.documentElement;
 
+function updateMetaThemeColor(){
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const computed = getComputedStyle(root);
+  const bg = computed.getPropertyValue('--bg').trim() || '#000000';
+  meta.setAttribute('content', bg);
+}
+
 function applyTheme(theme) {
   let t = theme;
   if (t === 'system') {
     t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   root.setAttribute('data-theme', t);
+  updateMetaThemeColor();
 }
 
 export async function initTheme() {
   const theme = await getSetting('theme', 'light');
   applyTheme(theme);
+
+  // React to system changes when "system" is selected
+  const mql = matchMedia('(prefers-color-scheme: dark)');
+  mql.addEventListener?.('change', async () => {
+    const saved = await getSetting('theme', 'light');
+    if (saved === 'system') applyTheme('system');
+  });
 
   const themeToggle = document.getElementById('themeToggle');
   if (themeToggle) {

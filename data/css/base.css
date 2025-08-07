@@ -1,3 +1,8 @@
+:root {
+  --bd-font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', sans-serif;
+  --font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', sans-serif;
+}
+
 :root{
   --primary:#0550FF;
   --secondary:#510CF2;
@@ -19,7 +24,138 @@
   --text:#f1effa;
   --muted:#bdbad1;
   --border:#2a2735;
+  --primary:#6f86ff;
+  --secondary:#9a7dff;
+  --gray:#2a2735;
   --shadow:0 8px 28px rgba(0,0,0,0.4);
+}
+
+@media (prefers-color-scheme: dark){
+  [data-theme="system"]{
+    --bg:#0f0e13;
+    --surface:#16141c;
+    --text:#f1effa;
+    --muted:#bdbad1;
+    --border:#2a2735;
+    --primary:#6f86ff;
+    --secondary:#9a7dff;
+    --gray:#2a2735;
+    --shadow:0 8px 28px rgba(0,0,0,0.4);
+  }
+}
+
+ 
+html[data-theme="pretty-pink"]{
+  --primary:#ff74a6; 
+  --secondary:#ff9ac0; 
+  --bg:#fff6fa; 
+  --surface:#ffffff;
+  --text:#27171e;
+  --muted:#7c5e6b;
+  --border:#f3d8e5;
+  --gray:#f3d8e5;
+  --success:#9be7a0;
+  --error:#ff9aa2;
+  --shadow:0 6px 24px rgba(39,23,30,0.08);
+}
+
+ 
+html[data-theme="dark-pink"]{
+  --primary:#ff6b9a; 
+  --secondary:#ff92b6;
+  --bg:#111017; 
+  --surface:#181620; 
+  --text:#f6eaf0;
+  --muted:#c9b3be;
+  --border:#2b2733;
+  --gray:#2b2733;
+  --success:#6ed6a4;
+  --error:#ff7b8a;
+  --shadow:0 10px 32px rgba(0,0,0,0.5);
+}
+
+ 
+html[data-theme="dr-pepper"]{
+  --primary:#7a0c10; 
+  --secondary:#b21f24; 
+  --bg:#0f0a0b; 
+  --surface:#161012; 
+  --text:#f5e9ea;
+  --muted:#d2b9bc;
+  --border:#2a1a1c;
+  --gray:#2a1a1c;
+  --success:#7fcf9b;
+  --error:#e05555;
+  --shadow:0 10px 32px rgba(0,0,0,0.55);
+}
+
+ 
+html[data-theme="forest"]{
+  --primary:#22c55e; 
+  --secondary:#10b981; 
+  --bg:#0b1410; 
+  --surface:#101b16; 
+  --text:#e8f5ee;
+  --muted:#b9d4c6;
+  --border:#1c2a23;
+  --gray:#1c2a23;
+  --success:#6ee7b7;
+  --error:#f87171;
+  --shadow:0 10px 32px rgba(0,0,0,0.5);
+}
+
+ 
+html[data-theme="leaf"]{
+  --primary:#16a34a; 
+  --secondary:#2dd4bf; 
+  --bg:#f3fbf5;
+  --surface:#ffffff;
+  --text:#15201a;
+  --muted:#5f7a6b;
+  --border:#d7e7dd;
+  --gray:#d7e7dd;
+  --success:#86efac;
+  --error:#fca5a5;
+  --shadow:0 6px 24px rgba(21,32,26,0.08);
+}
+
+ 
+html[data-theme="pj"]{
+  --primary:#ff9933; 
+  --secondary:#ffb84d; 
+  --bg:#140e2a; 
+  --surface:#1a1434; 
+  --text:#f4eeff;
+  --muted:#cec6e6;
+  --border:#2a2250;
+  --gray:#2a2250;
+  --success:#86efac;
+  --error:#fca5a5;
+  --shadow:0 10px 32px rgba(0,0,0,0.55);
+}
+
+ 
+[data-theme="dark"] .doc-card .type,
+html[data-theme="forest"] .doc-card .type,
+html[data-theme="pj"] .doc-card .type,
+html[data-theme="dr-pepper"] .doc-card .type,
+html[data-theme="dark-pink"] .doc-card .type{
+  color:#ffffff;
+}
+
+ 
+.doc-card .type{
+  padding:2px 8px; border-radius:999px; background:var(--gray); font-size:12px;
+  color: color-mix(in hsl, var(--text) 92%, black 8%);
+}
+
+ 
+[data-theme="dark"],
+html[data-theme="forest"],
+html[data-theme="pj"],
+html[data-theme="dr-pepper"],
+html[data-theme="dark-pink"]{
+  --gray: color-mix(in hsl, var(--surface) 60%, white 40%);
 }
 
 *{box-sizing:border-box}
@@ -108,10 +244,10 @@ img{max-width:100%;display:block}
 .doc-card .more{position:absolute; top:8px; right:8px}
 .doc-card .menu-container{position:absolute; top:8px; right:8px}
 
-/* Dropdown overlay styles */
+ 
 .dropdown-menu{
-  position: fixed; /* overlay relative to viewport */
-  inset: auto auto auto auto; /* will be set via JS */
+  position: fixed; 
+  inset: auto auto auto auto; 
   margin: 0;
   background: color-mix(in hsl, var(--surface) 85%, white 15%);
   border: 1px solid var(--border);
@@ -119,8 +255,8 @@ img{max-width:100%;display:block}
   box-shadow: 0 12px 24px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12);
   backdrop-filter: blur(6px);
   min-width: 180px;
-  padding: 6px; /* small internal padding */
-  z-index: 1000; /* above cards */
+  padding: 6px; 
+  z-index: 1000; 
 }
 .dropdown-menu .menu-item{
   display:flex; align-items:center; gap:10px;
