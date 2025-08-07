@@ -111,7 +111,12 @@ function createDocCard(doc){
   
   // Show document preview in thumb
   const thumb = node.querySelector('.thumb');
-  if (doc.content) {
+  if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
+    // For galleries, show a random image from the gallery
+    const randomImage = doc.content[Math.floor(Math.random() * doc.content.length)];
+    thumb.innerHTML = `<img src="${randomImage}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+    thumb.style.padding = '0';
+  } else if (doc.content) {
     thumb.innerHTML = doc.content.slice(0, 200) + (doc.content.length > 200 ? '...' : '');
   }
 

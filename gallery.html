@@ -1,0 +1,375 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/editor.css" />
+  <title>Gallery • Buddy Docs</title>
+
+  <style>
+    /* Adjust meta panel position */
+    .meta-panel {
+      margin-left: 8px;
+      width: 220px;
+      flex-shrink: 0;
+    }
+
+    /* Make page section use remaining space */
+    .page {
+      flex: 1;
+      overflow: hidden;
+      margin-left: 20px;
+    }
+
+    .gallery-container {
+      padding: 32px;
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      gap: 32px;
+      height: 100%;
+      overflow-y: auto;
+      position: relative;
+    }
+    
+    .gallery-container.drag-active {
+      outline: 2px dashed var(--accent);
+      outline-offset: -10px;
+      background: var(--surface-hover);
+    }
+
+    .gallery-item {
+      background: var(--surface);
+      border-radius: 8px;
+      overflow: hidden;
+      position: relative;
+      min-height: 180px;
+      height: fit-content;
+    }
+
+    .gallery-item:not(.add-image) {
+      box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+    }
+
+    .gallery-item img {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    .gallery-item .remove-btn {
+      position: absolute;
+      top: 8px;
+      right: 8px;
+      background: var(--surface);
+      color: var(--surface-hover);
+      border: none;
+      border-radius: 50%;
+      width: 32px;
+      height: 32px;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      transition: opacity 0.2s;
+    }
+
+    .gallery-item:hover .remove-btn {
+      opacity: 1;
+    }
+
+    .add-image {
+      border: 2px dashed var(--border);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+
+    .add-image:hover {
+      border-color: var(--accent);
+      background: var(--surface-hover);
+    }
+
+    .add-image span {
+      font-size: 48px;
+      color: var(--text-secondary);
+    }
+
+    .add-image p {
+      margin: 8px 0 0;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
+      <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled</h1>
+    </div>
+    <div class="right">
+      <button id="saveBtn" class="btn primary">Save</button>
+      <button id="profileBtn" class="avatar" title="Profile">U</button>
+      <div id="profileMenu" class="menu" hidden>
+        <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+        <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+        <button class="menu-item" data-action="theme-toggle"><span class="material-symbols-outlined">dark_mode</span> Toggle Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="editor-wrap">
+    <aside class="meta-panel">
+      <label>
+        <span>Type</span>
+        <select id="docType">
+          <option value="gallery" selected>Gallery</option>
+        </select>
+      </label>
+      <label>
+        <span>Due date</span>
+        <input id="dueDate" type="date"/>
+      </label>
+      <label>
+        <span>Tags</span>
+        <input id="tags" type="text" placeholder="comma, separated"/>
+      </label>
+      <button id="deleteBtn" class="btn danger outline">Delete</button>
+    </aside>
+
+    <section class="page">
+      <div class="gallery-container" id="gallery">
+        <div class="gallery-item add-image" id="addImage">
+          <span class="material-symbols-outlined">add_photo_alternate</span>
+          <p>Add Image</p>
+        </div>
+      </div>
+      <input id="imageInput" type="file" accept="image/*" hidden />
+    </section>
+  </main>
+
+  <template id="galleryItemTemplate">
+    <div class="gallery-item">
+      <img src="" alt="">
+      <button class="remove-btn" title="Remove image">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+  </template>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script type="module">
+    import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
+    import { setSetting, getSetting } from './data/js/idb.js';
+
+    let currentDoc = { id:null, title:'Untitled', type:'gallery', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
+    
+    const titleEl = document.getElementById('docTitle');
+    const typeEl = document.getElementById('docType');
+    const dueEl = document.getElementById('dueDate');
+    const tagsEl = document.getElementById('tags');
+    const gallery = document.getElementById('gallery');
+    const addImageBtn = document.getElementById('addImage');
+    const imageInput = document.getElementById('imageInput');
+    const itemTemplate = document.getElementById('galleryItemTemplate');
+
+    function getParam(name){
+      const u = new URL(location.href);
+      return u.searchParams.get(name);
+    }
+
+    function createGalleryItem(imageData) {
+      const item = itemTemplate.content.cloneNode(true).children[0];
+      const img = item.querySelector('img');
+      img.src = imageData;
+      
+      const removeBtn = item.querySelector('.remove-btn');
+      removeBtn.addEventListener('click', () => {
+        item.remove();
+        saveNow();
+      });
+      
+      gallery.insertBefore(item, addImageBtn);
+      return item;
+    }
+
+    async function handleFiles(files) {
+      const readers = Array.from(files).map(file => {
+        return new Promise(resolve => {
+          if (!file.type.startsWith('image/')) {
+            resolve(null);
+            return;
+          }
+          const reader = new FileReader();
+          reader.onload = () => resolve(reader.result);
+          reader.onerror = () => resolve(null);
+          reader.readAsDataURL(file);
+        });
+      });
+
+      const results = await Promise.all(readers);
+      results.filter(Boolean).forEach(imageData => {
+        createGalleryItem(imageData);
+      });
+      saveNow();
+    }
+
+    function bindGallery() {
+      // Click to add
+      addImageBtn.addEventListener('click', () => imageInput.click());
+      imageInput.setAttribute('multiple', 'true'); // Enable multiple file selection
+      imageInput.addEventListener('change', e => {
+        if (e.target.files.length > 0) {
+          handleFiles(e.target.files);
+        }
+      });
+
+      // Drag and drop
+      gallery.addEventListener('dragenter', e => {
+        e.preventDefault();
+        gallery.classList.add('drag-active');
+      });
+
+      gallery.addEventListener('dragover', e => {
+        e.preventDefault();
+        gallery.classList.add('drag-active');
+      });
+
+      gallery.addEventListener('dragleave', e => {
+        e.preventDefault();
+        if (!gallery.contains(e.relatedTarget)) {
+          gallery.classList.remove('drag-active');
+        }
+      });
+
+      gallery.addEventListener('drop', e => {
+        e.preventDefault();
+        gallery.classList.remove('drag-active');
+        const files = e.dataTransfer.files;
+        if (files.length > 0) {
+          handleFiles(files);
+        }
+      });
+    }
+
+    function bindMeta(){
+      titleEl.addEventListener('input', () => {
+        currentDoc.title = titleEl.textContent.trim() || 'Untitled';
+        saveNow();
+      });
+      typeEl.addEventListener('change', () => {
+        currentDoc.type = typeEl.value;
+        saveNow();
+      });
+      dueEl.addEventListener('change', () => {
+        currentDoc.dueDate = dueEl.value || null;
+        saveNow();
+      });
+      tagsEl.addEventListener('change', () => {
+        currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean);
+        saveNow();
+      });
+    }
+
+    async function loadOrCreate(){
+      const id = getParam('id');
+      if (id){
+        const d = await getDocument(id);
+        if (d){
+          currentDoc = d;
+          if (!Array.isArray(currentDoc.content)) {
+            currentDoc.content = [];
+          }
+        }
+      }
+      
+      titleEl.textContent = currentDoc.title || 'Untitled';
+      if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
+      if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
+      
+      // Load images
+      currentDoc.content.forEach(imageData => {
+        createGalleryItem(imageData);
+      });
+    }
+
+    async function saveNow(){
+      const images = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image) img'));
+      currentDoc.content = images.map(img => img.src);
+      const saved = await saveDocument(currentDoc);
+      if (!getParam('id')){
+        history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);
+      }
+    }
+
+    async function deleteNow(){
+      if (!currentDoc.id) return;
+      const ok = confirm('Delete this gallery?');
+      if (!ok) return;
+      await deleteDocument(currentDoc.id);
+      location.href = './';
+    }
+
+    // Setup profile menu
+    (async () => {
+      const initials = await getSetting('initials', 'U');
+      const btn = document.getElementById('profileBtn');
+      if (btn) btn.textContent = initials.slice(0,2).toUpperCase();
+    })();
+
+    const btn = document.getElementById('profileBtn');
+    const menu = document.getElementById('profileMenu');
+    function closeMenu(){
+      if (menu?.classList.contains('open')){
+        menu.classList.remove('open');
+        document.removeEventListener('click', onDocClick);
+        window.removeEventListener('resize', closeMenu);
+        window.removeEventListener('scroll', closeMenu, true);
+      }
+    }
+    function onDocClick(e){ if (!menu.contains(e.target) && e.target !== btn) closeMenu(); }
+    btn?.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('open');
+      if (isOpen){
+        document.addEventListener('click', onDocClick);
+        window.addEventListener('resize', closeMenu);
+        window.addEventListener('scroll', closeMenu, true);
+      } else closeMenu();
+    });
+    menu?.addEventListener('click', async (e)=>{
+      const target = e.target.closest('.menu-item');
+      if (!target) return;
+      if (target.dataset.action === 'theme-toggle'){
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        await setSetting('theme', next);
+        closeMenu();
+      }
+    });
+
+    bindGallery();
+    bindMeta();
+    loadOrCreate();
+
+    // Save/Del buttons
+    document.getElementById('saveBtn').addEventListener('click', saveNow);
+    document.getElementById('deleteBtn').addEventListener('click', deleteNow);
+  </script>
+</body>
+</html>

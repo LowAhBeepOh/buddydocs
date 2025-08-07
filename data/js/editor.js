@@ -21,6 +21,46 @@ function applyBlock(tag){
   else document.execCommand('formatBlock', false, tag);
 }
 
+function updateToolbarForType(type) {
+  // Get all toolbar items that should be hidden for certain types
+  const imageBtn = document.getElementById('insertImage');
+  const linkBtn = document.getElementById('insertLink');
+  const blockFormatSelect = document.getElementById('blockFormat');
+  const imageInput = document.getElementById('imageInput');
+  
+  if (type === 'list') {
+    // For list type, hide everything except basic formatting and list buttons
+    imageBtn.style.display = 'none';
+    linkBtn.style.display = 'none';
+    imageInput.style.display = 'none';
+    
+    // Show only paragraph and list options in block format
+    Array.from(blockFormatSelect.options).forEach(option => {
+      const value = option.value;
+      if (!['p', 'h2', 'h3'].includes(value)) {
+        option.style.display = 'none';
+      }
+    });
+
+  } else if (type === 'document') {
+    // For document type, show everything
+    imageBtn.style.display = '';
+    linkBtn.style.display = '';
+    imageInput.style.display = '';
+    
+    Array.from(blockFormatSelect.options).forEach(option => {
+      option.style.display = '';
+    });
+  }
+
+  // If it's gallery type, redirect to gallery.html
+  if (type === 'gallery') {
+    const id = getParam('id');
+    location.href = `gallery.html${id ? '?id=' + id : ''}`;
+    return;
+  }
+}
+
 function bindToolbar(){
   document.querySelectorAll('.toolbar [data-cmd]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -68,7 +108,17 @@ function bindToolbar(){
 
 function bindMeta(){
   titleEl.addEventListener('input', () => currentDoc.title = titleEl.textContent.trim() || 'Untitled');
-  typeEl.addEventListener('change', () => currentDoc.type = typeEl.value);
+  typeEl.addEventListener('change', (e) => {
+    // Prevent changing to gallery type if document already exists
+    if (e.target.value === 'gallery' && currentDoc.id) {
+      e.preventDefault();
+      typeEl.value = currentDoc.type; // Revert selection
+      alert('Cannot convert existing documents to galleries. Please create a new gallery instead.');
+      return;
+    }
+    currentDoc.type = typeEl.value;
+    updateToolbarForType(typeEl.value);
+  });
   dueEl.addEventListener('change', () => currentDoc.dueDate = dueEl.value || null);
   tagsEl.addEventListener('change', () => currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean));
 }
@@ -105,6 +155,9 @@ async function loadOrCreate(){
   if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
   if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
   editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
+  
+  // Update toolbar for current document type
+  updateToolbarForType(currentDoc.type);
 }
 
 function placeholderForType(type){
