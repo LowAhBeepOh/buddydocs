@@ -1,0 +1,12 @@
+{
+  "name": "Buddy Docs",
+  "short_name": "BuddyDocs",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#F6F5FF",
+  "theme_color": "#0550FF",
+  "description": "Minimal, modern document editor for notes, essays, lists and galleries.",
+  "icons": [
+    { "src": "data/assets/docslogo.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }
+  ]
+}

@@ -1,0 +1,9 @@
+.editor-wrap{display:grid; grid-template-columns:280px 1fr; gap:16px; max-width:1200px; margin:0 auto; padding:16px}
+.meta-panel{background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; height:calc(100dvh - 90px); position:sticky; top:70px; display:grid; gap:10px; align-content:start}
+.meta-panel label{display:grid; gap:6px}
+.page{display:flex; justify-content:center}
+.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6}
+#docTitle{min-width:200px; border:1px dashed transparent; padding:4px 8px; border-radius:8px}
+#docTitle:focus{outline:none; border-color:var(--primary); background:color-mix(in hsl, var(--primary) 8%, var(--surface))}
+.toolbar{display:flex; align-items:center; gap:4px; background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:6px}
+@media (max-width:1000px){.editor-wrap{grid-template-columns:1fr}}

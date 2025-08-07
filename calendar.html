@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/calendar.css" />
+  <title>Calendar • Buddy Docs</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
+      <h1>Calendar</h1>
+    </div>
+  </header>
+
+  <main class="calendar container">
+   
+    <div class="calendar-grid" id="calendarGrid"></div>
+    <aside class="calendar-side">
+      <h3>Deadlines</h3>
+      <ul id="calendarDeadlines" class="deadline-list"></ul>
+    </aside>
+    <div class="calendar-head">
+      <button id="prevMonth" class="icon-btn"><span class="material-symbols-outlined">chevron_left</span></button>
+      <h2 id="monthLabel">Month YYYY</h2>
+      <button id="nextMonth" class="icon-btn"><span class="material-symbols-outlined">chevron_right</span></button>
+    </div>
+  </main>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/calendar.js" type="module"></script>
+</body>
+</html>

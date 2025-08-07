@@ -1,0 +1,150 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/home.css" />
+  <title>Archive - Buddy Docs</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="index.html" title="Home"><img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" /></a>
+    </div>
+    <div class="right">
+      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="documents">
+      <div class="section-head">
+        <h3>Archived Documents</h3>
+        <div class="filters">
+          <input id="search" class="input" type="search" placeholder="Search archived documents" />
+        </div>
+      </div>
+      <div id="docGrid" class="doc-grid"></div>
+    </section>
+  </main>
+
+  <template id="docCardTmpl">
+    <div class="doc-card">
+      <a class="doc-link" href="#">
+        <div class="thumb"><span class="material-symbols-outlined">description</span></div>
+        <div class="meta">
+          <strong class="title">Untitled</strong>
+          <span class="type">Document</span>
+          <span class="due"></span>
+        </div>
+      </a>
+      <div class="menu-container">
+        <button class="more icon-btn" title="More"><span class="material-symbols-outlined">more_horiz</span></button>
+        <div class="dropdown-menu" hidden>
+          <button class="menu-item" data-action="unarchive">
+            <span class="material-symbols-outlined">unarchive</span>
+            Unarchive
+          </button>
+          <button class="menu-item delete" data-action="delete">
+            <span class="material-symbols-outlined">delete</span>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script type="module">
+    import { listDocuments, saveDocument, deleteDocument } from './data/js/idb.js';
+
+    function dueBadge(d){
+      if (!d.dueDate) return '';
+      const today = new Date(); today.setHours(0,0,0,0);
+      const dd = new Date(d.dueDate); dd.setHours(0,0,0,0);
+      const diffDays = Math.round((dd - today) / (1000*60*60*24));
+      let cls = 'blue', label = '';
+      if (diffDays < 0){ cls = 'gray'; label = `${Math.abs(diffDays)}d ago`; }
+      else if (diffDays === 0){ cls = 'red'; label = 'Today'; }
+      else if (diffDays === 1){ cls = 'orange'; label = 'Tomorrow'; }
+      else if (diffDays <= 3){ cls = 'yellow'; label = `${diffDays}d`; }
+      else if (diffDays <= 7){ cls = 'green'; label = `${diffDays}d`; }
+      else { cls = 'blue'; label = `${diffDays}d`; }
+      return `<span class="badge ${cls}">Due ${label}</span>`;
+    }
+
+    function positionMenuNearButton(menuEl, buttonEl){
+      const r = buttonEl.getBoundingClientRect();
+      const margin = 8;
+      let top = r.bottom + margin;
+      let left = r.right - (menuEl.offsetWidth || 180);
+      const vw = window.innerWidth; const vh = window.innerHeight;
+      const w = menuEl.offsetWidth || 180; const h = menuEl.offsetHeight || 120;
+      if (left + w > vw - margin) left = vw - margin - w;
+      if (left < margin) left = margin;
+      if (top + h > vh - margin) top = r.top - margin - h;
+      if (top < margin) top = margin;
+      menuEl.style.left = `${left}px`; menuEl.style.top = `${top}px`;
+    }
+
+    function closeAllMenus(except) {
+      document.querySelectorAll('.dropdown-menu').forEach(menu => {
+        if (menu !== except) menu.hidden = true;
+      });
+    }
+
+    function createDocCard(doc){
+      const tmpl = document.getElementById('docCardTmpl');
+      const node = tmpl.content.firstElementChild.cloneNode(true);
+      const link = node.querySelector('.doc-link');
+      link.href = `editor.html?id=${encodeURIComponent(doc.id)}`;
+      node.querySelector('.title').textContent = doc.title || 'Untitled';
+      node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
+      node.querySelector('.due').innerHTML = dueBadge(doc);
+      const thumb = node.querySelector('.thumb');
+      if (doc.content) thumb.innerHTML = doc.content.slice(0, 200) + (doc.content.length > 200 ? '...' : '');
+
+      const moreBtn = node.querySelector('.more');
+      const menu = node.querySelector('.dropdown-menu');
+      function open(){ closeAllMenus(menu); menu.hidden = false; positionMenuNearButton(menu, moreBtn); }
+      function close(){ menu.hidden = true; }
+      function onWindowChange(){ if (!menu.hidden) positionMenuNearButton(menu, moreBtn); }
+      moreBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.hidden?open():close(); });
+      menu.addEventListener('click', async (e)=>{
+        e.stopPropagation();
+        const item = e.target.closest('.menu-item'); if (!item) return;
+        const a = item.dataset.action;
+        if (a === 'unarchive'){ doc.archived = false; await saveDocument(doc); }
+        if (a === 'delete'){ if (confirm('Delete this document?')) await deleteDocument(doc.id); }
+        await render();
+        close();
+      });
+      document.addEventListener('click', ()=> close());
+      window.addEventListener('resize', onWindowChange);
+      window.addEventListener('scroll', onWindowChange, true);
+      return node;
+    }
+
+    async function render(){
+      const grid = document.getElementById('docGrid');
+      const term = document.getElementById('search').value.trim().toLowerCase();
+      const items = await listDocuments({ search: term, onlyArchived: true });
+      grid.innerHTML = '';
+      for (const d of items){
+        grid.appendChild(createDocCard(d));
+      }
+    }
+
+    document.getElementById('search').addEventListener('input', ()=>render());
+    render();
+  </script>
+</body>
+</html>

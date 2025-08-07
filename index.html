@@ -1,49 +1,189 @@
-<!DOCTYPE html>
-<html lang="en">
+<!doctype html>
+<html lang="en" data-theme="light">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Buddy Docs</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&family=Roboto:wght@400;500&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Material+Symbols+Rounded:opsz,wght,FILL,GRAD@20..48,100..700,0..1,0..200" />
-    <link rel="stylesheet" href="styles.css">
-    <link rel="stylesheet" href="styles/document.css">
-    <link rel="stylesheet" href="styles/pin-styles.css">
-    <link rel="icon" href="data/assets/buddydocs.svg" type="image/svg+xml">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <!-- Google Fonts & Material Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/home.css" />
+  <title>Buddy Docs</title>
 </head>
 <body>
-    <div class="app-container">
-        <header class="app-header">
-            <div class="logo">Buddy Docs</div>
-            <div class="header-actions">
-                <button class="new-button">
-                    <span>New</span>
-                </button>
-                <div class="search-button">
-                    <span class="material-symbols-rounded">search</span>
-                </div>
-                <!-- New search input added here -->
-                <input class="search-input" type="text" placeholder="Search documents..." style="display:none;">
-                <div class="user-profile" data-initial="U">
-                    <img src="https://placehold.co/48x48/FF4D00/FFFFFF" alt="User profile">
-                </div>
-            </div>
-        </header>
-
-        <div class="filter-section">
-            <div class="filter-dropdown">
-                <span>All</span>
-                <span class="material-symbols-rounded">expand_more</span>
-            </div>
-        </div>
-
-        <div class="documents-grid">
-            <!-- Documents will be dynamically populated here -->
-        </div>
+  <header class="topbar">
+    <div class="left">
+      <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" />
     </div>
-    <script src="script.js"></script>
-    <script src="document.js"></script>
+    <div class="right">
+      <button id="profileBtn" class="avatar" title="Profile"></button>
+      <div id="profileMenu" class="menu" hidden>
+        <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+        <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+        <a href="archive.html" class="menu-item"><span class="material-symbols-outlined">inventory_2</span> Archive</a>
+        <button class="menu-item" data-action="theme-toggle"><span class="material-symbols-outlined">dark_mode</span> Toggle Theme</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container">
+    <section class="greeting">
+      <h2 id="greetingText">Good Afternoon, Buddy</h2>
+      <p class="sub">Keep your docs organized and on track.</p>
+    </section>
+
+    <section class="quick-actions">
+      <h3>New</h3>
+      <div class="card-row">
+        <a class="card new" href="editor.html?type=document">
+          <span class="material-symbols-outlined">description</span>
+          <div>
+            <strong>Blank Document</strong>
+            <p>Start writing</p>
+          </div>
+        </a>
+        <a class="card new" href="editor.html?type=essay">
+          <span class="material-symbols-outlined">ink_pen</span>
+          <div>
+            <strong>Essay</strong>
+            <p>Structure your thoughts</p>
+          </div>
+        </a>
+        <a class="card new" href="editor.html?type=list">
+          <span class="material-symbols-outlined">checklist</span>
+          <div>
+            <strong>List</strong>
+            <p>To-dos and bullets</p>
+          </div>
+        </a>
+        <a class="card new" href="editor.html?type=gallery">
+          <span class="material-symbols-outlined">photo_library</span>
+          <div>
+            <strong>Gallery</strong>
+            <p>Collect images</p>
+          </div>
+        </a>
+      </div>
+    </section>
+
+    <section class="deadlines">
+      <div class="section-head">
+        <h3>Upcoming Deadlines</h3>
+        <a href="calendar.html" class="link">Open calendar</a>
+      </div>
+      <ul id="deadlineList" class="deadline-list"></ul>
+    </section>
+
+    <section class="documents">
+      <div class="section-head">
+        <h3>Your Documents</h3>
+        <div class="filters">
+          <input id="search" class="input" type="search" placeholder="Search documents" />
+        </div>
+      </div>
+      <div id="docGrid" class="doc-grid"></div>
+    </section>
+  </main>
+
+  <template id="docCardTmpl">
+    <div class="doc-card">
+      <a class="doc-link" href="#">
+        <div class="thumb"><span class="material-symbols-outlined">description</span></div>
+        <div class="meta">
+          <strong class="title">Untitled</strong>
+          <span class="type">Document</span>
+          <span class="due"></span>
+        </div>
+      </a>
+      <div class="menu-container">
+        <button class="more icon-btn" title="More"><span class="material-symbols-outlined">more_horiz</span></button>
+        <div class="dropdown-menu" hidden>
+          <button class="menu-item" data-action="archive">
+            <span class="material-symbols-outlined">archive</span>
+            Archive
+          </button>
+          <button class="menu-item" data-action="complete">
+            <span class="material-symbols-outlined">task_alt</span>
+            Complete
+          </button>
+          <button class="menu-item delete" data-action="delete">
+            <span class="material-symbols-outlined">delete</span>
+            Delete
+          </button>
+        </div>
+      </div>
+    </div>
+  </template>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/home.js" type="module"></script>
+  <script type="module">
+    import { setSetting, getSetting } from './data/js/idb.js';
+
+    const btn = document.getElementById('profileBtn');
+    const menu = document.getElementById('profileMenu');
+
+    // Load profile picture
+    async function loadProfilePicture() {
+      const profilePicture = await getSetting('profilePicture', null);
+      const initials = await getSetting('initials', 'BD');
+      
+      if (profilePicture) {
+        btn.style.backgroundImage = `url(${profilePicture})`;
+        btn.textContent = '';
+      } else {
+        btn.style.backgroundImage = '';
+        btn.textContent = initials;
+      }
+    }
+    loadProfilePicture();
+
+    function closeMenu(){
+      if (menu?.classList.contains('open')){
+        menu.classList.remove('open');
+        document.removeEventListener('click', onDocClick);
+        window.removeEventListener('resize', closeMenu);
+        window.removeEventListener('scroll', closeMenu, true);
+      }
+    }
+    function onDocClick(e){
+      if (!menu.contains(e.target) && e.target !== btn){
+        closeMenu();
+      }
+    }
+
+    btn?.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('open');
+      if (isOpen){
+        document.addEventListener('click', onDocClick);
+        window.addEventListener('resize', closeMenu);
+        window.addEventListener('scroll', closeMenu, true);
+      } else {
+        closeMenu();
+      }
+    });
+
+    menu?.addEventListener('click', async (e) => {
+      const target = e.target.closest('.menu-item');
+      if (!target) return;
+      const action = target.dataset.action;
+      if (action === 'theme-toggle'){
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        await setSetting('theme', next);
+        closeMenu();
+      }
+    });
+  </script>
 </body>
 </html>

@@ -1,0 +1,25 @@
+.settings section{margin:24px 0}
+.settings .row{display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px}
+.tile{background:var(--surface); border:1px solid var(--border); padding:12px; border-radius:12px; display:grid; gap:8px}
+@media (max-width:700px){.settings .row{grid-template-columns:1fr}}
+
+.profile-picture-tile {
+  grid-column: 1 / -1;
+}
+
+.profile-upload {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+#profilePreview {
+  width: 64px;
+  height: 64px;
+  background-size: cover;
+  background-position: center;
+}
+
+#profilePicture {
+  flex: 1;
+}

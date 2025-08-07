@@ -1,0 +1,90 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/settings.css" />
+  <title>Settings • Buddy Docs</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
+      <h1>Settings</h1>
+    </div>
+  </header>
+
+  <main class="settings container">
+    <section>
+      <h2>Appearance</h2>
+      <div class="row">
+        <label class="tile">
+          <span>Theme</span>
+          <select id="themeSelect">
+            <option value="light">Light</option>
+            <option value="dark">Dark</option>
+            <option value="system">System</option>
+          </select>
+        </label>
+        <label class="tile">
+          <span>Font size</span>
+          <input id="fontSize" type="range" min="14" max="22" step="1" />
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Accessibility</h2>
+      <div class="row">
+        <label class="tile">
+          <span>High contrast</span>
+          <input id="highContrast" type="checkbox" />
+        </label>
+        <label class="tile">
+          <span>Reduce motion</span>
+          <input id="reduceMotion" type="checkbox" />
+        </label>
+      </div>
+    </section>
+
+    <section>
+      <h2>Profile</h2>
+      <div class="row">
+        <label class="tile profile-picture-tile">
+          <span>Profile Picture</span>
+          <div class="profile-upload">
+            <div id="profilePreview" class="avatar"></div>
+            <input type="file" id="profilePicture" accept="image/*" />
+            <button id="removeProfilePic" class="btn secondary" type="button">Remove</button>
+          </div>
+        </label>
+      </div>
+      <div class="row">
+        <label class="tile">
+          <span>Display name</span>
+          <input id="displayName" type="text" placeholder="Your name" />
+        </label>
+        <label class="tile">
+          <span>Initials</span>
+          <input id="initials" type="text" placeholder="AB" maxlength="3" />
+        </label>
+      </div>
+      <button id="saveSettings" class="btn primary">Save Settings</button>
+    </section>
+  </main>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/settings.js" type="module"></script>
+</body>
+</html>
