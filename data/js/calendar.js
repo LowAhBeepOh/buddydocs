@@ -36,6 +36,14 @@ function buildGrid(){
     el.className = 'day';
     el.innerHTML = `<div class=\"date\">${d}</div><div class=\"items\"></div>`;
     el.dataset.date = new Date(year, month, d).toISOString().slice(0,10);
+    
+    // Check if this is today's date
+    const today = new Date();
+    const isToday = today.getFullYear() === year && today.getMonth() === month && today.getDate() === d;
+    if (isToday) {
+      el.classList.add('today');
+    }
+    
     grid.appendChild(el);
   }
 }
@@ -64,6 +72,13 @@ async function renderDeadlines(){
     const diff = Math.round((startOfDay(new Date(it.dueDate)) - today)/(1000*60*60*24));
     const li = document.createElement('li');
     li.innerHTML = `<div><strong>${it.title||'Untitled'}</strong><div class=\"muted\">${new Date(it.dueDate).toDateString()}</div></div><span class=\"badge ${badgeClass(diff)}\">${diff<0? `${Math.abs(diff)}d ago`: diff===0? 'Today': diff===1? 'Tomorrow': `${diff}d`}</span>`;
+    
+    // Make the deadline item clickable
+    li.style.cursor = 'pointer';
+    li.addEventListener('click', () => {
+      window.open(`editor.html?id=${encodeURIComponent(it.id)}`, '_blank');
+    });
+    
     list.appendChild(li);
   }
 
@@ -79,14 +94,23 @@ async function renderDeadlines(){
         const diff = Math.round((startOfDay(new Date(doc.dueDate)) - today)/(1000*60*60*24));
         const row = document.createElement('div');
         row.className = 'item';
+        row.style.cursor = 'pointer';
+        
         const dot = document.createElement('span');
         dot.className = 'dot';
         const colors = { gray:'#c9c7d7', red:'#F48585', orange:'#FFA559', yellow:'#FFE36E', green:'#85F485', blue:'#8FB6FF' };
         dot.style.background = colors[badgeClass(diff)];
         row.appendChild(dot);
+        
         const title = document.createElement('span');
         title.textContent = doc.title || 'Untitled';
         row.appendChild(title);
+        
+        // Make the calendar item clickable
+        row.addEventListener('click', () => {
+          window.open(`editor.html?id=${encodeURIComponent(doc.id)}`, '_blank');
+        });
+        
         itemsWrap.appendChild(row);
       }
     }

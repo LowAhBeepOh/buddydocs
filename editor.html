@@ -147,11 +147,21 @@
   <script src="data/js/editor.js" type="module"></script>
   <script type="module">
     import { setSetting, getSetting } from './data/js/idb.js';
-    // avatar initials
+    // avatar handling
     (async () => {
-      const initials = await getSetting('initials', 'U');
+      const profilePicture = await getSetting('profilePicture', null);
+      const initials = await getSetting('initials', 'BD');
       const btn = document.getElementById('profileBtn');
-      if (btn) btn.textContent = initials.slice(0,2).toUpperCase();
+      
+      if (btn) {
+        if (profilePicture) {
+          btn.style.backgroundImage = `url(${profilePicture})`;
+          btn.textContent = '';
+        } else {
+          btn.style.backgroundImage = '';
+          btn.textContent = (initials || 'BD').slice(0,2).toUpperCase();
+        }
+      }
     })();
 
     const btn = document.getElementById('profileBtn');

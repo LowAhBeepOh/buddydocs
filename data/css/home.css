@@ -1,6 +1,37 @@
 .quick-actions h3,.documents h3,.deadlines h3{margin:16px 0}
 .filters{display:flex; gap:8px}
 
+/* Section title with toggle button */
+.section-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.icon-btn {
+  background: none;
+  border: none;
+  padding: 4px;
+  border-radius: 4px;
+  cursor: pointer;
+  color: var(--text-secondary);
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.icon-btn:hover {
+  color: var(--text-primary);
+  background-color: var(--surface-hover);
+}
+
+/* Collapsed deadlines */
+.deadlines.collapsed .deadline-list {
+  display: none;
+}
+
+.deadlines.collapsed .section-head .icon-btn .material-symbols-outlined {
+  transform: rotate(180deg);
+}
+
 /* Drop zone for .bdox imports */
 .drop-zone{
   position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);

@@ -95,8 +95,8 @@ function bindToolbar(){
           document.getElementById('blockFormat')?.focus();
           break;
         case 'tools':
-          // placeholder tool: word count
-          alert(`Word count: ${editor.innerText.trim().split(/\s+/).filter(Boolean).length}`);
+          // Show keyboard shortcuts help
+          showKeyboardShortcutsHelp();
           break;
         case 'help':
           alert('Buddy Docs — Editor Help coming soon.');
@@ -455,7 +455,235 @@ function keyboardShortcuts(){
       e.preventDefault();
       document.getElementById('blockFormat').focus();
     }
+    // Word count popup (Ctrl+Shift+C)
+    if (e.ctrlKey && e.shiftKey && e.key.toLowerCase() === 'c'){
+      e.preventDefault();
+      showWordCountPopup();
+    }
+    // Bold (Ctrl+B)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'b'){
+      e.preventDefault();
+      document.execCommand('bold', false);
+    }
+    // Italic (Ctrl+I)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'i'){
+      e.preventDefault();
+      document.execCommand('italic', false);
+    }
+    // Underline (Ctrl+U)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'u'){
+      e.preventDefault();
+      document.execCommand('underline', false);
+    }
+    // Select All (Ctrl+A)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'a'){
+      e.preventDefault();
+      document.execCommand('selectAll', false);
+    }
+    // Undo (Ctrl+Z)
+    if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'z' && !e.shiftKey){
+      e.preventDefault();
+      document.execCommand('undo', false);
+    }
+    // Redo (Ctrl+Y or Ctrl+Shift+Z)
+    if ((e.ctrlKey || e.metaKey) && (e.key.toLowerCase() === 'y' || (e.key.toLowerCase() === 'z' && e.shiftKey))){
+      e.preventDefault();
+      document.execCommand('redo', false);
+    }
   });
+}
+
+// Word count popup functionality
+function showWordCountPopup() {
+  const content = editor.innerText || '';
+  const words = content.trim().split(/\s+/).filter(Boolean).length;
+  const characters = content.length;
+  const charactersNoSpaces = content.replace(/\s/g, '').length;
+  const pages = Math.ceil(characters / 1800); // Rough estimate: ~1800 characters per page
+  
+  // Remove existing popup if any
+  const existingPopup = document.getElementById('wordCountPopup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+  
+  // Create popup
+  const popup = document.createElement('div');
+  popup.id = 'wordCountPopup';
+  popup.className = 'word-count-popup';
+  popup.innerHTML = `
+    <div class="word-count-header">
+      <span class="material-symbols-outlined">analytics</span>
+      <span>Document Statistics</span>
+      <button class="close-btn" onclick="this.parentElement.parentElement.remove()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="word-count-content">
+      <div class="stat-item">
+        <span class="stat-label">Words</span>
+        <span class="stat-value">${words.toLocaleString()}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Characters</span>
+        <span class="stat-value">${characters.toLocaleString()}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Characters (no spaces)</span>
+        <span class="stat-value">${charactersNoSpaces.toLocaleString()}</span>
+      </div>
+      <div class="stat-item">
+        <span class="stat-label">Pages (estimated)</span>
+        <span class="stat-value">${pages}</span>
+      </div>
+    </div>
+  `;
+  
+  // Position popup near the editor
+  document.body.appendChild(popup);
+  
+  // Position the popup in the center of the viewport
+  const rect = popup.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  popup.style.left = `${(viewportWidth - rect.width) / 2}px`;
+  popup.style.top = `${(viewportHeight - rect.height) / 2}px`;
+  
+  // Auto-close after 5 seconds
+  setTimeout(() => {
+    if (popup.parentElement) {
+      popup.remove();
+    }
+  }, 5000);
+  
+  // Close on escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      popup.remove();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+  
+  // Close on click outside
+  const handleClickOutside = (e) => {
+    if (!popup.contains(e.target)) {
+      popup.remove();
+      document.removeEventListener('click', handleClickOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handleClickOutside), 100);
+}
+
+// Keyboard shortcuts help popup
+function showKeyboardShortcutsHelp() {
+  // Remove existing popup if any
+  const existingPopup = document.getElementById('shortcutsHelpPopup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+  
+  // Create popup
+  const popup = document.createElement('div');
+  popup.id = 'shortcutsHelpPopup';
+  popup.className = 'shortcuts-help-popup';
+  popup.innerHTML = `
+    <div class="shortcuts-help-header">
+      <span class="material-symbols-outlined">keyboard</span>
+      <span>Keyboard Shortcuts</span>
+      <button class="close-btn" onclick="this.parentElement.parentElement.remove()">
+        <span class="material-symbols-outlined">close</span>
+      </button>
+    </div>
+    <div class="shortcuts-help-content">
+      <div class="shortcut-group">
+        <h4>Document</h4>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+S</span>
+          <span class="shortcut-desc">Save document</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+Shift+C</span>
+          <span class="shortcut-desc">Word count & statistics</span>
+        </div>
+      </div>
+      <div class="shortcut-group">
+        <h4>Editing</h4>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+Z</span>
+          <span class="shortcut-desc">Undo</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+Y</span>
+          <span class="shortcut-desc">Redo</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+A</span>
+          <span class="shortcut-desc">Select all</span>
+        </div>
+      </div>
+      <div class="shortcut-group">
+        <h4>Formatting</h4>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+B</span>
+          <span class="shortcut-desc">Bold</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+I</span>
+          <span class="shortcut-desc">Italic</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+U</span>
+          <span class="shortcut-desc">Underline</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+K</span>
+          <span class="shortcut-desc">Insert link</span>
+        </div>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Ctrl+/</span>
+          <span class="shortcut-desc">Block format</span>
+        </div>
+      </div>
+      <div class="shortcut-group">
+        <h4>Navigation</h4>
+        <div class="shortcut-item">
+          <span class="shortcut-key">Alt+F</span>
+          <span class="shortcut-desc">File menu</span>
+        </div>
+      </div>
+    </div>
+  `;
+  
+  // Position popup
+  document.body.appendChild(popup);
+  
+  // Position the popup in the center of the viewport
+  const rect = popup.getBoundingClientRect();
+  const viewportWidth = window.innerWidth;
+  const viewportHeight = window.innerHeight;
+  
+  popup.style.left = `${(viewportWidth - rect.width) / 2}px`;
+  popup.style.top = `${(viewportHeight - rect.height) / 2}px`;
+  
+  // Close on escape key
+  const handleEscape = (e) => {
+    if (e.key === 'Escape') {
+      popup.remove();
+      document.removeEventListener('keydown', handleEscape);
+    }
+  };
+  document.addEventListener('keydown', handleEscape);
+  
+  // Close on click outside
+  const handleClickOutside = (e) => {
+    if (!popup.contains(e.target)) {
+      popup.remove();
+      document.removeEventListener('click', handleClickOutside);
+    }
+  };
+  setTimeout(() => document.addEventListener('click', handleClickOutside), 100);
 }
 
 bindToolbar();

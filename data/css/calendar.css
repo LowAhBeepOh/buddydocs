@@ -2,9 +2,14 @@
 .calendar-head{display:flex; align-items:center; justify-content:center; gap:8px; margin:12px 0}
 .calendar-grid{display:grid; grid-template-columns:repeat(7, 1fr); gap:8px; max-width:980px; margin:0 auto}
 .calendar-grid .day{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:10px; min-height:120px; display:grid; gap:8px; align-content:start}
+.calendar-grid .day.today{background:var(--primary); color:white; border-color:var(--primary)}
+.calendar-grid .day.today .date{color:white}
 .calendar-grid .day .date{font-weight:700}
 .calendar-grid .items{display:grid; gap:6px}
-.calendar-grid .item{display:flex; align-items:center; gap:6px; font-size:12px}
+.calendar-grid .item{display:flex; align-items:center; gap:6px; font-size:12px; transition:background-color 0.2s ease}
+.calendar-grid .item:hover{background:color-mix(in hsl, var(--primary) 10%, var(--surface)); border-radius:6px; padding:2px 4px; margin:-2px -4px}
 .calendar-grid .item .dot{width:8px; height:8px; border-radius:50%}
 .calendar-side{background:var(--surface); border:1px solid var(--border); border-radius:12px; padding:12px; height:fit-content; position:sticky; top:84px}
+.calendar-side .deadline-list li{transition:background-color 0.2s ease}
+.calendar-side .deadline-list li:hover{background:color-mix(in hsl, var(--primary) 10%, var(--surface))}
 @media (max-width:1100px){.calendar{grid-template-columns:1fr}}
