@@ -135,11 +135,41 @@ html[data-theme="pj"]{
 }
 
  
+html[data-theme="baby-blue"]{
+  --primary:#0066cc; 
+  --secondary:#40e0d0; 
+  --bg:#f0f8ff; 
+  --surface:#ffffff; 
+  --text:#1a1a2e;
+  --muted:#5a6b7a;
+  --border:#b8d4e3;
+  --gray:#b8d4e3;
+  --success:#7fdbda;
+  --error:#ff6b6b;
+  --shadow:0 6px 24px rgba(26,26,46,0.08);
+}
+
+html[data-theme="blueberries"]{
+  --primary:#4da6ff; 
+  --secondary:#66e6d6; 
+  --bg:#0a1a2e; 
+  --surface:#102a3f; 
+  --text:#e6f3ff;
+  --muted:#a8c2d1;
+  --border:#1e3a4f;
+  --gray:#1e3a4f;
+  --success:#5dd5d4;
+  --error:#ff8a8a;
+  --shadow:0 10px 32px rgba(0,0,0,0.5);
+}
+
+ 
 [data-theme="dark"] .doc-card .type,
 html[data-theme="forest"] .doc-card .type,
 html[data-theme="pj"] .doc-card .type,
 html[data-theme="dr-pepper"] .doc-card .type,
-html[data-theme="dark-pink"] .doc-card .type{
+html[data-theme="dark-pink"] .doc-card .type,
+html[data-theme="blueberries"] .doc-card .type{
   color:#ffffff;
 }
 
@@ -154,7 +184,8 @@ html[data-theme="dark-pink"] .doc-card .type{
 html[data-theme="forest"],
 html[data-theme="pj"],
 html[data-theme="dr-pepper"],
-html[data-theme="dark-pink"]{
+html[data-theme="dark-pink"],
+html[data-theme="blueberries"]{
   --gray: color-mix(in hsl, var(--surface) 60%, white 40%);
 }
 
