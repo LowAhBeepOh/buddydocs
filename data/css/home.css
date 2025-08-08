@@ -1,2 +1,15 @@
 .quick-actions h3,.documents h3,.deadlines h3{margin:16px 0}
 .filters{display:flex; gap:8px}
+
+/* Drop zone for .bdox imports */
+.drop-zone{
+  position:fixed; top:50%; left:50%; transform:translate(-50%, -50%);
+  z-index:1000; width:300px; height:200px;
+  background:rgba(0,0,0,0.9); backdrop-filter:blur(8px);
+  display:grid; place-items:center; color:white;
+  border:3px dashed var(--primary); border-radius:16px;
+  text-align:center; opacity:0; visibility:hidden; transition:opacity 0.2s, visibility 0.2s;
+}
+.drop-zone.active{opacity:1; visibility:visible}
+.drop-zone span{font-size:48px; color:var(--primary)}
+.drop-zone p{margin:8px 0 0; font-size:16px; font-weight:600}

@@ -14,16 +14,66 @@
 
   <link rel="stylesheet" href="data/css/base.css" />
   <link rel="stylesheet" href="data/css/editor.css" />
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <title>Editor • Buddy Docs</title>
 </head>
 <body>
-  <header class="topbar">
-    <div class="left">
-      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
-      <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled</h1>
+  <header class="editor-header">
+    <div class="menubar">
+      <div class="left">
+        <a href="./" class="logo-link" title="Home">
+          <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs"/>
+        </a>
+        <div class="title-stack">
+          <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled</h1>
+          <nav class="menu-row" aria-label="Application menu">
+            <button id="fileMenuBtn" class="menu-btn" data-menu="file" aria-haspopup="true" aria-expanded="false">File</button>
+            <button class="menu-btn" data-menu="edit">Edit</button>
+            <button class="menu-btn" data-menu="view">View</button>
+            <button class="menu-btn" data-menu="insert">Insert</button>
+            <button class="menu-btn" data-menu="format">Format</button>
+            <button class="menu-btn" data-menu="tools">Tools</button>
+            <button class="menu-btn" data-menu="help">Help</button>
+          </nav>
+        </div>
+      </div>
+      <div class="right">
+        <button id="syncIndicator" class="icon-btn" title="Saved" disabled>
+          <span id="syncIcon" class="material-symbols-outlined">check</span>
+        </button>
+        <button id="profileBtn" class="avatar" title="Profile">U</button>
+        <div id="profileMenu" class="menu" hidden>
+          <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+          <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+          <button class="menu-item" data-action="theme-toggle"><span class="material-symbols-outlined">dark_mode</span> Toggle Theme</button>
+        </div>
+      </div>
     </div>
-    <div class="right">
-      <div class="toolbar">
+    
+    <!-- File dropdown (replaces old meta sidebar) -->
+    <div id="fileDropdown" class="dropdown-menu wide" hidden>
+      <a class="menu-item" href="./"><span class="material-symbols-outlined">home</span> Home</a>
+      <a class="menu-item" href="editor.html?type=document"><span class="material-symbols-outlined">add</span> New</a>
+      <div class="menu-divider"></div>
+      <button id="openDocSettings" class="menu-item"><span class="material-symbols-outlined">tune</span> Document settings</button>
+      <div class="menu-divider"></div>
+      <button id="archiveBtn" class="menu-item"><span class="material-symbols-outlined">inventory_2</span> Archive</button>
+      <button id="deleteBtn" class="menu-item delete"><span class="material-symbols-outlined">delete</span> Delete</button>
+      <div class="menu-divider"></div>
+      <button id="exportBdoxBtn" class="menu-item"><span class="material-symbols-outlined">download</span> Export (.bdox)</button>
+      <button id="exportAsBtn" class="menu-item"><span class="material-symbols-outlined">ios_share</span> Export as</button>
+    </div>
+    <!-- Export As submenu -->
+    <div id="exportAsMenu" class="dropdown-menu" hidden>
+      <button class="menu-item" data-export="txt">Plain text (.txt)</button>
+      <button class="menu-item" data-export="md">Markdown (.md)</button>
+      <button class="menu-item" data-export="pdf">PDF (.pdf)</button>
+      <button class="menu-item" data-export="docx">Word (.docx)</button>
+      <button class="menu-item" data-export="bdox">Buddy Docs (.bdox)</button>
+      <div class="menu-divider"></div>
+      <button class="menu-item" data-export="gdocs"><span class="material-symbols-outlined">content_copy</span> Copy to Google Docs</button>
+    </div>
+    <div class="formatbar">
         <button data-cmd="undo" class="icon-btn" title="Undo"><span class="material-symbols-outlined">undo</span></button>
         <button data-cmd="redo" class="icon-btn" title="Redo"><span class="material-symbols-outlined">redo</span></button>
         <span class="sep"></span>
@@ -53,43 +103,44 @@
         <input id="imageInput" type="file" accept="image/*" hidden />
         <span class="sep"></span>
         <button id="clearFormat" class="icon-btn" title="Clear formatting"><span class="material-symbols-outlined">format_clear</span></button>
-      </div>
-      <button id="saveBtn" class="btn primary">Save</button>
-      <button id="profileBtn" class="avatar" title="Profile">U</button>
-      <div id="profileMenu" class="menu" hidden>
-        <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
-        <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
-        <button class="menu-item" data-action="theme-toggle"><span class="material-symbols-outlined">dark_mode</span> Toggle Theme</button>
-      </div>
     </div>
   </header>
 
-  <main class="editor-wrap">
-    <aside class="meta-panel">
-      <label>
-        <span>Type</span>
-        <select id="docType">
-          <option value="document">Document</option>
-          <option value="essay">Essay</option>
-          <option value="list">List</option>
-          <option value="gallery">Gallery</option>
-        </select>
-      </label>
-      <label>
-        <span>Due date</span>
-        <input id="dueDate" type="date"/>
-      </label>
-      <label>
-        <span>Tags</span>
-        <input id="tags" type="text" placeholder="comma, separated"/>
-      </label>
-      <button id="deleteBtn" class="btn danger outline">Delete</button>
-    </aside>
+  <main class="editor-wrap no-meta">
 
     <section class="page">
       <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
     </section>
   </main>
+
+  <!-- Document Settings Modal -->
+  <div id="docSettingsModal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Document settings</h3>
+        <button class="icon-btn" id="closeDocSettings" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <label>
+          <span>Type</span>
+          <select id="docType">
+            <option value="document">Document</option>
+            <option value="essay">Essay</option>
+            <option value="list">List</option>
+            <option value="gallery">Gallery</option>
+          </select>
+        </label>
+        <label>
+          <span>Due date</span>
+          <input id="dueDate" type="date"/>
+        </label>
+        <label>
+          <span>Tags</span>
+          <input id="tags" type="text" placeholder="comma, separated"/>
+        </label>
+      </div>
+    </div>
+  </div>
 
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>

@@ -1,5 +1,14 @@
 import { getSetting, setSetting } from './idb.js';
 
+const root = document.documentElement;
+function updateMetaThemeColor(){
+  const meta = document.querySelector('meta[name="theme-color"]');
+  if (!meta) return;
+  const computed = getComputedStyle(root);
+  const bg = computed.getPropertyValue('--bg').trim() || '#000000';
+  meta.setAttribute('content', bg);
+}
+
 async function loadSettings(){
   const theme = await getSetting('theme', 'light');
   const fontSize = await getSetting('fontSize', 16);
@@ -11,6 +20,8 @@ async function loadSettings(){
 
   document.getElementById('themeSelect').value = theme;
   document.getElementById('fontSize').value = fontSize;
+  const fsOut = document.getElementById('fontSizeValue');
+  if (fsOut) fsOut.textContent = `${fontSize}px`;
   document.getElementById('highContrast').checked = !!highContrast;
   document.getElementById('reduceMotion').checked = !!reduceMotion;
   document.getElementById('displayName').value = displayName;
@@ -24,6 +35,10 @@ async function loadSettings(){
     preview.style.backgroundImage = '';
     preview.textContent = initials;
   }
+
+  // Apply current theme instantly on settings page
+  root.setAttribute('data-theme', theme);
+  updateMetaThemeColor();
 }
 
 async function saveSettings(){
@@ -74,3 +89,28 @@ loadSettings();
 document.getElementById('saveSettings').addEventListener('click', saveSettings);
 document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
 document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+
+// Live previews
+document.getElementById('fontSize')?.addEventListener('input', (e)=>{
+  const v = Number(e.target.value);
+  const out = document.getElementById('fontSizeValue');
+  if (out) out.textContent = `${v}px`;
+});
+document.getElementById('initials')?.addEventListener('input', (e)=>{
+  const preview = document.getElementById('profilePreview');
+  if (preview && !preview.style.backgroundImage){
+    preview.textContent = (e.target.value||'BD').trim().slice(0,3).toUpperCase();
+  }
+});
+
+// Live theme/app prefs
+document.getElementById('themeSelect')?.addEventListener('change', (e)=>{
+  const val = e.target.value;
+  root.setAttribute('data-theme', val);
+  updateMetaThemeColor();
+});
+document.getElementById('highContrast')?.addEventListener('change', (e)=>{
+  const isOn = !!e.target.checked;
+  const currentBorder = getComputedStyle(root).getPropertyValue('--border') || '#E6E4F4';
+  root.style.setProperty('--border', isOn ? '#8f8d9f' : currentBorder);
+});

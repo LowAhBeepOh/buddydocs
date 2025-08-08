@@ -1,5 +1,100 @@
 import { getSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
 
+// ------- .bdox Import functionality -------
+async function importBdoxFile(file) {
+  try {
+    const text = await file.text();
+    // Decode base64
+    const decoded = decodeURIComponent(escape(atob(text)));
+    const data = JSON.parse(decoded);
+    
+    if (data.meta?.app !== 'BuddyDocs' || !data.document) {
+      throw new Error('Invalid .bdox file format');
+    }
+    
+    // Import the document (generate new ID to avoid conflicts)
+    const doc = { ...data.document, id: null };
+    const saved = await saveDocument(doc);
+    return { success: true, title: doc.title || 'Untitled' };
+  } catch (error) {
+    console.error('Import failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function handleBdoxDrop(files) {
+  const bdoxFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.bdox'));
+  if (bdoxFiles.length === 0) {
+    alert('No .bdox files found. Please drop Buddy Docs files.');
+    return;
+  }
+  
+  let successCount = 0;
+  let errorCount = 0;
+  
+  for (const file of bdoxFiles) {
+    const result = await importBdoxFile(file);
+    if (result.success) {
+      successCount++;
+    } else {
+      errorCount++;
+      console.error(`Failed to import ${file.name}:`, result.error);
+    }
+  }
+  
+  // Show results
+  if (successCount > 0) {
+    alert(`Successfully imported ${successCount} document${successCount > 1 ? 's' : ''}.`);
+    await renderDocs(); // Refresh the document list
+  }
+  if (errorCount > 0) {
+    alert(`Failed to import ${errorCount} file${errorCount > 1 ? 's' : ''}. Check console for details.`);
+  }
+}
+
+function setupDragAndDrop() {
+  const dropZone = document.getElementById('dropZone');
+  let dragCounter = 0;
+  
+  // Prevent default drag behaviors
+  ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
+    document.body.addEventListener(eventName, preventDefaults, false);
+  });
+  
+  function preventDefaults(e) {
+    e.preventDefault();
+    e.stopPropagation();
+  }
+  
+  // Show drop zone on drag enter
+  document.body.addEventListener('dragenter', (e) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      dragCounter++;
+      dropZone.classList.add('active');
+    }
+  });
+  
+  // Hide drop zone on drag leave
+  document.body.addEventListener('dragleave', (e) => {
+    if (e.dataTransfer.types.includes('Files')) {
+      dragCounter--;
+      if (dragCounter === 0) {
+        dropZone.classList.remove('active');
+      }
+    }
+  });
+  
+  // Handle drop
+  document.body.addEventListener('drop', (e) => {
+    dragCounter = 0;
+    dropZone.classList.remove('active');
+    const files = e.dataTransfer.files;
+    if (files.length > 0) {
+      handleBdoxDrop(files);
+    }
+  });
+}
+
 function startOfDay(d){ const x = new Date(d); x.setHours(0,0,0,0); return x; }
 
 function timeGreeting(date = new Date()){
@@ -196,3 +291,4 @@ renderGreeting();
 renderDocs();
 renderDeadlines();
 bindSearch();
+setupDragAndDrop();

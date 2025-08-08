@@ -24,18 +24,17 @@
       flex-shrink: 0;
     }
 
-    /* Make page section use remaining space */
-    .page {
-      flex: 1;
-      overflow: hidden;
-      margin-left: 20px;
-    }
+    /* Expand gallery to use full width; hide sidebar on this page */
+    .editor-wrap{ grid-template-columns: 1fr; max-width: min(1600px, 96vw); }
+    .meta-panel{ display: none; }
+    .page { display:block; width:100%; overflow:hidden; margin-left:0; }
 
     .gallery-container {
-      padding: 32px;
-      display: grid;
-      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
-      gap: 32px;
+      column-width: 320px; /* aim for ~320px columns, will auto-fit */
+      column-gap: 24px;
+      padding: 24px;
+      width: 100%;
+      margin: 0 auto;
       height: 100%;
       overflow-y: auto;
       position: relative;
@@ -52,18 +51,25 @@
       border-radius: 8px;
       overflow: hidden;
       position: relative;
-      min-height: 180px;
-      height: fit-content;
+      display: inline-block;
+      width: 100%;
+      margin: 0 0 24px;
     }
 
     .gallery-item:not(.add-image) {
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
+    .gallery-item.dragging{
+      opacity:.6;
+      transform: scale(.98);
+    }
+
     .gallery-item img {
       width: 100%;
       height: auto;
       display: block;
+      object-fit: contain;
     }
 
     .gallery-item .remove-btn {
@@ -96,6 +102,7 @@
       justify-content: center;
       cursor: pointer;
       transition: all 0.2s;
+      min-height: 300px;
     }
 
     .add-image:hover {
@@ -132,7 +139,7 @@
   </header>
 
   <main class="editor-wrap">
-    <aside class="meta-panel">
+    <aside class="meta-panel" style="height: calc(100dvh - 120px); position: sticky; top: 90px;">
       <label>
         <span>Type</span>
         <select id="docType">
@@ -150,7 +157,7 @@
       <button id="deleteBtn" class="btn danger outline">Delete</button>
     </aside>
 
-    <section class="page">
+    <section class="page" style="flex:1;">
       <div class="gallery-container" id="gallery">
         <div class="gallery-item add-image" id="addImage">
           <span class="material-symbols-outlined">add_photo_alternate</span>
@@ -186,6 +193,7 @@
     const addImageBtn = document.getElementById('addImage');
     const imageInput = document.getElementById('imageInput');
     const itemTemplate = document.getElementById('galleryItemTemplate');
+    let dragSrcItem = null; // for reordering
 
     function getParam(name){
       const u = new URL(location.href);
@@ -202,9 +210,26 @@
         item.remove();
         saveNow();
       });
+      enableReorder(item);
       
       gallery.insertBefore(item, addImageBtn);
       return item;
+    }
+
+    function enableReorder(item){
+      if (item.classList.contains('add-image')) return;
+      item.setAttribute('draggable','true');
+      item.addEventListener('dragstart', (e)=>{
+        dragSrcItem = item;
+        item.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        // custom type to distinguish from file drag
+        try { e.dataTransfer.setData('text/plain', 'reorder'); } catch {}
+      });
+      item.addEventListener('dragend', ()=>{
+        item.classList.remove('dragging');
+        dragSrcItem = null;
+      });
     }
 
     async function handleFiles(files) {
@@ -228,6 +253,10 @@
       saveNow();
     }
 
+    function hasFiles(e){
+      return e.dataTransfer && Array.from(e.dataTransfer.types||[]).includes('Files');
+    }
+
     function bindGallery() {
       // Click to add
       addImageBtn.addEventListener('click', () => imageInput.click());
@@ -241,17 +270,27 @@
       // Drag and drop
       gallery.addEventListener('dragenter', e => {
         e.preventDefault();
-        gallery.classList.add('drag-active');
+        if (hasFiles(e)) gallery.classList.add('drag-active');
       });
 
       gallery.addEventListener('dragover', e => {
         e.preventDefault();
-        gallery.classList.add('drag-active');
+        if (hasFiles(e)) {
+          gallery.classList.add('drag-active');
+        }
+        // Reorder: move placeholder position based on cursor
+        if (dragSrcItem){
+          const target = e.target.closest('.gallery-item');
+          if (!target || target === dragSrcItem || target.classList.contains('add-image')) return;
+          const rect = target.getBoundingClientRect();
+          const before = (e.clientY - rect.top) < rect.height/2;
+          gallery.insertBefore(dragSrcItem, before ? target : target.nextSibling);
+        }
       });
 
       gallery.addEventListener('dragleave', e => {
         e.preventDefault();
-        if (!gallery.contains(e.relatedTarget)) {
+        if (hasFiles(e) && !gallery.contains(e.relatedTarget)) {
           gallery.classList.remove('drag-active');
         }
       });
@@ -260,8 +299,13 @@
         e.preventDefault();
         gallery.classList.remove('drag-active');
         const files = e.dataTransfer.files;
-        if (files.length > 0) {
+        if (files && files.length > 0) {
           handleFiles(files);
+        } else if (dragSrcItem) {
+          // finalize reorder
+          dragSrcItem.classList.remove('dragging');
+          dragSrcItem = null;
+          saveNow();
         }
       });
     }
@@ -305,6 +349,8 @@
       currentDoc.content.forEach(imageData => {
         createGalleryItem(imageData);
       });
+      // enable reorder for any pre-existing items (safety)
+      gallery.querySelectorAll('.gallery-item').forEach(el=> enableReorder(el));
     }
 
     async function saveNow(){

@@ -30,7 +30,7 @@
       <div class="row">
         <label class="tile">
           <span>Theme</span>
-          <select id="themeSelect">
+          <select id="themeSelect" class="input">
             <option value="light">Light</option>
             <option value="dark">Dark</option>
             <option value="system">System</option>
@@ -44,7 +44,10 @@
         </label>
         <label class="tile">
           <span>Font size</span>
-          <input id="fontSize" type="range" min="14" max="22" step="1" />
+          <div class="range-field">
+            <input id="fontSize" type="range" min="14" max="22" step="1" />
+            <output id="fontSizeValue">16px</output>
+          </div>
         </label>
       </div>
     </section>
@@ -54,22 +57,22 @@
       <div class="row">
         <label class="tile">
           <span>High contrast</span>
-          <input id="highContrast" type="checkbox" />
+          <input id="highContrast" class="toggle" type="checkbox" />
         </label>
         <label class="tile">
           <span>Reduce motion</span>
-          <input id="reduceMotion" type="checkbox" />
+          <input id="reduceMotion" class="toggle" type="checkbox" />
         </label>
       </div>
     </section>
 
-    <section>
+    <section class="profile-section">
       <h2>Profile</h2>
       <div class="row">
         <label class="tile profile-picture-tile">
           <span>Profile Picture</span>
           <div class="profile-upload">
-            <div id="profilePreview" class="avatar"></div>
+            <div id="profilePreview" class="avatar large"></div>
             <input type="file" id="profilePicture" accept="image/*" />
             <button id="removeProfilePic" class="btn secondary" type="button">Remove</button>
           </div>
@@ -78,14 +81,16 @@
       <div class="row">
         <label class="tile">
           <span>Display name</span>
-          <input id="displayName" type="text" placeholder="Your name" />
+          <input id="displayName" class="input" type="text" placeholder="Your name" />
         </label>
         <label class="tile">
           <span>Initials</span>
-          <input id="initials" type="text" placeholder="AB" maxlength="3" />
+          <input id="initials" class="input" type="text" placeholder="AB" maxlength="3" />
         </label>
       </div>
-      <button id="saveSettings" class="btn primary">Save Settings</button>
+      <div class="save-bar">
+        <button id="saveSettings" class="btn primary">Save</button>
+      </div>
     </section>
   </main>
 
