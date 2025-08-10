@@ -73,7 +73,7 @@ function bindToolbar(){
   // Menus are lightweight; many items map to existing actions/shortcuts
   const menuContainer = document.querySelector('.menu-row');
   if (menuContainer){
-    menuContainer.addEventListener('click', (e)=>{
+    menuContainer.addEventListener('click', async (e)=>{
       const btn = e.target.closest('.menu-btn');
       if (!btn) return;
       const name = btn.dataset.menu;
@@ -95,8 +95,7 @@ function bindToolbar(){
           document.getElementById('blockFormat')?.focus();
           break;
         case 'tools':
-          // Show keyboard shortcuts help
-          showKeyboardShortcutsHelp();
+          toggleToolsMenu();
           break;
         case 'help':
           alert('Buddy Docs — Editor Help coming soon.');
@@ -241,6 +240,33 @@ function toggleFileMenu(){
     return;
   }
   // position the menu below the File button
+  const r = btn.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top = `${r.bottom + 6 + window.scrollY}px`;
+  menu.removeAttribute('hidden');
+  btn.setAttribute('aria-expanded','true');
+  setTimeout(()=> document.addEventListener('click', onDocClick));
+  function onDocClick(ev){
+    if (!menu.contains(ev.target) && ev.target !== btn){
+      menu.setAttribute('hidden','');
+      btn.setAttribute('aria-expanded','false');
+      document.removeEventListener('click', onDocClick);
+    }
+  }
+}
+
+function toggleToolsMenu(){
+  const btn = document.getElementById('toolsMenuBtn');
+  const menu = document.getElementById('toolsDropdown');
+  if (!btn || !menu) return;
+  const open = menu.hasAttribute('hidden') ? false : true;
+  if (open){
+    menu.setAttribute('hidden','');
+    btn.setAttribute('aria-expanded','false');
+    document.removeEventListener('click', onDocClick);
+    return;
+  }
+  // position the menu below the Tools button
   const r = btn.getBoundingClientRect();
   menu.style.left = `${r.left}px`;
   menu.style.top = `${r.bottom + 6 + window.scrollY}px`;
@@ -692,6 +718,7 @@ autosave();
 keyboardShortcuts();
 loadOrCreate();
 applyEditorPrefs();
+setupToolsMenu();
 
 // Del button (Save button removed; saving is automatic and via Ctrl/Cmd+S)
 document.getElementById('deleteBtn')?.addEventListener('click', deleteNow);
@@ -743,3 +770,42 @@ document.addEventListener('keydown', (e)=>{
     toggleFileMenu();
   }
 });
+
+// Setup Tools menu items
+async function setupToolsMenu(){
+  const { getSetting } = await import('./idb.js');
+  const aiEnabled = await getSetting('aiEnabled', false);
+  const openAiBtn = document.getElementById('openAiBtn');
+  if (openAiBtn){
+    openAiBtn.style.display = aiEnabled ? '' : 'none';
+    openAiBtn.addEventListener('click', async ()=>{
+      toggleToolsMenu();
+      const { isAiEnabled } = await import('./ai.js');
+      const enabled = await isAiEnabled();
+      if (!enabled){
+        alert('AI is disabled. Enable it in Settings.');
+        return;
+      }
+      // Show chatbot UI and adjust layout
+      window.showChatbot?.();
+      const wrap = document.querySelector('.editor-wrap');
+      if (wrap){ wrap.classList.add('with-ai'); }
+    });
+  }
+  const openShortcuts = document.getElementById('openShortcuts');
+  if (openShortcuts){
+    openShortcuts.addEventListener('click', ()=>{
+      toggleToolsMenu();
+      showKeyboardShortcutsHelp();
+    });
+  }
+}
+
+// When closing chatbot, remove with-ai class
+window.hideChatbot = (function(orig){
+  return function(){
+    if (typeof orig === 'function') orig();
+    const wrap = document.querySelector('.editor-wrap');
+    if (wrap){ wrap.classList.remove('with-ai'); }
+  };
+})(window.hideChatbot);

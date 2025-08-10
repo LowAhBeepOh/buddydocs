@@ -10,8 +10,17 @@
 .formatbar{position:sticky; top:0; z-index:25; background:color-mix(in hsl, var(--surface) 85%, white 15%); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 16px; backdrop-filter: blur(6px); display:flex; flex-wrap:wrap; align-items:center; gap:4px}
 .formatbar.compact{display:none}
 
+/* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */
 .editor-wrap{display:grid; grid-template-columns:280px 1fr; gap:16px; max-width:1200px; margin:0 auto; padding:16px}
 .editor-wrap.no-meta{grid-template-columns:1fr}
+.editor-wrap.with-ai{grid-template-columns:1fr 250px; gap:0; padding:16px 0 16px 16px; max-width:none; margin:0}
+
+/* Responsive: hide chatbot on smaller screens */
+@media (max-width:1000px){
+  .editor-wrap{grid-template-columns:1fr}
+  .editor-wrap.with-ai{grid-template-columns:1fr}
+  .ai-chatbot{display:none !important}
+}
 .meta-panel{display:none}
 .meta-panel label{display:grid; gap:6px}
 .page{display:flex; justify-content:center}
@@ -211,3 +220,1133 @@
   color: var(--text);
   font-weight: 500;
 }
+
+/* AI Chatbot Styles */
+.ai-chatbot {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 250px;
+  box-shadow: none;
+  min-width: 200px;
+  max-width: 600px;
+  margin: 0;
+  z-index: 100;
+}
+
+.ai-chatbot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+  border-radius: 0;
+}
+
+.ai-chatbot-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.sparkle-icon { color: var(--primary); font-size: 16px; }
+
+.ai-chatbot-header .close-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-chatbot-header .close-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.ai-chatbot-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message { display: flex; gap: 12px; align-items: flex-start; }
+.message.user { flex-direction: row-reverse; }
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.message.user .message-avatar { background: color-mix(in hsl, var(--muted) 70%, var(--surface)); }
+.message-avatar .material-symbols-outlined { font-size: 16px; color: white; }
+
+.message-content {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+.message.user .message-content { background: var(--primary); color: white; }
+.message.error .message-content { background: color-mix(in hsl, #ff4444 10%, var(--surface)); color: #ff4444; border: 1px solid color-mix(in hsl, #ff4444 20%, transparent); }
+
+.ai-chatbot-input {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Mode selector */
+.ai-chatbot-mode { padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in hsl, var(--primary) 6%, var(--surface)); }
+.ai-chatbot-mode select { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+
+/* Edit proposal card */
+.message.edit-proposal .message-content { background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px dashed var(--border); }
+.edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+.edit-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.edit-btn:hover { background: color-mix(in hsl, var(--primary) 8%, var(--surface)); }
+.edit-status { font-weight: 600; }
+.edit-status.accepted { color: #22c55e; }
+.edit-status.denied { color: #f59e0b; }
+.edit-status.error { color: #ef4444; }
+
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Diff styles */
+.diff-section{ margin-top: 8px; }
+.diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
+.diff-ins{ background: rgba(16,185,129,0.22); text-decoration: none; border-radius: 3px; padding: 1px 0; }
+.diff-del{ background: rgba(244,63,94,0.22); }
+.muted{ color: var(--muted); }
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+@media (max-width:1000px){
+  /* Override earlier rule that hid the chatbot on small screens */
+  .editor-wrap.with-ai .ai-chatbot{ display: block !important; }
+}
+
+/* Diff styles */
+.diff-section{ margin-top: 8px; }
+.diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
+.diff-ins{ background: rgba(16,185,129,0.22); text-decoration: none; border-radius: 3px; padding: 1px 0; }
+.diff-del{ background: rgba(244,63,94,0.22); }
+.muted{ color: var(--muted); }
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Edit proposal operations list */
+.ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
+.op-item{ display:flex; align-items:center; gap:8px; color:var(--text); font-size:12px; }
+.op-badge{ display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; padding:2px 6px; border-radius:6px; background: color-mix(in hsl, var(--primary) 8%, var(--surface)); color: var(--primary); border:1px dashed color-mix(in hsl, var(--primary) 25%, var(--border)); }
+
+/* In-document diff preview styles */
+.document-diff-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.85);
+  z-index: 5000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  animation: diffOverlayFadeIn 0.3s ease;
+}
+
+@keyframes diffOverlayFadeIn {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.document-diff-container {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.3);
+  max-width: 90vw;
+  max-height: 90vh;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.diff-preview-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.diff-preview-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.diff-legend {
+  display: flex;
+  gap: 16px;
+  font-size: 12px;
+  color: var(--muted);
+  align-items: center;
+}
+
+.diff-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.diff-legend-color {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+}
+
+.diff-legend-color.deletion {
+  background: rgba(244, 63, 94, 0.3);
+  border: 1px solid rgba(244, 63, 94, 0.6);
+}
+
+.diff-legend-color.addition {
+  background: rgba(16, 185, 129, 0.3);
+  border: 1px solid rgba(16, 185, 129, 0.6);
+}
+
+.diff-preview-body {
+  flex: 1;
+  overflow-y: auto;
+  padding: 20px;
+  background: var(--bg);
+}
+
+.diff-preview-document {
+  width: 850px;
+  max-width: 100%;
+  margin: 0 auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 48px;
+  line-height: 1.6;
+  font-family: inherit;
+  position: relative;
+}
+
+/* Diff highlighting within the preview document */
+.diff-deletion {
+  background: rgba(244, 63, 94, 0.15) !important;
+  text-decoration: line-through;
+  opacity: 0.7;
+  position: relative;
+  border-left: 3px solid rgba(244, 63, 94, 0.4);
+  padding-left: 8px;
+  margin-left: -11px;
+}
+
+.diff-deletion::before {
+  content: "−";
+  position: absolute;
+  left: -20px;
+  top: 0;
+  color: rgba(244, 63, 94, 0.8);
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.diff-addition {
+  background: rgba(16, 185, 129, 0.15) !important;
+  border-left: 3px solid rgba(16, 185, 129, 0.4);
+  padding-left: 8px;
+  margin-left: -11px;
+  position: relative;
+}
+
+.diff-addition::before {
+  content: "+";
+  position: absolute;
+  left: -20px;
+  top: 0;
+  color: rgba(16, 185, 129, 0.8);
+  font-weight: bold;
+  font-size: 16px;
+}
+
+.diff-preview-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  padding: 16px 20px;
+  border-top: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 4%, var(--surface));
+}
+
+.diff-preview-btn {
+  padding: 10px 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font-weight: 600;
+  cursor: pointer;
+  font-family: var(--bd-font-family);
+}
+
+.diff-preview-btn.cancel {
+  background: var(--surface);
+  color: var(--text);
+}
+
+.diff-preview-btn.cancel:hover {
+  background: color-mix(in hsl, var(--muted) 10%, var(--surface));
+}
+
+.diff-preview-btn.confirm {
+  background: var(--primary);
+  color: white;
+  border-color: var(--primary);
+}
+
+.diff-preview-btn.confirm:hover {
+  background: color-mix(in hsl, var(--primary) 85%, black 15%);
+}
+
+.diff-close-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.diff-close-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+.editor-header{position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--border)}
+.menubar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px}
+.menubar .left{display:flex; align-items:center; gap:12px}
+.menubar .right{display:flex; align-items:center; gap:8px; position:relative}
+.menubar .logo{width:32px; height:32px}
+.title-stack{display:flex; flex-direction:column; gap:4px}
+.menu-row{display:flex; gap:6px}
+.menu-btn{appearance:none; background:transparent; border:none; color:var(--muted); font-weight:600; padding:4px 8px; border-radius:8px; cursor:pointer; font-family: var(--bd-font-family)}
+.menu-btn:hover, .menu-btn[aria-expanded="true"]{background:color-mix(in hsl, var(--primary) 10%, var(--surface)); color:var(--text)}
+.formatbar{position:sticky; top:0; z-index:25; background:color-mix(in hsl, var(--surface) 85%, white 15%); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 16px; backdrop-filter: blur(6px); display:flex; flex-wrap:wrap; align-items:center; gap:4px}
+.formatbar.compact{display:none}
+
+/* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */
+.editor-wrap{display:grid; grid-template-columns:280px 1fr; gap:16px; max-width:1200px; margin:0 auto; padding:16px}
+.editor-wrap.no-meta{grid-template-columns:1fr}
+.editor-wrap.with-ai{grid-template-columns:1fr 250px; gap:0; padding:16px 0 16px 16px; max-width:none; margin:0}
+
+/* Responsive: hide chatbot on smaller screens */
+@media (max-width:1000px){
+  .editor-wrap{grid-template-columns:1fr}
+  .editor-wrap.with-ai{grid-template-columns:1fr}
+  .ai-chatbot{display:none !important}
+}
+.meta-panel{display:none}
+.meta-panel label{display:grid; gap:6px}
+.page{display:flex; justify-content:center}
+.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6}
+#docTitle{min-width:200px; border:1px dashed transparent; padding:2px 8px; border-radius:8px; font-size:18px; line-height:1.2; margin:0}
+#docTitle:focus{outline:none; border-color:var(--primary); background:color-mix(in hsl, var(--primary) 8%, var(--surface))}
+.toolbar{display:none}
+/* tighter blockFormat select */
+#blockFormat{width:170px; padding:6px 8px}
+@media (max-width:1000px){.editor-wrap{grid-template-columns:1fr}}
+
+/* File dropdown custom layout */
+.dropdown-menu.wide{padding:10px; min-width:300px}
+.dropdown-menu .menu-title{font-weight:800; font-size:13px; color:var(--muted); margin:6px 6px 2px}
+.dropdown-menu .doc-settings{display:grid; gap:8px}
+.dropdown-menu .menu-item{font-family: var(--bd-font-family)}
+.dropdown-menu .doc-settings label{display:grid; gap:6px}
+.menu-divider{height:1px; background:var(--border); margin:6px 4px}
+
+/* Export submenu positioning */
+#exportAsMenu{min-width:220px}
+
+/* Sync indicator animation */
+.spin{animation: spin 0.8s linear infinite}
+@keyframes spin{from{transform:rotate(0)} to{transform:rotate(360deg)}}
+
+/* Modal */
+.modal-backdrop{position:fixed; inset:0; background:rgba(0,0,0,0.35); display:grid; place-items:center; z-index:1000}
+.modal-backdrop[hidden]{display:none !important}
+.modal-card{width:min(560px, 92vw); background:var(--surface); color:var(--text); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); display:grid}
+.modal-head{display:flex; align-items:center; justify-content:space-between; padding:12px 14px; border-bottom:1px solid var(--border)}
+.modal-head h3{margin:0}
+.modal-body{display:grid; gap:10px; padding:14px}
+.modal-body label{display:grid; gap:6px}
+.modal-foot{display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--border)}
+
+/* Word Count Popup */
+.word-count-popup {
+  position: fixed;
+  z-index: 2000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  min-width: 280px;
+  max-width: 320px;
+  animation: popupSlideIn 0.2s ease-out;
+}
+
+@keyframes popupSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(-10px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+.word-count-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.word-count-header .close-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.word-count-header .close-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.word-count-content {
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+}
+
+.stat-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 8px 0;
+}
+
+.stat-label {
+  font-size: 14px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
+.stat-value {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+  font-family: 'Doto', monospace;
+}
+
+/* Keyboard Shortcuts Help Popup */
+.shortcuts-help-popup {
+  position: fixed;
+  z-index: 2000;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
+  min-width: 320px;
+  max-width: 400px;
+  animation: popupSlideIn 0.2s ease-out;
+}
+
+.shortcuts-help-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.shortcuts-help-header .close-btn {
+  margin-left: auto;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.shortcuts-help-header .close-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.shortcuts-help-content {
+  padding: 16px;
+  display: grid;
+  gap: 16px;
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.shortcut-group h4 {
+  margin: 0 0 8px 0;
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.shortcut-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 6px 0;
+  font-size: 14px;
+}
+
+.shortcut-key {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  font-family: 'Doto', monospace;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text);
+  min-width: 60px;
+  text-align: center;
+}
+
+.shortcut-desc {
+  color: var(--text);
+  font-weight: 500;
+}
+
+/* AI Chatbot Styles */
+.ai-chatbot {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 0;
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  top: 0;
+  right: 0;
+  height: 100vh;
+  width: 250px;
+  box-shadow: none;
+  min-width: 200px;
+  max-width: 600px;
+  margin: 0;
+  z-index: 100;
+}
+
+.ai-chatbot-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+  border-radius: 0;
+}
+
+.ai-chatbot-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.sparkle-icon { color: var(--primary); font-size: 16px; }
+
+.ai-chatbot-header .close-btn {
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.ai-chatbot-header .close-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.ai-chatbot-messages {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.message { display: flex; gap: 12px; align-items: flex-start; }
+.message.user { flex-direction: row-reverse; }
+
+.message-avatar {
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  background: var(--primary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+.message.user .message-avatar { background: color-mix(in hsl, var(--muted) 70%, var(--surface)); }
+.message-avatar .material-symbols-outlined { font-size: 16px; color: white; }
+
+.message-content {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+  padding: 8px 12px;
+  border-radius: 12px;
+  font-size: 14px;
+  line-height: 1.4;
+  max-width: 80%;
+  word-wrap: break-word;
+}
+.message.user .message-content { background: var(--primary); color: white; }
+.message.error .message-content { background: color-mix(in hsl, #ff4444 10%, var(--surface)); color: #ff4444; border: 1px solid color-mix(in hsl, #ff4444 20%, transparent); }
+
+.ai-chatbot-input {
+  padding: 12px 16px;
+  border-top: 1px solid var(--border);
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Mode selector */
+.ai-chatbot-mode { padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in hsl, var(--primary) 6%, var(--surface)); }
+.ai-chatbot-mode select { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
+
+/* Edit proposal card */
+.message.edit-proposal .message-content { background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px dashed var(--border); }
+.edit-actions { display: flex; gap: 8px; margin-top: 8px; }
+.edit-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
+.edit-btn:hover { background: color-mix(in hsl, var(--primary) 8%, var(--surface)); }
+.edit-status { font-weight: 600; }
+.edit-status.accepted { color: #22c55e; }
+.edit-status.denied { color: #f59e0b; }
+.edit-status.error { color: #ef4444; }
+
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Diff styles */
+.diff-section{ margin-top: 8px; }
+.diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
+.diff-ins{ background: rgba(16,185,129,0.22); text-decoration: none; border-radius: 3px; padding: 1px 0; }
+.diff-del{ background: rgba(244,63,94,0.22); }
+.muted{ color: var(--muted); }
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+@media (max-width:1000px){
+  /* Override earlier rule that hid the chatbot on small screens */
+  .editor-wrap.with-ai .ai-chatbot{ display: block !important; }
+}
+
+/* Diff styles */
+.diff-section{ margin-top: 8px; }
+.diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
+.diff-ins{ background: rgba(16,185,129,0.22); text-decoration: none; border-radius: 3px; padding: 1px 0; }
+.diff-del{ background: rgba(244,63,94,0.22); }
+.muted{ color: var(--muted); }
+.ai-chatbot-input input {
+  flex: 1;
+  padding: 8px 12px;
+  border: 1px solid var(--border);
+  border-radius: 0;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 14px;
+}
+
+.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+/* Hide send button */
+.send-btn { display: none; }
+
+/* Resize handle flush to content */
+.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
+.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
+
+/* ensure the column holding chatbot has no extra padding */
+.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
+
+/* Tools dropdown menu */
+#toolsDropdown {
+  min-width: 160px;
+}
+
+.tools-menu-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  width: 100%;
+  text-align: left;
+  font-size: 14px;
+  border-radius: 6px;
+}
+
+.tools-menu-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.tools-menu-item .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--muted);
+}
+
+.tools-menu-item.ai-item .material-symbols-outlined {
+  color: var(--primary);
+}
+
+/* Edit proposal operations list */
+.ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
+.op-item{ display:flex; align-items:center; gap:8px; color:var(--text); font-size:12px; }
+.op-badge{ display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; padding:2px 6px; border-radius:6px; background: color-mix(in hsl, var(--primary) 8%, var(--surface)); color: var(--primary); border:1px dashed color-mix(in hsl, var(--primary) 25%, var(--border)); }

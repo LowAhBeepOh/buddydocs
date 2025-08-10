@@ -90,10 +90,39 @@
           <input id="initials" class="input" type="text" placeholder="AB" maxlength="3" />
         </label>
       </div>
-      <div class="save-bar">
-        <button id="saveSettings" class="btn primary">Save</button>
+    </section>
+
+    <!-- AI Settings -->
+    <section>
+      <h2>AI</h2>
+      <div class="row">
+        <label class="tile">
+          <span>Enable AI features</span>
+          <input id="aiEnabled" class="toggle" type="checkbox" />
+        </label>
+        <label class="tile">
+          <span>Provider</span>
+          <select id="aiProvider" class="input">
+            <option value="ollama">Ollama</option>
+            <option value="lmstudio">LM Studio</option>
+          </select>
+        </label>
+      </div>
+      <div class="row">
+        <label class="tile">
+          <span>Model</span>
+          <input id="aiModel" class="input" type="text" placeholder="e.g. llama3.1, mistral, qwen, ..." />
+        </label>
+        <label class="tile">
+          <span>Base URL</span>
+          <input id="aiBaseUrl" class="input" type="text" placeholder="http://localhost:11434" />
+        </label>
       </div>
     </section>
+
+    <div class="save-bar">
+      <button id="saveSettings" class="btn primary">Save</button>
+    </div>
   </main>
 
   <script src="data/js/idb.js" type="module"></script>

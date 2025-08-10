@@ -17,6 +17,12 @@ async function loadSettings(){
   const displayName = await getSetting('displayName', 'Buddy');
   const initials = await getSetting('initials', 'BD');
   const profilePicture = await getSetting('profilePicture', null);
+  
+  // AI settings
+  const aiEnabled = await getSetting('aiEnabled', false);
+  const aiProvider = await getSetting('aiProvider', 'ollama');
+  const aiModel = await getSetting('aiModel', '');
+  const aiBaseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
 
   document.getElementById('themeSelect').value = theme;
   document.getElementById('fontSize').value = fontSize;
@@ -26,6 +32,12 @@ async function loadSettings(){
   document.getElementById('reduceMotion').checked = !!reduceMotion;
   document.getElementById('displayName').value = displayName;
   document.getElementById('initials').value = initials;
+  
+  // Set AI settings
+  document.getElementById('aiEnabled').checked = !!aiEnabled;
+  document.getElementById('aiProvider').value = aiProvider;
+  document.getElementById('aiModel').value = aiModel;
+  document.getElementById('aiBaseUrl').value = aiBaseUrl;
   
   const preview = document.getElementById('profilePreview');
   if (profilePicture) {
@@ -50,6 +62,12 @@ async function saveSettings(){
   const initials = document.getElementById('initials').value.trim().slice(0,3).toUpperCase() || 'BD';
   const profilePicture = document.getElementById('profilePreview').style.backgroundImage;
   const profilePicDataUrl = profilePicture ? profilePicture.slice(5, -2) : null;
+  
+  // Get AI settings
+  const aiEnabled = document.getElementById('aiEnabled').checked;
+  const aiProvider = document.getElementById('aiProvider').value;
+  const aiModel = document.getElementById('aiModel').value.trim();
+  const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim() || 'http://localhost:11434';
 
   await Promise.all([
     setSetting('theme', theme),
@@ -59,6 +77,10 @@ async function saveSettings(){
     setSetting('displayName', displayName),
     setSetting('initials', initials),
     setSetting('profilePicture', profilePicDataUrl),
+    setSetting('aiEnabled', aiEnabled),
+    setSetting('aiProvider', aiProvider),
+    setSetting('aiModel', aiModel),
+    setSetting('aiBaseUrl', aiBaseUrl),
   ]);
 
   alert('Settings saved');

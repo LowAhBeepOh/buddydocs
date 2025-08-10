@@ -32,7 +32,7 @@
             <button class="menu-btn" data-menu="view">View</button>
             <button class="menu-btn" data-menu="insert">Insert</button>
             <button class="menu-btn" data-menu="format">Format</button>
-            <button class="menu-btn" data-menu="tools">Tools</button>
+            <button id="toolsMenuBtn" class="menu-btn" data-menu="tools" aria-haspopup="true" aria-expanded="false">Tools</button>
             <button class="menu-btn" data-menu="help">Help</button>
           </nav>
         </div>
@@ -62,6 +62,18 @@
       <div class="menu-divider"></div>
       <button id="exportBdoxBtn" class="menu-item"><span class="material-symbols-outlined">download</span> Export (.bdox)</button>
       <button id="exportAsBtn" class="menu-item"><span class="material-symbols-outlined">ios_share</span> Export as</button>
+    </div>
+    <!-- Tools dropdown -->
+    <div id="toolsDropdown" class="dropdown-menu" hidden>
+      <button id="openAiBtn" class="tools-menu-item ai-item">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <span>CompactB</span>
+      </button>
+      <div class="menu-divider"></div>
+      <button id="openShortcuts" class="tools-menu-item">
+        <span class="material-symbols-outlined">keyboard</span>
+        <span>Keyboard Shortcuts</span>
+      </button>
     </div>
     <!-- Export As submenu -->
     <div id="exportAsMenu" class="dropdown-menu" hidden>
@@ -145,6 +157,7 @@
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/editor.js" type="module"></script>
+  <script src="data/js/ai.js" type="module"></script>
   <script type="module">
     import { setSetting, getSetting } from './data/js/idb.js';
     // avatar handling
