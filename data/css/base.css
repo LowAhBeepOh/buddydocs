@@ -243,7 +243,7 @@ img{max-width:100%;display:block}
 .section-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:24px 0 8px}
 .link{color:var(--primary); text-decoration:none; font-weight:600}
 
-.doc-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(220px,1fr)); gap:12px}
+.doc-grid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px}
 .doc-card{
   position:relative; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; display:block; color:inherit; box-shadow:var(--shadow)
 }
@@ -341,8 +341,8 @@ img{max-width:100%;display:block}
 .sep{width:1px; height:18px; background:var(--border); display:inline-block}
 
 @media (max-width:900px){
-  .card-row{grid-template-columns:repeat(2, minmax(0,1fr))}
+  .card-row, .doc-grid{grid-template-columns:repeat(2, minmax(0,1fr))}
 }
 @media (max-width:600px){
-  .card-row{grid-template-columns:1fr}
+  .card-row, .doc-grid{grid-template-columns:1fr}
 }

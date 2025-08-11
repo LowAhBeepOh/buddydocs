@@ -572,7 +572,6 @@ async function bindChatbotEvents() {
       // Handle operations or content changes
       const ops = Array.isArray(changes?.operations) ? changes.operations : [];
       if (ops.length > 0) {
-        // Apply operations to preview (simplified version)
         for (const op of ops) {
           hasChanges = true;
           switch(op.type) {
@@ -582,7 +581,6 @@ async function bindChatbotEvents() {
             case 'prepend':
               if (op.html) previewEditorEl.insertAdjacentHTML('afterbegin', op.html);
               break;
-            // Add more operation types as needed
           }
         }
       } else if (changes.newContent) {

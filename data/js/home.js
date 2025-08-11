@@ -1,5 +1,10 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
 
+function showNewDocumentDialog() {
+    // This function needs to be implemented to show the new document dialog
+    console.log('Showing new document dialog...');
+}
+
 // ------- .bdox Import functionality -------
 async function importBdoxFile(file) {
   try {
@@ -328,6 +333,60 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   return { greeting: `${randomGreeting.greeting}, ${displayName}`, sub: randomGreeting.sub };
 }
 
+function createWelcomeScreen(grid) {
+    const welcomeContainer = document.createElement('div');
+    welcomeContainer.className = 'welcome-container';
+
+    const welcomeContent = document.createElement('div');
+    welcomeContent.className = 'welcome-content';
+
+    const leftSide = document.createElement('div');
+    leftSide.className = 'welcome-left';
+
+    const welcomeText = document.createElement('div');
+    welcomeText.className = 'welcome-text';
+    welcomeText.innerHTML = `
+        <h1>Welcome to Buddy Docs!</h1>
+        <p>Let's get started</p>
+        <ul class="features">
+            <li>Create different types of docs</li>
+            <li>Summarize documents</li>
+            <li>Less lag on old laptops</li>
+            <li>Personalized to you</li>
+            <li>Many customization options</li>
+            <li>No tracking, and no login needed</li>
+            <li>Put deadlines on documents</li>
+            <li>Easily export to Google Docs</li>
+            <li>Integrated with apps from us</li>
+            <li>Make interactive documents</li>
+        </ul>
+    `;
+
+    const rightSide = document.createElement('div');
+    rightSide.className = 'welcome-right';
+
+    const welcomeImage = document.createElement('img');
+    welcomeImage.src = 'data/assets/welcomeCanvasImage.png';
+    welcomeImage.alt = 'Welcome to Buddy Docs';
+    welcomeImage.className = 'welcome-image';
+
+    welcomeImage.addEventListener('error', () => {
+        const placeholder = document.createElement('div');
+        placeholder.className = 'welcome-image-placeholder';
+        placeholder.textContent = '📚';
+        rightSide.replaceChild(placeholder, welcomeImage);
+    });
+
+    rightSide.appendChild(welcomeImage);
+
+    leftSide.appendChild(welcomeText);
+    welcomeContent.appendChild(leftSide);
+    welcomeContent.appendChild(rightSide);
+    welcomeContainer.appendChild(welcomeContent);
+
+    grid.appendChild(welcomeContainer);
+}
+
 function dueBadge(d){
   if (!d.dueDate) return '';
   const today = startOfDay(new Date());
@@ -509,8 +568,17 @@ async function renderDocs(){
   const term = document.getElementById('search').value;
   const docs = await listDocuments({ search: term });
   grid.innerHTML = '';
-  for(const d of docs){
-    grid.appendChild(createDocCard(d));
+
+  const sectionHead = document.querySelector('.documents .section-head');
+
+  if (docs.length === 0 && !term) {
+      if (sectionHead) sectionHead.style.display = 'none';
+      createWelcomeScreen(grid);
+  } else {
+      if (sectionHead) sectionHead.style.display = 'flex';
+      for(const d of docs){
+          grid.appendChild(createDocCard(d));
+      }
   }
 }
 

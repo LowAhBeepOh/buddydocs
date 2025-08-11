@@ -320,7 +320,7 @@ function downloadBlob(blob, filename){
 
 function exportBdox(){
   const data = {
-    meta: { version: 1, app: 'BuddyDocs' },
+    meta: { version: 5, app: 'BuddyDocs' },
     document: currentDoc
   };
   const jsonData = JSON.stringify(data, null, 2);

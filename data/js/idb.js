@@ -2,7 +2,7 @@
 // Stores: settings, documents
 
 const DB_NAME = 'buddy-docs-db';
-const DB_VERSION = 1;
+const DB_VERSION = 5;
 
 export const STORES = {
   settings: 'settings',
