@@ -350,15 +350,15 @@ function createWelcomeScreen(grid) {
         <p>Let's get started</p>
         <ul class="features">
             <li>Create different types of docs</li>
-            <li>Summarize documents</li>
+            <li>Summarize documents (somewhat here)</li>
             <li>Less lag on old laptops</li>
             <li>Personalized to you</li>
-            <li>Many customization options</li>
+            <li>Many customization options (still working on)</li>
             <li>No tracking, and no login needed</li>
             <li>Put deadlines on documents</li>
             <li>Easily export to Google Docs</li>
-            <li>Integrated with apps from us</li>
-            <li>Make interactive documents</li>
+            <li>Integrated with apps from us (when they work)</li>
+            <li>Get a calendar for deadlines</li>
         </ul>
     `;
 
