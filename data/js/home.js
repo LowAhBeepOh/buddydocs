@@ -1,4 +1,8 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
+import { initAiCommandBar } from './ai-command.js';
+
+// Export render functions for other modules to trigger UI refresh
+export { renderDocs, renderDeadlines, renderGreeting };
 
 function showNewDocumentDialog() {
     // This function needs to be implemented to show the new document dialog
@@ -604,6 +608,11 @@ async function renderDeadlines(){
 function bindSearch(){
   const s = document.getElementById('search');
   s.addEventListener('input', () => renderDocs());
+  // Refresh when documents change (triggered by AI tools)
+  window.addEventListener('document-changed', async () => {
+    await renderDocs();
+    await renderDeadlines();
+  });
 }
 
 // Deadlines toggle functionality
@@ -658,6 +667,7 @@ async function initialize() {
   bindSearch();
   setupDragAndDrop();
   await setupDeadlinesToggle();
+  await initAiCommandBar();
 }
 
 // Wait for DOM to be ready

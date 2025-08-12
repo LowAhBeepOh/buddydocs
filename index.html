@@ -23,6 +23,16 @@
     <div class="left">
       <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" />
     </div>
+    
+    <!-- AI Command Bar (middle) -->
+    <div id="aiCommandBar" class="ai-command-bar" hidden>
+      <div class="command-input-wrapper">
+        <span class="material-symbols-outlined">auto_awesome</span>
+        <input type="text" id="aiCommandInput" placeholder="Ask me anything..." />
+        <div id="aiCommandOutput" class="command-output" hidden></div>
+      </div>
+    </div>
+    
     <div class="right">
       <button id="profileBtn" class="avatar" title="Profile"></button>
       <div id="profileMenu" class="menu" hidden>
@@ -135,6 +145,15 @@
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/home.js" type="module"></script>
+  <script src="data/js/ai-command.js" type="module"></script>
+  <script type="module">
+    import { initAiCommandBar } from './data/js/ai-command.js';
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', initAiCommandBar);
+    } else {
+      initAiCommandBar();
+    }
+  </script>
   <script type="module">
     import { setSetting, getSetting } from './data/js/idb.js';
 

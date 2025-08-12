@@ -44,3 +44,160 @@
 .drop-zone.active{opacity:1; visibility:visible}
 .drop-zone span{font-size:48px; color:var(--primary)}
 .drop-zone p{margin:8px 0 0; font-size:16px; font-weight:600}
+
+/* AI Command Bar */
+.ai-command-bar {
+  flex: 1;
+  max-width: 500px;
+  margin: 0 auto;
+  position: relative;
+}
+
+.command-input-wrapper {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  padding: 8px 12px;
+  gap: 8px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.command-input-wrapper:focus-within {
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px color-mix(in hsl, var(--primary) 20%, transparent);
+}
+
+.command-input-wrapper .material-symbols-outlined {
+  color: var(--primary);
+  font-size: 20px;
+}
+
+#aiCommandInput {
+  flex: 1;
+  border: none;
+  background: transparent;
+  outline: none;
+  font-size: 14px;
+  color: var(--text);
+  font-family: var(--font-family);
+}
+
+#aiCommandInput::placeholder {
+  color: var(--muted);
+}
+
+.command-output {
+  position: absolute;
+  top: 100%;
+  left: 0;
+  right: 0;
+  background: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 14px;
+  box-shadow: var(--shadow);
+  padding: 16px;
+  margin-top: 8px;
+  z-index: 1000;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.command-output.thinking {
+  background: color-mix(in hsl, var(--primary) 5%, var(--surface));
+  border-color: var(--primary);
+}
+
+.command-thinking {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--primary);
+  font-weight: 500;
+}
+
+.command-thinking .material-symbols-outlined {
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.command-response {
+  color: var(--text);
+  line-height: 1.5;
+}
+
+.command-response h1, .command-response h2, .command-response h3 {
+  margin: 16px 0 8px 0;
+  color: var(--text);
+}
+
+.command-response h1 { font-size: 20px; }
+.command-response h2 { font-size: 18px; }
+.command-response h3 { font-size: 16px; }
+
+.command-response p {
+  margin: 8px 0;
+}
+
+.command-response ul, .command-response ol {
+  margin: 8px 0;
+  padding-left: 20px;
+}
+
+.command-response li {
+  margin: 4px 0;
+}
+
+.command-response strong {
+  font-weight: 600;
+  color: var(--text);
+}
+
+.command-response em {
+  font-style: italic;
+  color: var(--muted);
+}
+
+.command-response code {
+  background: var(--gray);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-family: 'Courier New', monospace;
+  font-size: 13px;
+}
+
+.command-response pre {
+  background: var(--gray);
+  padding: 12px;
+  border-radius: 8px;
+  overflow-x: auto;
+  margin: 12px 0;
+}
+
+.command-response pre code {
+  background: none;
+  padding: 0;
+}
+
+.command-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 12px 0 8px 0;
+}
+
+.command-tool {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--primary);
+  padding: 4px 8px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  border: 1px solid color-mix(in hsl, var(--primary) 20%, transparent);
+}

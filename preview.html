@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Command Bar Preview - Buddy Docs</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    <link rel="stylesheet" href="data/css/base.css" />
+    <link rel="stylesheet" href="data/css/home.css" />
+    <style>
+        body {
+            padding: 20px;
+            font-family: 'Inter Tight', sans-serif;
+        }
+        .demo-section {
+            margin: 30px 0;
+            padding: 20px;
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            background: var(--surface);
+        }
+        .demo-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: var(--primary);
+        }
+        .demo-description {
+            color: var(--muted);
+            margin-bottom: 20px;
+        }
+        .mockup-topbar {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 12px;
+            padding: 16px;
+            background: var(--bg);
+            border: 2px solid var(--border);
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+        .mockup-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+        .mockup-logo {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+        }
+        .mockup-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .mockup-profile {
+            width: 36px;
+            height: 36px;
+            background: var(--primary);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 600;
+            font-size: 12px;
+        }
+        .theme-demo {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            margin-top: 20px;
+        }
+        .theme-card {
+            padding: 12px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--surface);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .theme-card:hover {
+            border-color: var(--primary);
+            transform: translateY(-2px);
+        }
+        .theme-name {
+            font-weight: 600;
+            margin-bottom: 4px;
+        }
+        .theme-colors {
+            display: flex;
+            gap: 4px;
+        }
+        .theme-color {
+            width: 16px;
+            height: 16px;
+            border-radius: 50%;
+            border: 1px solid rgba(0,0,0,0.1);
+        }
+    </style>
+</head>
+<body>
+    <h1>AI Command Bar Implementation Preview</h1>
+    <p>This preview shows the AI command bar that appears in the middle of the topbar when AI is enabled.</p>
+
+    <div class="demo-section">
+        <div class="demo-title">Topbar with AI Command Bar</div>
+        <div class="demo-description">The command bar appears centered in the topbar when AI is enabled. It blends seamlessly with the existing design.</div>
+        
+        <div class="mockup-topbar">
+            <div class="mockup-left">
+                <div class="mockup-logo">BD</div>
+            </div>
+            
+            <!-- AI Command Bar (enabled state) -->
+            <div class="ai-command-bar">
+                <div class="command-input-wrapper">
+                    <span class="material-symbols-outlined">auto_awesome</span>
+                    <input type="text" placeholder="Ask me anything..." />
+                </div>
+            </div>
+            
+            <div class="mockup-right">
+                <div class="mockup-profile">BD</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <div class="demo-title">Command Processing Flow</div>
+        <div class="demo-description">When you type a command and press Enter, the system processes it through these steps:</div>
+        
+        <ol>
+            <li><strong>Input Processing:</strong> Command is captured on Enter keypress</li>
+            <li><strong>Thinking Mode:</strong> Shows spinning animation while processing</li>
+            <li><strong>Tool Detection:</strong> AI identifies needed tools like [themes], [documents], [changeTheme:girly]</li>
+            <li><strong>Tool Execution:</strong> Tools are executed to gather data or perform actions</li>
+            <li><strong>Response Generation:</strong> AI generates a helpful response with proper formatting</li>
+            <li><strong>Display:</strong> Response appears below the input with markdown rendering</li>
+        </ol>
+    </div>
+
+    <div class="demo-section">
+        <div class="demo-title">Available Tools</div>
+        <div class="demo-description">The AI can use these tools to help users:</div>
+        
+        <ul>
+            <li><code>[themes]</code> - Get list of available themes</li>
+            <li><code>[documents]</code> - Get user's recent documents</li>
+            <li><code>[settings]</code> - Get current app settings</li>
+            <li><code>[changeTheme:themeName]</code> - Change app theme (e.g., girly, dark, forest)</li>
+        </ul>
+    </div>
+
+    <div class="demo-section">
+        <div class="demo-title">Example Interactions</div>
+        
+        <div style="margin: 20px 0;">
+            <strong>User:</strong> "Change the theme to look more girly"
+            <br><br>
+            <strong>AI Response:</strong>
+            <div style="background: var(--gray); padding: 12px; border-radius: 8px; margin: 8px 0;">
+                <div style="margin-bottom: 8px;">
+                    <span style="background: color-mix(in hsl, var(--primary) 10%, var(--surface)); color: var(--primary); padding: 4px 8px; border-radius: 6px; font-size: 12px;">[changeTheme:girly]</span>
+                </div>
+                <strong>Perfect!</strong> I've changed your theme to "Pretty Pink" which has a lovely girly aesthetic with soft pink colors. The theme has been applied and saved to your settings.
+            </div>
+        </div>
+
+        <div style="margin: 20px 0;">
+            <strong>User:</strong> "Show me my documents"
+            <br><br>
+            <strong>AI Response:</strong>
+            <div style="background: var(--gray); padding: 12px; border-radius: 8px; margin: 8px 0;">
+                <div style="margin-bottom: 8px;">
+                    <span style="background: color-mix(in hsl, var(--primary) 10%, var(--surface)); color: var(--primary); padding: 4px 8px; border-radius: 6px; font-size: 12px;">[documents]</span>
+                </div>
+                Here are your recent documents:
+                <ul>
+                    <li><strong>Essay Draft</strong> - Essay, due tomorrow</li>
+                    <li><strong>Meeting Notes</strong> - Document, updated 2 hours ago</li>
+                    <li><strong>Shopping List</strong> - List, updated yesterday</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <div class="demo-title">Theme Examples</div>
+        <div class="demo-description">Users can ask for themes using natural language like "girly", "dark", "nature", etc.</div>
+        
+        <div class="theme-demo">
+            <div class="theme-card" onclick="changePreviewTheme('pretty-pink')">
+                <div class="theme-name">Pretty Pink (Girly)</div>
+                <div class="theme-colors">
+                    <div class="theme-color" style="background: #ff74a6;"></div>
+                    <div class="theme-color" style="background: #fff6fa;"></div>
+                    <div class="theme-color" style="background: #ff9ac0;"></div>
+                </div>
+            </div>
+            <div class="theme-card" onclick="changePreviewTheme('forest')">
+                <div class="theme-name">Forest (Nature)</div>
+                <div class="theme-colors">
+                    <div class="theme-color" style="background: #22c55e;"></div>
+                    <div class="theme-color" style="background: #0b1410;"></div>
+                    <div class="theme-color" style="background: #10b981;"></div>
+                </div>
+            </div>
+            <div class="theme-card" onclick="changePreviewTheme('baby-blue')">
+                <div class="theme-name">Baby Blue</div>
+                <div class="theme-colors">
+                    <div class="theme-color" style="background: #0066cc;"></div>
+                    <div class="theme-color" style="background: #f0f8ff;"></div>
+                    <div class="theme-color" style="background: #40e0d0;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="demo-section">
+        <div class="demo-title">Key Features</div>
+        <ul>
+            <li>✅ <strong>No Send Button:</strong> Enter key triggers processing</li>
+            <li>✅ <strong>Thinking Animation:</strong> Shows processing state with spinning icon</li>
+            <li>✅ <strong>Tool Integration:</strong> AI can call functions to get data or perform actions</li>
+            <li>✅ <strong>Proper Formatting:</strong> Responses render markdown without ** issues</li>
+            <li>✅ <strong>Theme Integration:</strong> Matches current theme colors and styles</li>
+            <li>✅ <strong>Responsive Design:</strong> Adapts to different screen sizes</li>
+            <li>✅ <strong>Context Aware:</strong> Only shows when AI is enabled in settings</li>
+        </ul>
+    </div>
+
+    <script>
+        function changePreviewTheme(theme) {
+            document.documentElement.setAttribute('data-theme', theme);
+            
+            // Update meta theme color
+            const meta = document.querySelector('meta[name="theme-color"]');
+            if (meta) {
+                const computed = getComputedStyle(document.documentElement);
+                const bg = computed.getPropertyValue('--bg').trim() || '#000000';
+                meta.setAttribute('content', bg);
+            }
+        }
+
+        // Add some interactivity to the command bar
+        const input = document.querySelector('.ai-command-bar input');
+        if (input) {
+            input.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    e.preventDefault();
+                    const value = input.value.trim();
+                    if (value) {
+                        alert(`Demo: Would process command "${value}"`);
+                        input.value = '';
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
