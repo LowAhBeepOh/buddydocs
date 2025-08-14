@@ -38,6 +38,15 @@
         </div>
       </div>
       <div class="right">
+        <!-- Mode Switcher -->
+        <div id="modeSwitcher" class="mode-switcher">
+          <button id="editModeBtn" class="mode-btn active" title="Editing">
+            <span class="material-symbols-outlined">edit</span>
+          </button>
+          <button id="viewModeBtn" class="mode-btn" title="View">
+            <span class="material-symbols-outlined">visibility</span>
+          </button>
+        </div>
         <button id="syncIndicator" class="icon-btn" title="Saved" disabled>
           <span id="syncIcon" class="material-symbols-outlined">check</span>
         </button>
@@ -73,6 +82,10 @@
       <button id="openShortcuts" class="tools-menu-item">
         <span class="material-symbols-outlined">keyboard</span>
         <span>Keyboard Shortcuts</span>
+      </button>
+      <button id="openWordCount" class="tools-menu-item">
+        <span class="material-symbols-outlined">analytics</span>
+        <span>Word Count</span>
       </button>
     </div>
     <!-- Export As submenu -->
@@ -118,12 +131,46 @@
     </div>
   </header>
 
-  <main class="editor-wrap no-meta">
+  <main class="editor-wrap with-outline">
+    <!-- Document Outline Sidebar -->
+    <aside id="outlineSidebar" class="outline-sidebar">
+      <div class="outline-header">
+        <div class="outline-title">
+          <span>Outline</span>
+        </div>
+      </div>
+      <div class="outline-content">
+        <div id="outlineList" class="outline-list">
+          <div class="outline-empty">
+            Headings you add to the document will appear here.
+          </div>
+        </div>
+      </div>
+    </aside>
 
     <section class="page">
       <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
     </section>
+
+    <div class="spacer"></div>
   </main>
+
+  <!-- Status Bar -->
+  <footer class="status-bar">
+    <div class="word-progress-bar" id="wordProgressBar" style="width:0%"></div>
+    <div class="status-left">
+      <button id="wordCountWidget" class="word-count-widget" title="Document statistics">
+        <span id="wordCountDisplay">0 words</span>
+      </button>
+      <span style="margin-left: 8px; color:var(--muted); font-size:12px;">Goal:</span>
+      <input id="wordGoalInput" type="number" min="0" step="50" class="word-goal-input" value="0" title="Set word goal"/>
+    </div>
+    <div class="status-right">
+      <button id="hideMenusBtn" class="icon-btn" title="Hide menus (Ctrl+Shift+F)">
+        <span class="material-symbols-outlined">fullscreen</span>
+      </button>
+    </div>
+  </footer>
 
   <!-- Document Settings Modal -->
   <div id="docSettingsModal" class="modal-backdrop" hidden>

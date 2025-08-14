@@ -24,17 +24,36 @@
     </div>
   </header>
 
-  <main class="calendar container">
-   
-    <div class="calendar-grid" id="calendarGrid"></div>
-    <aside class="calendar-side">
-      <h3>Deadlines</h3>
-      <ul id="calendarDeadlines" class="deadline-list"></ul>
-    </aside>
+  <main class="calendar-page container">
     <div class="calendar-head">
       <button id="prevMonth" class="icon-btn"><span class="material-symbols-outlined">chevron_left</span></button>
       <h2 id="monthLabel">Month YYYY</h2>
       <button id="nextMonth" class="icon-btn"><span class="material-symbols-outlined">chevron_right</span></button>
+      <div class="export-controls">
+        <button id="exportBtn" class="icon-btn" title="Export Calendar"><span class="material-symbols-outlined">file_download</span></button>
+        <div id="exportMenu" class="dropdown-menu" hidden>
+          <button class="menu-item" data-format="ics">
+            <span class="material-symbols-outlined">event</span>
+            Export as iCalendar (.ics)
+          </button>
+          <button class="menu-item" data-format="vcs">
+            <span class="material-symbols-outlined">event_upcoming</span>
+            Export as vCalendar (.vcs)
+          </button>
+          <button class="menu-item" data-format="csv">
+            <span class="material-symbols-outlined">table_chart</span>
+            Export as CSV
+          </button>
+        </div>
+      </div>
+    </div>
+    
+    <div class="calendar-content">
+      <div class="calendar-grid" id="calendarGrid"></div>
+      <aside class="calendar-side">
+        <h3>Deadlines</h3>
+        <ul id="calendarDeadlines" class="deadline-list"></ul>
+      </aside>
     </div>
   </main>
 

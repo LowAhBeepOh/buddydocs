@@ -11,7 +11,7 @@
 .formatbar.compact{display:none}
 
 /* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */
-.editor-wrap{display:grid; grid-template-columns:280px 1fr; gap:16px; max-width:1200px; margin:0 auto; padding:16px}
+.editor-wrap{display:grid; grid-template-columns:280px 1fr 280px; gap:16px; max-width:1400px; margin:0 auto; padding:16px}
 .editor-wrap.no-meta{grid-template-columns:1fr}
 .editor-wrap.with-ai{grid-template-columns:1fr 250px; gap:0; padding:16px 0 16px 16px; max-width:none; margin:0}
 
@@ -578,6 +578,271 @@
 .ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
 .op-item{ display:flex; align-items:center; gap:8px; color:var(--text); font-size:12px; }
 .op-badge{ display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; padding:2px 6px; border-radius:6px; background: color-mix(in hsl, var(--primary) 8%, var(--surface)); color: var(--primary); border:1px dashed color-mix(in hsl, var(--primary) 25%, var(--border)); }
+
+/* Outline Sidebar Styles */
+.editor-wrap.with-outline {
+  grid-template-columns: 280px 1fr 280px; /* Keep 3-column layout with centered page */
+}
+
+.outline-sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  height: fit-content;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 20px;
+}
+
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 6%, var(--surface));
+}
+
+.outline-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.outline-title .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--primary);
+}
+
+.outline-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.outline-list {
+  padding: 8px 0;
+}
+
+.outline-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}
+
+.outline-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  padding: 6px 16px;
+  cursor: pointer;
+  color: var(--text);
+  text-decoration: none;
+  font-size: 14px;
+  line-height: 1.4;
+  border-left: 2px solid transparent;
+  transition: all 0.2s ease;
+}
+
+.outline-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+  border-left-color: var(--primary);
+}
+
+.outline-item.level-2 {
+  padding-left: 32px;
+}
+
+.outline-item.level-3 {
+  padding-left: 48px;
+}
+
+.outline-number {
+  font-family: 'Doto', monospace;
+  font-size: 12px;
+  color: var(--muted);
+  min-width: 20px;
+  text-align: right;
+  margin-top: 1px;
+}
+
+.outline-text {
+  flex: 1;
+  word-break: break-word;
+}
+
+/* Status Bar Styles - Bottom-fixed Progress Bar */
+.status-bar {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  z-index: 100;
+  height: 32px;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  overflow: hidden;
+}
+
+.word-progress-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 100%;
+  background: var(--primary);
+  transition: width 0.3s ease;
+  opacity: 0.15;
+}
+
+.status-left {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  padding: 0 16px;
+  flex: 1;
+}
+
+.status-right {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+}
+
+.word-count-widget {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+  background: transparent;
+  border: none;
+  color: var(--text);
+  cursor: pointer;
+  font-size: 13px;
+  font-weight: 500;
+  font-family: var(--bd-font-family);
+  transition: all 0.2s ease;
+}
+
+.word-count-widget:hover {
+  color: var(--primary);
+}
+
+.word-goal-input {
+  background: transparent;
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 2px 6px;
+  color: var(--text);
+  font-size: 12px;
+  width: 60px;
+  font-family: var(--bd-font-family);
+}
+
+.word-goal-input:focus {
+  outline: none;
+  border-color: var(--primary);
+  background: color-mix(in hsl, var(--primary) 5%, var(--surface));
+}
+
+/* Hide menus mode adjustments */
+.editor-wrap.hide-menus .status-bar {
+  display: flex; /* Keep status bar visible even in hide-menus mode */
+}
+
+/* Body padding to prevent content overlap with fixed status bar */
+body {
+  padding-bottom: 32px;
+}
+
+.word-count-widget .material-symbols-outlined {
+  font-size: 16px;
+  transition: transform 0.2s ease;
+}
+
+.word-count-widget:hover .material-symbols-outlined {
+  transform: rotate(180deg);
+}
+
+/* Mode Switcher Styles */
+.mode-switcher {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  background: color-mix(in hsl, var(--primary) 6%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 2px;
+}
+
+.mode-btn {
+  appearance: none;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 6px 8px;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  position: relative;
+}
+
+.mode-btn:hover {
+  color: var(--text);
+}
+
+.mode-btn.active {
+  background: var(--surface);
+  color: var(--primary);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.mode-btn .material-symbols-outlined {
+  font-size: 18px;
+}
+
+/* Responsive adjustments */
+@media (max-width: 1000px) {
+  .editor-wrap.with-outline {
+    grid-template-columns: 1fr;
+  }
+  
+  .outline-sidebar {
+    display: none;
+  }
+  
+  .mode-switcher {
+    display: none;
+  }
+}
+
+/* Hide menus mode */
+.editor-wrap.hide-menus .editor-header {
+  display: none;
+}
+
+.editor-wrap.hide-menus .status-bar {
+  display: flex;
+}
+
+.editor-wrap.hide-menus {
+  padding: 0;
+  max-width: none;
+}
 
 /* In-document diff preview styles */
 .document-diff-overlay {
@@ -783,7 +1048,7 @@
 .formatbar.compact{display:none}
 
 /* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */
-.editor-wrap{display:grid; grid-template-columns:280px 1fr; gap:16px; max-width:1200px; margin:0 auto; padding:16px}
+.editor-wrap{display:grid; grid-template-columns:280px 1fr 280px; gap:16px; max-width:1400px; margin:0 auto; padding:16px}
 .editor-wrap.no-meta{grid-template-columns:1fr}
 .editor-wrap.with-ai{grid-template-columns:1fr 250px; gap:0; padding:16px 0 16px 16px; max-width:none; margin:0}
 
@@ -1350,3 +1615,65 @@
 .ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
 .op-item{ display:flex; align-items:center; gap:8px; color:var(--text); font-size:12px; }
 .op-badge{ display:inline-block; font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace; font-size:11px; padding:2px 6px; border-radius:6px; background: color-mix(in hsl, var(--primary) 8%, var(--surface)); color: var(--primary); border:1px dashed color-mix(in hsl, var(--primary) 25%, var(--border)); }
+
+/* Hide outline sidebar by default when outline is not shown */
+.editor-wrap:not(.with-outline) .outline-sidebar{
+  display: none;
+}
+
+/* Outline Sidebar Styles */
+.editor-wrap.with-outline {
+  grid-template-columns: 280px 1fr 280px; /* Keep 3-column layout with centered page */
+}
+
+.outline-sidebar {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  height: fit-content;
+  max-height: calc(100vh - 200px);
+  overflow: hidden;
+  box-shadow: var(--shadow);
+  position: sticky;
+  top: 20px;
+}
+
+.outline-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in hsl, var(--primary) 6%, var(--surface));
+}
+
+.outline-title {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-weight: 600;
+  font-size: 14px;
+  color: var(--text);
+}
+
+.outline-title .material-symbols-outlined {
+  font-size: 16px;
+  color: var(--primary);
+}
+
+.outline-content {
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.outline-list {
+  padding: 8px 0;
+}
+
+.outline-empty {
+  padding: 16px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+  line-height: 1.4;
+}

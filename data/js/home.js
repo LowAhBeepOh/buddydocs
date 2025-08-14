@@ -337,7 +337,10 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   return { greeting: `${randomGreeting.greeting}, ${displayName}`, sub: randomGreeting.sub };
 }
 
-function createWelcomeScreen(grid) {
+function createWelcomeScreen() {
+    const existing = document.querySelector('.documents .welcome-container');
+    if (existing) existing.remove();
+
     const welcomeContainer = document.createElement('div');
     welcomeContainer.className = 'welcome-container';
 
@@ -388,7 +391,9 @@ function createWelcomeScreen(grid) {
     welcomeContent.appendChild(rightSide);
     welcomeContainer.appendChild(welcomeContent);
 
-    grid.appendChild(welcomeContainer);
+    // Instead of appending to grid, append to the documents section
+    const documentsSection = document.querySelector('.documents');
+    documentsSection.appendChild(welcomeContainer);
 }
 
 function dueBadge(d){
@@ -574,12 +579,18 @@ async function renderDocs(){
   grid.innerHTML = '';
 
   const sectionHead = document.querySelector('.documents .section-head');
+  const documentsSection = document.querySelector('.documents');
+  // cleanup old welcome if any
+  const existingWelcome = documentsSection.querySelector('.welcome-container');
 
   if (docs.length === 0 && !term) {
       if (sectionHead) sectionHead.style.display = 'none';
-      createWelcomeScreen(grid);
+      grid.hidden = true;
+      if (!existingWelcome) createWelcomeScreen(grid);
   } else {
       if (sectionHead) sectionHead.style.display = 'flex';
+      grid.hidden = false;
+      if (existingWelcome) existingWelcome.remove();
       for(const d of docs){
           grid.appendChild(createDocCard(d));
       }

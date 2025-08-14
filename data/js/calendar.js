@@ -1,4 +1,4 @@
-import { listDeadlinesForMonth } from './idb.js';
+import { listDeadlinesForMonth, listDocuments } from './idb.js';
 
 const monthLabel = document.getElementById('monthLabel');
 const grid = document.getElementById('calendarGrid');
@@ -34,7 +34,7 @@ function buildGrid(){
   for(let d=1; d<=days; d++){
     const el = document.createElement('div');
     el.className = 'day';
-    el.innerHTML = `<div class=\"date\">${d}</div><div class=\"items\"></div>`;
+    el.innerHTML = `<div class="date">${d}</div><div class="items"></div>`;
     el.dataset.date = new Date(year, month, d).toISOString().slice(0,10);
     
     // Check if this is today's date
@@ -127,6 +127,162 @@ function bindNav(){
   document.getElementById('nextMonth').addEventListener('click', () => nav(1));
 }
 
+// --- Export helpers ---
+function fmtDateUTC(date){
+  // Return YYYYMMDD format in UTC for all-day dates
+  const d = new Date(date);
+  return (
+    d.getUTCFullYear().toString().padStart(4,'0')+
+    (d.getUTCMonth()+1).toString().padStart(2,'0')+
+    d.getUTCDate().toString().padStart(2,'0')
+  );
+}
+
+function escapeText(text){
+  return (text || '').replace(/\\/g,'\\\\').replace(/;/g,'\;').replace(/,/g,'\,').replace(/\n/g,'\\n');
+}
+
+async function getAllDeadlines(){
+  // include archived as well to export absolutely everything
+  const all = await listDocuments({ includeArchived: true });
+  return all.filter(d => d.dueDate).sort((a,b)=> new Date(a.dueDate) - new Date(b.dueDate));
+}
+
+async function buildICS(){
+  const items = await getAllDeadlines();
+  const lines = [];
+  lines.push('BEGIN:VCALENDAR');
+  lines.push('VERSION:2.0');
+  lines.push('PRODID:-//Buddy Docs//Calendar//EN');
+  for(const it of items){
+    if(!it.dueDate) continue;
+    const uid = it.id || crypto.randomUUID();
+    const dt = fmtDateUTC(it.dueDate);
+    lines.push('BEGIN:VEVENT');
+    // All-day event on due date
+    lines.push(`UID:${uid}@buddydocs`);
+    lines.push(`DTSTAMP:${fmtDateUTC(new Date())}T000000Z`);
+    lines.push(`DTSTART;VALUE=DATE:${dt}`);
+    // For all-day, DTEND is next day
+    const end = new Date(it.dueDate); end.setDate(end.getDate()+1);
+    lines.push(`DTEND;VALUE=DATE:${fmtDateUTC(end)}`);
+    lines.push(`SUMMARY:${escapeText(it.title || 'Untitled')}`);
+    if (it.type) lines.push(`CATEGORIES:${escapeText(it.type)}`);
+    if (it.tags?.length) lines.push(`CATEGORIES:${escapeText(it.tags.join(','))}`);
+    lines.push('END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+async function buildVCS(){
+  // vCalendar 1.0 uses VEVENT with similar fields but VERSION:1.0
+  const items = await getAllDeadlines();
+  const lines = [];
+  lines.push('BEGIN:VCALENDAR');
+  lines.push('VERSION:1.0');
+  lines.push('PRODID:-//Buddy Docs//Calendar//EN');
+  for(const it of items){
+    if(!it.dueDate) continue;
+    const uid = it.id || crypto.randomUUID();
+    const dt = fmtDateUTC(it.dueDate);
+    lines.push('BEGIN:VEVENT');
+    lines.push(`UID:${uid}@buddydocs`);
+    lines.push(`DTSTART:${dt}`);
+    const end = new Date(it.dueDate); end.setDate(end.getDate()+1);
+    lines.push(`DTEND:${fmtDateUTC(end)}`);
+    lines.push(`SUMMARY:${escapeText(it.title || 'Untitled')}`);
+    lines.push('END:VEVENT');
+  }
+  lines.push('END:VCALENDAR');
+  return lines.join('\r\n');
+}
+
+async function buildCSV(){
+  const items = await getAllDeadlines();
+  const headers = ['Title','Due Date','Type','Tags','ID'];
+  const rows = [headers.join(',')];
+  for(const it of items){
+    const cells = [
+      '"'+(it.title||'Untitled').replace(/"/g,'""')+'"',
+      new Date(it.dueDate).toISOString(),
+      '"'+((it.type||'').toString().replace(/"/g,'""'))+'"',
+      '"'+(Array.isArray(it.tags)? it.tags.join(';') : '').replace(/"/g,'""')+'"',
+      it.id || ''
+    ];
+    rows.push(cells.join(','));
+  }
+  return rows.join('\r\n');
+}
+
+function downloadFile(filename, content, mime){
+  const blob = new Blob([content], { type: mime });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename; a.click();
+  setTimeout(()=> URL.revokeObjectURL(url), 2000);
+}
+
+function positionMenuNearButton(menu, btn){
+  const r = btn.getBoundingClientRect();
+  menu.style.left = `${Math.round(r.right - menu.offsetWidth)}px`;
+  menu.style.top = `${Math.round(r.bottom + 8)}px`;
+}
+
+function bindExport(){
+  const btn = document.getElementById('exportBtn');
+  const menu = document.getElementById('exportMenu');
+  if(!btn || !menu) return;
+
+  function close(){
+    menu.hidden = true;
+    document.removeEventListener('click', onDocClick);
+    window.removeEventListener('resize', onWindowChange);
+    window.removeEventListener('scroll', onWindowChange, true);
+  }
+  function onWindowChange(){
+    if(!menu.hidden) positionMenuNearButton(menu, btn);
+  }
+  function onDocClick(e){
+    if (!menu.contains(e.target) && e.target !== btn){
+      close();
+    }
+  }
+
+  btn.addEventListener('click', (e)=>{
+    e.stopPropagation();
+    menu.hidden = !menu.hidden;
+    if(!menu.hidden){
+      positionMenuNearButton(menu, btn);
+      document.addEventListener('click', onDocClick);
+      window.addEventListener('resize', onWindowChange);
+      window.addEventListener('scroll', onWindowChange, true);
+    } else {
+      close();
+    }
+  });
+
+  menu.addEventListener('click', async (e)=>{
+    const opt = e.target.closest('.menu-item');
+    if(!opt) return;
+    const fmt = opt.dataset.format;
+    try{
+      if(fmt === 'ics'){
+        const ics = await buildICS();
+        downloadFile('buddydocs-all.ics', ics, 'text/calendar');
+      } else if(fmt === 'vcs'){
+        const vcs = await buildVCS();
+        downloadFile('buddydocs-all.vcs', vcs, 'text/x-vcalendar');
+      } else if(fmt === 'csv'){
+        const csv = await buildCSV();
+        downloadFile('buddydocs-all.csv', csv, 'text/csv');
+      }
+    } finally {
+      close();
+    }
+  });
+}
+
 function render(){
   renderMonthLabel();
   buildGrid();
@@ -134,4 +290,5 @@ function render(){
 }
 
 bindNav();
+bindExport();
 render();
