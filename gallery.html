@@ -70,6 +70,11 @@
       height: auto;
       display: block;
       object-fit: contain;
+      transition: opacity 0.3s ease;
+    }
+    
+    .gallery-item img.lazy {
+      opacity: 0.7;
     }
 
     .gallery-item .remove-btn {
@@ -128,7 +133,6 @@
       <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled</h1>
     </div>
     <div class="right">
-      <button id="saveBtn" class="btn primary">Save</button>
       <button id="profileBtn" class="avatar" title="Profile">U</button>
       <div id="profileMenu" class="menu" hidden>
         <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
@@ -200,13 +204,29 @@
       return u.searchParams.get(name);
     }
 
-    function createGalleryItem(imageData) {
+    function createGalleryItem(imageData, lazy = true) {
       const item = itemTemplate.content.cloneNode(true).children[0];
       const img = item.querySelector('img');
-      img.src = imageData;
+      
+      if (lazy) {
+        // Lazy loading: set data-src instead of src
+        img.dataset.src = imageData;
+        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
+        img.classList.add('lazy');
+        
+        // Set up intersection observer for this image
+        if (window.imageObserver) {
+          window.imageObserver.observe(img);
+        }
+      } else {
+        img.src = imageData;
+      }
       
       const removeBtn = item.querySelector('.remove-btn');
       removeBtn.addEventListener('click', () => {
+        if (window.imageObserver && img.classList.contains('lazy')) {
+          window.imageObserver.unobserve(img);
+        }
         item.remove();
         saveNow();
       });
@@ -232,24 +252,61 @@
       });
     }
 
-    async function handleFiles(files) {
-      const readers = Array.from(files).map(file => {
-        return new Promise(resolve => {
-          if (!file.type.startsWith('image/')) {
-            resolve(null);
-            return;
+    function compressImage(file, maxWidth = 1200, quality = 0.8) {
+      return new Promise(resolve => {
+        const canvas = document.createElement('canvas');
+        const ctx = canvas.getContext('2d');
+        const img = new Image();
+        
+        img.onload = () => {
+          // Calculate new dimensions
+          let { width, height } = img;
+          if (width > maxWidth) {
+            height = (height * maxWidth) / width;
+            width = maxWidth;
           }
-          const reader = new FileReader();
-          reader.onload = () => resolve(reader.result);
-          reader.onerror = () => resolve(null);
-          reader.readAsDataURL(file);
-        });
+          
+          canvas.width = width;
+          canvas.height = height;
+          
+          // Draw and compress
+          ctx.drawImage(img, 0, 0, width, height);
+          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
+          resolve(compressedDataUrl);
+        };
+        
+        img.onerror = () => resolve(null);
+        img.src = URL.createObjectURL(file);
       });
+    }
 
-      const results = await Promise.all(readers);
-      results.filter(Boolean).forEach(imageData => {
-        createGalleryItem(imageData);
-      });
+    async function handleFiles(files) {
+      const processFile = async (file) => {
+        if (!file.type.startsWith('image/')) return null;
+        
+        // Compress image before storing
+        const compressed = await compressImage(file);
+        return compressed;
+      };
+
+      // Process files in batches to avoid blocking UI
+      const batchSize = 3;
+      const fileArray = Array.from(files);
+      
+      for (let i = 0; i < fileArray.length; i += batchSize) {
+        const batch = fileArray.slice(i, i + batchSize);
+        const results = await Promise.all(batch.map(processFile));
+        
+        results.filter(Boolean).forEach(imageData => {
+          createGalleryItem(imageData, false); // Don't lazy load newly added images
+        });
+        
+        // Small delay to keep UI responsive
+        if (i + batchSize < fileArray.length) {
+          await new Promise(resolve => setTimeout(resolve, 10));
+        }
+      }
+      
       saveNow();
     }
 
@@ -345,9 +402,9 @@
       if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
       if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
       
-      // Load images
+      // Load images with lazy loading
       currentDoc.content.forEach(imageData => {
-        createGalleryItem(imageData);
+        createGalleryItem(imageData, true); // Enable lazy loading for existing images
       });
       // enable reorder for any pre-existing items (safety)
       gallery.querySelectorAll('.gallery-item').forEach(el=> enableReorder(el));
@@ -419,12 +476,34 @@
       }
     });
 
+    // Set up lazy loading intersection observer
+    function setupLazyLoading() {
+      const options = {
+        root: null,
+        rootMargin: '50px',
+        threshold: 0.1
+      };
+      
+      window.imageObserver = new IntersectionObserver((entries) => {
+        entries.forEach(entry => {
+          if (entry.isIntersecting) {
+            const img = entry.target;
+            if (img.dataset.src) {
+              img.src = img.dataset.src;
+              img.classList.remove('lazy');
+              window.imageObserver.unobserve(img);
+            }
+          }
+        });
+      }, options);
+    }
+
+    setupLazyLoading();
     bindGallery();
     bindMeta();
     loadOrCreate();
 
-    // Save/Del buttons
-    document.getElementById('saveBtn').addEventListener('click', saveNow);
+    // Delete button
     document.getElementById('deleteBtn').addEventListener('click', deleteNow);
   </script>
 </body>

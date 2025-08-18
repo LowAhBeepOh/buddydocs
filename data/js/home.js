@@ -515,7 +515,14 @@ function createDocCard(doc){
   const tmpl = document.getElementById('docCardTmpl');
   const node = tmpl.content.firstElementChild.cloneNode(true);
   const link = node.querySelector('.doc-link');
-  link.href = `editor.html?id=${encodeURIComponent(doc.id)}`;
+  
+  // Route to appropriate page based on document type
+  if (doc.type === 'gallery') {
+    link.href = `gallery.html?id=${encodeURIComponent(doc.id)}`;
+  } else {
+    link.href = `editor.html?id=${encodeURIComponent(doc.id)}`;
+  }
+  
   node.querySelector('.title').textContent = doc.title || 'Untitled';
   node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
   node.querySelector('.due').innerHTML = dueBadge(doc);
