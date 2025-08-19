@@ -64,13 +64,6 @@
             <p>Start writing</p>
           </div>
         </a>
-        <a class="card new" href="editor.html?type=essay">
-          <span class="material-symbols-outlined">ink_pen</span>
-          <div>
-            <strong>Essay</strong>
-            <p>Structure your thoughts</p>
-          </div>
-        </a>
         <a class="card new" href="editor.html?type=list">
           <span class="material-symbols-outlined">checklist</span>
           <div>
@@ -85,8 +78,40 @@
             <p>Collect images</p>
           </div>
         </a>
+        <a id="openTemplatesModal" class="card new" href="#">
+          <span class="material-symbols-outlined">library_books</span>
+          <div>
+            <strong>Templates</strong>
+            <p>Choose a starter</p>
+          </div>
+        </a>
       </div>
     </section>
+
+    <!-- Templates Modal -->
+    <div id="templatesModal" class="modal-backdrop" hidden>
+      <div class="modal-card">
+        <div class="modal-head">
+          <h3>Choose a Template</h3>
+          <button id="closeTemplatesModal" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
+        </div>
+        <div class="modal-body-with-sidebar">
+          <div class="template-sidebar">
+            <nav>
+              <button class="active" data-category="All">All</button>
+              <button data-category="Study">Study</button>
+              <button data-category="Log">Log</button>
+              <button data-category="Creative">Creative</button>
+              <button data-category="Personal">Personal</button>
+            </nav>
+          </div>
+          <div class="templates-grid-container">
+            <div id="templatesGrid" class="card-grid templates-grid"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
 
     <section class="deadlines">
       <div class="section-head">

@@ -1,6 +1,8 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
+
 :root {
-  --bd-font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', sans-serif;
-  --font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', sans-serif;
+  --bd-font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  --font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
 }
 
 :root{
@@ -193,7 +195,10 @@ html[data-theme="blueberries"]{
 html,body{height:100%}
 body{
   margin:0;
-  font-family:"Inter Tight", system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji","Segoe UI Emoji";
+  --font-family-sans: "Noto Color Emoji", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+        Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji",
+        "Segoe UI Symbol";
+  font-family: var(--bd-font-family);
   color:var(--text);
   background:var(--bg);
 }
@@ -236,6 +241,7 @@ img{max-width:100%;display:block}
   background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px;
   display:flex; align-items:center; gap:12px; box-shadow:var(--shadow);
   color:inherit; text-decoration:none;
+  font-family: var(--bd-font-family);
 }
 .card.new span.material-symbols-outlined{color:var(--primary)}
 .card p{margin:0; color:var(--muted); font-size:12px}
@@ -345,4 +351,189 @@ img{max-width:100%;display:block}
 }
 @media (max-width:600px){
   .card-row, .doc-grid{grid-template-columns:1fr}
+}
+
+/* Modal overlay styles (used by Templates modal) */
+.modal-backdrop{
+  position: fixed;
+  inset: 0;
+  background: color-mix(in hsl, var(--bg) 40%, black 60% / 40%);
+  backdrop-filter: blur(2px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 2000;
+}
+.modal-backdrop[hidden]{
+  display: none !important;
+}
+.modal-card{
+  max-width: none;
+  width: calc(100% - 48px);
+  height: calc(100% - 48px);
+  margin: 24px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: var(--shadow);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-head{
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-head h3{ margin: 0; }
+.modal-body{
+  padding: 16px;
+  overflow: auto;
+  flex: 1;
+}
+.templates-grid{
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+
+/* Template preview cards */
+.template-card {
+  display: block;
+  padding: 12px;
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: transform 0.2s, box-shadow 0.2s;
+  color: var(--text);
+  text-decoration: none;
+}
+
+.template-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+  border-color: var(--primary);
+}
+
+.template-card strong {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: block;
+}
+
+.template-card .preview {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.4;
+  height: 120px;
+  overflow: hidden;
+  color: var(--text-muted);
+}
+
+.template-card .preview h1, .template-card .preview h2 {
+  font-size: 14px;
+  font-weight: 600;
+  margin: 0 0 8px;
+  color: var(--text);
+}
+
+.template-card .preview p {
+  margin: 0 0 4px;
+}
+
+.template-card .info {
+  margin-top: 8px;
+}
+
+.template-card .info p {
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 0;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+  .templates-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 480px) {
+  .templates-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* New styles for template modal with sidebar */
+.modal-body-with-sidebar {
+  display: flex;
+  flex: 1;
+  overflow: hidden;
+  padding: 0;
+}
+
+.template-sidebar {
+  width: 220px;
+  background: var(--bg);
+  border-right: 1px solid var(--border);
+  padding: 16px;
+  overflow-y: auto;
+  flex-shrink: 0;
+}
+
+.template-sidebar nav {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.template-sidebar button {
+  width: 100%;
+  padding: 10px 12px;
+  border-radius: 8px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  text-align: left;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background 0.2s, color 0.2s;
+  font-size: 14px;
+}
+
+.template-sidebar button:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.template-sidebar button.active {
+  background: var(--primary);
+  color: white;
+}
+
+.templates-grid-container {
+  flex: 1;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.templates-grid .empty-state {
+  color: var(--muted);
+  text-align: center;
+  padding: 40px;
+  font-size: 14px;
+}
+
+/* Adjustments for template cards inside the new grid */
+.template-card .info p {
+  color: var(--muted);
+}
+
+.modal-body {
+  padding: 0;
 }

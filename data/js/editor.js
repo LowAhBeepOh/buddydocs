@@ -1,5 +1,7 @@
 import { getDocument, saveDocument, deleteDocument, setSetting, getSetting } from './idb.js';
 import { applyEditorPrefs } from './theme.js';
+import { TEMPLATES } from './templates.js';
+import { SmartCompose } from './smart-compose.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -8,10 +10,37 @@ const dueEl = document.getElementById('dueDate');
 const tagsEl = document.getElementById('tags');
 
 let currentDoc = { id:null, title:'Untitled', type:'document', content:'', dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
+let smartCompose = null;
 
 function getParam(name){
   const u = new URL(location.href);
   return u.searchParams.get(name);
+}
+
+
+function applyFontFamily(font) {
+  if (!editor) return;
+  document.execCommand('fontName', false, font);
+}
+
+function applyFontSize(size) {
+  if (!editor) return;
+  const sizeInPx = `${parseInt(size, 10)}px`;
+
+  // This is a robust, two-step method to apply font size reliably.
+  // 1. Use execCommand with a placeholder size to create a <font> tag.
+  document.execCommand('fontSize', false, '7');
+  
+  // 2. Find all <font size="7"> tags just created and replace them with a styled <span>.
+  const fontTags = editor.getElementsByTagName('font');
+  Array.from(fontTags).forEach(tag => {
+    if (tag.getAttribute('size') === '7') {
+      const span = document.createElement('span');
+      span.style.fontSize = sizeInPx;
+      span.innerHTML = tag.innerHTML;
+      tag.parentNode.replaceChild(span, tag);
+    }
+  });
 }
 
 function applyBlock(tag){
@@ -138,6 +167,46 @@ function bindToolbar(){
     document.execCommand('unlink');
     editor.focus();
   });
+
+  // Font Family and Size Controls
+  const fontFamilySelect = document.getElementById('fontName');
+  const fontSizeInput = document.getElementById('fontSize');
+  const increaseFontSizeBtn = document.getElementById('increaseFontSize');
+  const decreaseFontSizeBtn = document.getElementById('decreaseFontSize');
+
+  if (fontFamilySelect) {
+    fontFamilySelect.addEventListener('change', () => {
+      applyFontFamily(fontFamilySelect.value);
+      editor.focus();
+    });
+  }
+
+  if (fontSizeInput && increaseFontSizeBtn && decreaseFontSizeBtn) {
+    const updateSize = () => {
+      const size = parseInt(fontSizeInput.value, 10);
+      if (!isNaN(size) && size > 0) {
+        applyFontSize(size);
+      }
+      editor.focus();
+    };
+
+    fontSizeInput.addEventListener('change', updateSize);
+
+    increaseFontSizeBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      fontSizeInput.value = parseInt(fontSizeInput.value, 10) + 1;
+      updateSize();
+    });
+
+    decreaseFontSizeBtn.addEventListener('mousedown', (e) => {
+      e.preventDefault();
+      const currentSize = parseInt(fontSizeInput.value, 10);
+      if (currentSize > 1) {
+        fontSizeInput.value = currentSize - 1;
+        updateSize();
+      }
+    });
+  }
 }
 
 function bindMeta(){
@@ -182,11 +251,25 @@ function autosave(){
 async function loadOrCreate(){
   const id = getParam('id');
   const type = getParam('type');
+  const templateKey = getParam('template');
   if (id){
     const d = await getDocument(id);
     if (d){
       currentDoc = d;
     }
+  } else if (templateKey && TEMPLATES[templateKey]){
+    const tpl = TEMPLATES[templateKey];
+    currentDoc = {
+      id: null,
+      title: tpl.title || 'Untitled',
+      type: tpl.type || 'document',
+      content: tpl.content || '',
+      dueDate: null,
+      tags: [],
+      template: { key: tpl.key, meta: tpl.meta || null },
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
   } else if (type){
     currentDoc.type = type;
   }
@@ -204,6 +287,11 @@ async function loadOrCreate(){
     updateStatusCounts();
     buildOutline();
   }, 0);
+
+  // If created from template, immediately save to get an ID and update URL
+  if (!id && templateKey && TEMPLATES[templateKey]){
+    await saveNow();
+  }
 }
 
 function placeholderForType(type){
@@ -923,6 +1011,40 @@ function showKeyboardShortcutsHelp() {
   setTimeout(() => document.addEventListener('click', handleClickOutside), 100);
 }
 
+// Smart Compose help popup
+function showSmartComposeHelp() {
+  // Remove existing popup if any
+  const existingPopup = document.getElementById('smartComposeHelpPopup');
+  if (existingPopup) {
+    existingPopup.remove();
+  }
+  
+  // Create popup
+  const popup = document.createElement('div');
+  popup.id = 'smartComposeHelpPopup';
+  popup.className = 'smart-compose-help';
+  popup.innerHTML = `
+    <button class="smart-compose-help-close" onclick="this.parentElement.remove()">×</button>
+    <div style="font-weight: 600; margin-bottom: 8px;">Smart Compose is now active!</div>
+    <div>Start typing phrases like "I hope you", "let me know", or "once upon a time" to see suggestions appear as gray ghost text.</div>
+    <div class="smart-compose-shortcuts">
+      <strong>Controls:</strong><br>
+      <kbd>Tab</kbd> or <kbd>→</kbd> Accept suggestion<br>
+      <kbd>Alt</kbd> Cycle through alternatives<br>
+      <kbd>Esc</kbd> Dismiss suggestion
+    </div>
+  `;
+  
+  document.body.appendChild(popup);
+  
+  // Auto-close after 8 seconds
+  setTimeout(() => {
+    if (popup.parentElement) {
+      popup.remove();
+    }
+  }, 8000);
+}
+
 bindToolbar();
 bindMeta();
 autosave();
@@ -931,6 +1053,15 @@ keyboardShortcuts();
 loadOrCreate();
 applyEditorPrefs();
 setupToolsMenu();
+
+// Initialize Smart Compose
+async function initSmartCompose() {
+  const isEnabled = await getSetting('smartComposeEnabled', false);
+  if (isEnabled && editor) {
+    smartCompose = new SmartCompose(editor);
+  }
+}
+initSmartCompose();
 
 // Del button (Save button removed; saving is automatic and via Ctrl/Cmd+S)
 document.getElementById('deleteBtn')?.addEventListener('click', deleteNow);
@@ -1016,6 +1147,54 @@ async function setupToolsMenu(){
     openWordCount.addEventListener('click', ()=>{
       toggleToolsMenu();
       showWordCountPopup();
+    });
+  }
+  const toggleSmartCompose = document.getElementById('toggleSmartCompose');
+  if (toggleSmartCompose){
+    // Initialize button label to reflect current setting (default Off)
+    try {
+      const initiallyEnabled = await getSetting('smartComposeEnabled', false);
+      const spanInit = toggleSmartCompose.querySelector('span:last-child');
+      if (spanInit) spanInit.textContent = initiallyEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
+    } catch {}
+    toggleSmartCompose.addEventListener('click', async ()=>{
+      toggleToolsMenu();
+      // Read current persisted state (default off)
+      const wasEnabled = await getSetting('smartComposeEnabled', false);
+      let isEnabled;
+      if (wasEnabled) {
+        // Turn off
+        if (smartCompose && smartCompose.isEnabled) {
+          smartCompose.toggle();
+        }
+        isEnabled = false;
+      } else {
+        // Turn on: instantiate if missing, or toggle if present but disabled
+        if (!smartCompose) {
+          smartCompose = new SmartCompose(editor);
+          isEnabled = true;
+        } else {
+          if (!smartCompose.isEnabled) smartCompose.toggle();
+          isEnabled = true;
+        }
+      }
+      await setSetting('smartComposeEnabled', isEnabled);
+
+      // Update button text to show current state
+      const span = toggleSmartCompose.querySelector('span:last-child');
+      if (span) {
+        span.textContent = isEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
+      }
+      
+      // Show feedback
+      const status = isEnabled ? 'enabled' : 'disabled';
+      console.log(`Smart Compose ${status}`);
+      
+      // Show help on first enable
+      if (isEnabled && !await getSetting('smartComposeHelpShown', false)) {
+        showSmartComposeHelp();
+        await setSetting('smartComposeHelpShown', true);
+      }
     });
   }
 }

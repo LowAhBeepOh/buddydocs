@@ -1035,6 +1035,117 @@ body {
   background: color-mix(in hsl, var(--primary) 10%, var(--surface));
   color: var(--text);
 }
+
+/* Smart Compose Ghost Text Styles */
+.smart-compose-ghost {
+  color: color-mix(in hsl, var(--muted) 60%, transparent) !important;
+  pointer-events: none !important;
+  user-select: none !important;
+  position: absolute !important;
+  z-index: 1000 !important;
+  white-space: pre !important;
+  font-family: inherit !important;
+  font-size: inherit !important;
+  line-height: inherit !important;
+  font-weight: inherit !important;
+  font-style: italic !important;
+  opacity: 0.7 !important;
+  display: none;
+  background: transparent !important;
+  border: none !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  text-decoration: none !important;
+  animation: ghostTextFadeIn 0.2s ease-out !important;
+}
+
+@keyframes ghostTextFadeIn {
+  from {
+    opacity: 0;
+    transform: translateX(-2px);
+  }
+  to {
+    opacity: 0.7;
+    transform: translateX(0);
+  }
+}
+
+/* Smart Compose indicator in Tools menu */
+.tools-menu-item.smart-compose-enabled .material-symbols-outlined {
+  color: var(--primary);
+}
+
+.tools-menu-item.smart-compose-disabled .material-symbols-outlined {
+  color: var(--muted);
+}
+
+/* Ensure editor has relative positioning for ghost text */
+.editor {
+  position: relative;
+}
+
+/* Smart Compose help text */
+.smart-compose-help {
+  position: fixed;
+  bottom: 40px;
+  right: 20px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 12px 16px;
+  box-shadow: var(--shadow);
+  font-size: 13px;
+  color: var(--muted);
+  max-width: 280px;
+  z-index: 2000;
+  animation: helpSlideIn 0.3s ease-out;
+}
+
+@keyframes helpSlideIn {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.smart-compose-help-close {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  background: transparent;
+  border: none;
+  color: var(--muted);
+  cursor: pointer;
+  padding: 2px;
+  border-radius: 4px;
+  font-size: 16px;
+}
+
+.smart-compose-help-close:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
+.smart-compose-shortcuts {
+  margin-top: 8px;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.smart-compose-shortcuts kbd {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  border: 1px solid var(--border);
+  border-radius: 3px;
+  padding: 1px 4px;
+  font-family: 'Doto', monospace;
+  font-size: 11px;
+  font-weight: 600;
+}
+
 .editor-header{position:sticky; top:0; z-index:30; background:var(--bg); border-bottom:1px solid var(--border)}
 .menubar{display:flex; align-items:center; justify-content:space-between; gap:12px; padding:10px 16px}
 .menubar .left{display:flex; align-items:center; gap:12px}
@@ -1067,6 +1178,58 @@ body {
 .toolbar{display:none}
 /* tighter blockFormat select */
 #blockFormat{width:170px; padding:6px 8px}
+
+/* Font Family and Size Controls */
+.font-controls {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+#fontName {
+  width: 170px;
+  padding: 6px 8px;
+  box-sizing: border-box;
+}
+
+.font-size-picker {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+}
+
+.font-size-picker .input {
+  width: 50px;
+  text-align: center;
+  padding: 6px 4px;
+  -moz-appearance: textfield; /* For Firefox */
+  appearance: textfield;
+}
+
+.font-size-picker .input::-webkit-outer-spin-button,
+.font-size-picker .input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+.font-size-btn {
+  width: 24px;
+  height: 24px;
+  border: none;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 6px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.font-size-btn:hover {
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  color: var(--text);
+}
+
 @media (max-width:1000px){.editor-wrap{grid-template-columns:1fr}}
 
 /* File dropdown custom layout */
@@ -1093,6 +1256,37 @@ body {
 .modal-body{display:grid; gap:10px; padding:14px}
 .modal-body label{display:grid; gap:6px}
 .modal-foot{display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--border)}
+
+/* Document Settings modal: force compact centered card and neutralize global modal margins */
+#docSettingsModal .modal-card{
+  width: min(560px, 92vw);
+  max-width: 560px;
+  height: auto;
+  max-height: 80vh;
+  margin: 0; /* override base.css margin */
+  display: flex; /* for proper header/body layout */
+  flex-direction: column;
+  overflow: hidden;
+}
+
+#docSettingsModal .modal-head{ padding: 12px 16px; }
+#docSettingsModal .modal-body{
+  padding: 16px;
+  display: grid;
+  gap: 12px;
+  overflow: auto;
+}
+#docSettingsModal .modal-body label{ display: grid; gap: 6px; }
+#docSettingsModal .modal-body label > span{ font-size: 12px; color: var(--muted); font-weight: 600; }
+#docSettingsModal input,
+#docSettingsModal select{
+  width: 100%;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+}
 
 /* Word Count Popup */
 .word-count-popup {

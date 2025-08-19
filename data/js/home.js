@@ -1,5 +1,6 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
 import { initAiCommandBar } from './ai-command.js';
+import { TEMPLATES } from './templates.js';
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
@@ -677,6 +678,85 @@ async function setupDeadlinesToggle() {
   });
 }
 
+function renderTemplates(category = 'All') {
+  const grid = document.getElementById('templatesGrid');
+  if (!grid) {
+    console.error('Templates grid not found in the modal.');
+    return;
+  }
+  grid.innerHTML = ''; // Clear existing templates
+
+  const filteredTemplates = Object.values(TEMPLATES).filter(template => 
+    category === 'All' || template.category === category
+  );
+
+  if (filteredTemplates.length === 0) {
+    grid.innerHTML = '<p class="empty-state">No templates found in this category.</p>';
+    return;
+  }
+
+  for (const template of filteredTemplates) {
+    const card = document.createElement('a');
+    card.className = 'card template-card';
+    card.href = `editor.html?template=${encodeURIComponent(template.key)}`;
+
+    card.innerHTML = `
+      <strong>${template.title}</strong>
+      <div class="preview">${template.content.substring(0, 150)}...</div>
+      <div class="info">
+        <p>${template.description}</p>
+      </div>
+    `;
+    grid.appendChild(card);
+  }
+}
+
+function setupTemplatesModal() {
+  const openBtn = document.getElementById('openTemplatesModal');
+  const modal = document.getElementById('templatesModal');
+  const closeBtn = document.getElementById('closeTemplatesModal');
+  const sidebar = document.querySelector('.template-sidebar');
+
+  if (!modal || !openBtn || !closeBtn || !sidebar) {
+    return;
+  }
+
+  function open() {
+    modal?.removeAttribute('hidden');
+    document.body.style.overflow = 'hidden';
+    renderTemplates('All');
+    // Ensure the 'All' button is active by default
+    sidebar.querySelector('button[data-category="All"]').classList.add('active');
+  }
+
+  function close() {
+    modal?.setAttribute('hidden', '');
+    document.body.style.overflow = '';
+  }
+
+  openBtn.addEventListener('click', (e) => {
+    e.preventDefault();
+    open();
+  });
+
+  closeBtn.addEventListener('click', close);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) close();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!modal?.hasAttribute('hidden') && e.key === 'Escape') close();
+  });
+
+  sidebar.addEventListener('click', (e) => {
+    if (e.target.tagName === 'BUTTON') {
+      const category = e.target.dataset.category;
+      sidebar.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
+      e.target.classList.add('active');
+      renderTemplates(category);
+    }
+  });
+}
+
 // Initialize everything when DOM is ready
 async function initialize() {
   await renderGreeting();
@@ -686,6 +766,7 @@ async function initialize() {
   setupDragAndDrop();
   await setupDeadlinesToggle();
   await initAiCommandBar();
+  setupTemplatesModal();
 }
 
 // Wait for DOM to be ready
