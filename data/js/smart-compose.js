@@ -1,4 +1,4 @@
-import { getSetting, setSetting } from './idb.js';
+import { getSetting, setSetting, listDocuments } from './idb.js';
 import { SMART_COMPOSE_PHRASES } from './smart-compose-phrases.js';
 
 class SmartCompose {
@@ -13,7 +13,7 @@ class SmartCompose {
     this.ghostElement = null;
     this.isEnabled = true;
     this.minTriggerLength = 2;
-    this.maxSuggestions = 5;
+    this.maxSuggestions = 8;
     // Anti-repetition state
     this.recentCompletions = [];
     this.recentWords = [];
@@ -25,6 +25,15 @@ class SmartCompose {
     this.posTransitions = {};
     // Cache last context text for POS-aware ranking
     this._lastContextText = '';
+    // Whether we trained from user docs in this session
+    this._trainedFromDocs = false;
+    // Configurable thresholds (can be overridden by settings keys)
+    this.confidenceThreshold = 0.65;
+    this.minContextForNgram = 2; // words
+    this.maxContinuationWords = 2;
+    this.requireSeenProperNouns = true; // gate unseen capitalized names
+    // Maximum n-gram order to learn/use
+    this.maxNgramOrder = 4;
     
     this.init();
   }
@@ -51,14 +60,40 @@ class SmartCompose {
         this.posTransitions = data.pos_transitions || {};
       }
     } catch (_) { /* ignore */ }
+
+
+    // Optionally train from user documents (local, offline)
+    try {
+      const allowTrain = await getSetting('smartComposeTrainFromDocs', false);
+      if (allowTrain) {
+        await this._trainFromUserDocuments();
+        this._trainedFromDocs = true;
+        this.pruneNgramModel();
+      }
+    } catch (_) { /* ignore */ }
+
+    // Load tunable thresholds
+    try {
+      const conf = await getSetting('smartComposeConfThresh', this.confidenceThreshold);
+      const minCtx = await getSetting('smartComposeMinContext', this.minContextForNgram);
+      const maxCont = await getSetting('smartComposeMaxCont', this.maxContinuationWords);
+      const reqNames = await getSetting('smartComposeRequireSeenNames', this.requireSeenProperNouns);
+      // Apply safe bounds
+      const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, Number(v)));
+      this.confidenceThreshold = clamp(conf, 0, 1);
+      this.minContextForNgram = Math.max(1, Math.min(5, Number(minCtx) || 2));
+      this.maxContinuationWords = Math.max(0, Math.min(3, Number(maxCont) || 2));
+      this.requireSeenProperNouns = !!reqNames;
+    } catch(_) { /* ignore */ }
   }
 
   buildNgramsFromCorpus(text) {
     // Tokenize into words using normalizeText; build 2- and 3-grams
-    const tokens = this.normalizeText(text).split(' ').filter(Boolean);
+    const rawTokens = this.normalizeText(text).split(' ').filter(Boolean);
+    const tokens = rawTokens.filter(t => this._isValidToken(t));
     if (tokens.length < 2) return;
     const boost = 1; // small boost to prime the model
-    for (let n = 2; n <= 3; n++) {
+    for (let n = 2; n <= this.maxNgramOrder; n++) {
       for (let i = 0; i <= tokens.length - n; i++) {
         const context = tokens.slice(i, i + n - 1).join(' ');
         const nextWord = tokens[i + n - 1];
@@ -69,10 +104,53 @@ class SmartCompose {
     this.pruneNgramModel();
   }
 
+  // Detect gibberish/invalid tokens (filters digits, very long strings, and random-looking char runs)
+  _isValidToken(token) {
+    if (!token) return false;
+    if (token.length > 24) return false;
+    if (/\d/.test(token)) return false;
+    if (!/^[a-z'-]+$/.test(token)) return false;
+    if (/(?:[^aeiou]{5,})/.test(token)) return false; // long consonant runs
+    if (/(.)\1{3,}/.test(token)) return false; // repeated char
+    return true;
+  }
+
+  // Train on user's saved documents if allowed
+  async _trainFromUserDocuments() {
+    try {
+      const docs = await listDocuments({ includeArchived: true });
+      if (!Array.isArray(docs) || !docs.length) return;
+      let combined = '';
+      for (const d of docs) {
+        const html = d?.content || '';
+        const plain = this._htmlToPlainText(html);
+        combined += '\n' + plain;
+      }
+      if (combined.trim()) this.buildNgramsFromCorpus(combined);
+    } catch (_) { /* ignore training errors */ }
+  }
+
+  _htmlToPlainText(html) {
+    try {
+      const tmp = document.createElement('div');
+      tmp.innerHTML = html || '';
+      return (tmp.textContent || tmp.innerText || '').trim();
+    } catch (_) {
+      return String(html || '').replace(/<[^>]+>/g, ' ');
+    }
+  }
+
   getPOS(word) {
     if (!word) return '';
     const w = word.toLowerCase();
     return this.posLexicon[w] || '';
+  }
+
+  getDocumentWordSet() {
+    try {
+      const text = this._htmlToPlainText(this.editor.innerHTML || this.editor.textContent || '');
+      return new Set(this.normalizeText(text).split(' ').filter(Boolean));
+    } catch(_) { return new Set(); }
   }
 
   async init() {
@@ -229,8 +307,8 @@ class SmartCompose {
     const matches = [];
     const lastWords = this.getLastWords(text);
     
-    // Try different phrase lengths (2-5 words)
-    for (let wordCount = 2; wordCount <= 5; wordCount++) {
+    // Try different phrase lengths (1-5 words)
+    for (let wordCount = 1; wordCount <= 5; wordCount++) {
       const words = lastWords.split(' ');
       if (words.length >= wordCount) {
         const phrase = words.slice(-wordCount).join(' ');
@@ -250,29 +328,91 @@ class SmartCompose {
   generateNgramSuggestions(text) {
     const suggestions = [];
     const words = this.normalizeText(text).split(' ').filter(Boolean);
-    
-    if (words.length < 2) return suggestions;
+    if (words.length < this.minContextForNgram) return suggestions;
 
-    // Try 2-gram and 3-gram predictions
-    for (let n = 2; n <= 3; n++) {
-      if (words.length >= n - 1) {
-        const context = words.slice(-(n - 1)).join(' ');
-        if (this.ngramModel[context]) {
-          const lastWord = words[words.length - 1];
-          const recentSet = new Set(this.recentWords.slice(-5));
-          const predictions = Object.entries(this.ngramModel[context])
-            // Filter out obvious loops (predicting the same last word or very recent words)
-            .filter(([word]) => word !== lastWord && !recentSet.has(word))
-            .sort(([,a], [,b]) => b - a)
-            .slice(0, 3)
-            .map(([word, count]) => ({
-              phrase: context,
-              completions: [' ' + word],
-              score: count
-            }));
-          suggestions.push(...predictions);
+    const docWords = this.getDocumentWordSet();
+    const recentSet = new Set(this.recentWords.slice(-8));
+
+    // Compute smoothed probabilities with backoff (supports up to 4-grams)
+    const scoreNext = (contextWords, candidate) => {
+      const w2 = contextWords.slice(-1).join(' ');
+      const w3 = contextWords.slice(-2).join(' ');
+      const w4 = contextWords.slice(-3).join(' ');
+      let p2 = 0, p3 = 0;
+      const map2 = this.ngramModel[w2];
+      if (map2) {
+        const total2 = Object.values(map2).reduce((a,b)=>a+b,0) || 1;
+        p2 = (map2[candidate] || 0) / total2;
+      }
+      const map3 = this.ngramModel[w3];
+      if (map3) {
+        const total3 = Object.values(map3).reduce((a,b)=>a+b,0) || 1;
+        p3 = (map3[candidate] || 0) / total3;
+      }
+      let p4 = 0;
+      if (this.maxNgramOrder >= 4) {
+        const map4 = this.ngramModel[w4];
+        if (map4) {
+          const total4 = Object.values(map4).reduce((a,b)=>a+b,0) || 1;
+          p4 = (map4[candidate] || 0) / total4;
         }
       }
+      // Interpolation
+      const lambda4 = 0.5, lambda3 = 0.3, lambda2 = 0.2;
+      let p = (this.maxNgramOrder >= 4 ? lambda4 * p4 : 0) + lambda3 * p3 + lambda2 * p2;
+      // POS transition small boost
+      try {
+        const prevPOS = this.getPOS(contextWords[contextWords.length-1] || '');
+        const nextPOS = this.getPOS(candidate);
+        if (prevPOS && nextPOS && this.posTransitions[prevPOS]?.includes(nextPOS)) p += 0.02;
+      } catch(_){}
+      return Math.max(0, Math.min(1, p));
+    };
+
+    // Candidates from last bigram context
+    const context2 = words.slice(-1).join(' ');
+    const context3 = words.slice(-2).join(' ');
+    const context4 = words.slice(-3).join(' ');
+    const maps = [
+      this.ngramModel[context4] || {},
+      this.ngramModel[context3] || {},
+      this.ngramModel[context2] || {}
+    ];
+    const candidateCounts = {};
+    for (const m of maps) {
+      for (const [w, c] of Object.entries(m)) {
+        candidateCounts[w] = (candidateCounts[w] || 0) + c;
+      }
+    }
+
+    const baseCandidates = Object.entries(candidateCounts)
+      .filter(([w]) => this._isValidToken(w) && !recentSet.has(w))
+      .slice(0, 400);
+
+    const scored = baseCandidates.map(([w]) => {
+      const p = scoreNext(words, w);
+      return { word: w, confidence: p };
+    })
+    .filter(x => x.confidence >= this.confidenceThreshold)
+    .sort((a,b)=> b.confidence - a.confidence)
+    .slice(0, this.maxSuggestions);
+
+    for (const cand of scored) {
+      // Proper-noun gating: if capitalized and unseen in document, skip
+      if (this.requireSeenProperNouns && /^[A-Z][a-z]+$/.test(cand.word) && !docWords.has(cand.word.toLowerCase())) continue;
+      let completion = ' ' + cand.word;
+      // Optional short continuation if both steps are confident
+      if (this.maxContinuationWords > 1) {
+        const nextCtx = [...words.slice(-1), cand.word];
+        const contMap = this.ngramModel[nextCtx.slice(-2).join(' ')] || {};
+        const contCandidates = Object.keys(contMap)
+          .filter(w => this._isValidToken(w) && !recentSet.has(w))
+          .map(w => ({ w, p: scoreNext(nextCtx, w) }))
+          .filter(x => x.p >= this.confidenceThreshold)
+          .sort((a,b)=> b.p - a.p);
+        if (contCandidates[0]) completion += ' ' + contCandidates[0].w;
+      }
+      suggestions.push({ phrase: words.slice(-1).join(' '), completions: [completion], score: Math.round(cand.confidence * 100) });
     }
 
     return suggestions;
@@ -299,6 +439,12 @@ class SmartCompose {
       if (this.lastAcceptedPhrase && suggestion.phrase === this.lastAcceptedPhrase) penalty += 8;
       if (this.lastAcceptedCompletion && completion === this.lastAcceptedCompletion) penalty += 12;
       if (multiRepeatRegex.test(preview)) penalty += 15;
+      // Penalize long completions
+      if (completion.split(' ').length > this.maxContinuationWords) penalty += 10;
+      // Basic gibberish guard
+      const firstToken = (this.normalizeText(completion).split(' ').filter(Boolean)[0] || '');
+      if (!this._isValidToken(firstToken)) penalty += 50;
+      // No domain-specific penalties; rely on general language statistics only
 
       // POS-aware small boost: if the POS of the next word is plausible after the previous POS
       let posBoost = 0;
@@ -340,12 +486,26 @@ class SmartCompose {
 
     // Find suggestions
     const phraseMatches = this.findPhraseMatches(context.text);
-    const ngramSuggestions = this.generateNgramSuggestions(context.text);
-    const allSuggestions = [...phraseMatches, ...ngramSuggestions];
+    let ngramSuggestions = this.generateNgramSuggestions(context.text);
+    let allSuggestions = [...phraseMatches, ...ngramSuggestions];
 
+    // Adaptive fallback: if nothing found, relax thresholds briefly
     if (allSuggestions.length === 0) {
-      this.hideSuggestion();
-      return;
+      const originalThresh = this.confidenceThreshold;
+      const originalMinCtx = this.minContextForNgram;
+      try {
+        this.confidenceThreshold = Math.max(0.35, originalThresh - 0.2);
+        this.minContextForNgram = Math.max(1, originalMinCtx - 1);
+        ngramSuggestions = this.generateNgramSuggestions(context.text);
+        allSuggestions = [...phraseMatches, ...ngramSuggestions];
+      } finally {
+        this.confidenceThreshold = originalThresh;
+        this.minContextForNgram = originalMinCtx;
+      }
+      if (allSuggestions.length === 0) {
+        this.hideSuggestion();
+        return;
+      }
     }
 
     const rankedSuggestions = this.rankSuggestions(allSuggestions);
@@ -463,6 +623,37 @@ class SmartCompose {
         this.saveUserData();
       }
 
+      // Adaptive learning: boost n-grams for accepted completion
+      try {
+        const ctxWords = this.normalizeText(this._lastContextText || snapshot.phrase || '').split(' ').filter(Boolean);
+        const firstAccepted = (this.normalizeText(insertTextStr).split(' ').filter(Boolean)[0] || '');
+        if (firstAccepted) {
+          const context2 = ctxWords.slice(-1).join(' ');
+          const context3 = ctxWords.slice(-2).join(' ');
+          if (context2) {
+            this.ngramModel[context2] = this.ngramModel[context2] || {};
+            this.ngramModel[context2][firstAccepted] = (this.ngramModel[context2][firstAccepted] || 0) + 3;
+          }
+          if (context3) {
+            this.ngramModel[context3] = this.ngramModel[context3] || {};
+            this.ngramModel[context3][firstAccepted] = (this.ngramModel[context3][firstAccepted] || 0) + 2;
+          }
+          // Optional: also boost the second word if present
+          const parts = this.normalizeText(insertTextStr).split(' ').filter(Boolean);
+          if (parts.length > 1) {
+            const second = parts[1];
+            const newCtx = [ctxWords.slice(-1)[0] || '', firstAccepted].filter(Boolean);
+            const ctxJoin = newCtx.slice(-2).join(' ');
+            if (ctxJoin) {
+              this.ngramModel[ctxJoin] = this.ngramModel[ctxJoin] || {};
+              this.ngramModel[ctxJoin][second] = (this.ngramModel[ctxJoin][second] || 0) + 1;
+            }
+          }
+          this.pruneNgramModel();
+          this.saveUserData();
+        }
+      } catch(_) { /* best-effort boost */ }
+
       // Record recent history to limit repetition
       try {
         this.lastAcceptedPhrase = snapshot.phrase || this.lastAcceptedPhrase;
@@ -520,7 +711,7 @@ class SmartCompose {
     if (words.length < 2) return;
 
     // Update 2-grams and 3-grams
-    for (let n = 2; n <= 3; n++) {
+    for (let n = 2; n <= this.maxNgramOrder; n++) {
       for (let i = 0; i <= words.length - n; i++) {
         const context = words.slice(i, i + n - 1).join(' ');
         const nextWord = words[i + n - 1];
@@ -537,8 +728,8 @@ class SmartCompose {
   }
 
   pruneNgramModel() {
-    const maxContexts = 1000;
-    const maxWordsPerContext = 20;
+    const maxContexts = 8000;
+    const maxWordsPerContext = 60;
 
     const contexts = Object.keys(this.ngramModel);
     if (contexts.length > maxContexts) {

@@ -118,6 +118,37 @@
           <input id="aiBaseUrl" class="input" type="text" placeholder="http://localhost:11434" />
         </label>
       </div>
+      <div class="row">
+        <label class="tile">
+          <span>Train Smart Compose on own documents (local)</span>
+          <input id="smartComposeTrainDocs" class="toggle" type="checkbox" />
+        </label>
+      </div>
+      <div class="row">
+        <div class="tile" style="flex:1">
+          <h3 style="margin-top:0">Smart Compose (Advanced)</h3>
+          <div class="row">
+            <label class="tile">
+              <span>Confidence threshold (0-1)</span>
+              <input id="smartComposeConfThresh" class="input" type="number" min="0" max="1" step="0.01" placeholder="0.88" />
+            </label>
+            <label class="tile">
+              <span>Min context words</span>
+              <input id="smartComposeMinContext" class="input" type="number" min="1" max="5" step="1" placeholder="2" />
+            </label>
+          </div>
+          <div class="row">
+            <label class="tile">
+              <span>Max continuation words</span>
+              <input id="smartComposeMaxCont" class="input" type="number" min="0" max="3" step="1" placeholder="2" />
+            </label>
+            <label class="tile">
+              <span>Require seen proper names</span>
+              <input id="smartComposeRequireSeenNames" class="toggle" type="checkbox" />
+            </label>
+          </div>
+        </div>
+      </div>
     </section>
 
     <div class="save-bar">

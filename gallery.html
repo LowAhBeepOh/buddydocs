@@ -280,11 +280,24 @@
       });
     }
 
+    // Read a file as a DataURL (used to preserve animated GIFs)
+    function readFileAsDataURL(file) {
+      return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
     async function handleFiles(files) {
       const processFile = async (file) => {
         if (!file.type.startsWith('image/')) return null;
-        
-        // Compress image before storing
+        // Preserve GIF animation by not compressing via canvas (which only keeps first frame)
+        if (file.type === 'image/gif') {
+          return await readFileAsDataURL(file);
+        }
+        // Compress other image types before storing
         const compressed = await compressImage(file);
         return compressed;
       };
@@ -412,7 +425,7 @@
 
     async function saveNow(){
       const images = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image) img'));
-      currentDoc.content = images.map(img => img.src);
+      currentDoc.content = images.map(img => img.dataset?.src || img.src);
       const saved = await saveDocument(currentDoc);
       if (!getParam('id')){
         history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);

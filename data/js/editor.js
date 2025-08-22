@@ -170,41 +170,11 @@ function bindToolbar(){
 
   // Font Family and Size Controls
   const fontFamilySelect = document.getElementById('fontName');
-  const fontSizeInput = document.getElementById('fontSize');
-  const increaseFontSizeBtn = document.getElementById('increaseFontSize');
-  const decreaseFontSizeBtn = document.getElementById('decreaseFontSize');
 
   if (fontFamilySelect) {
     fontFamilySelect.addEventListener('change', () => {
       applyFontFamily(fontFamilySelect.value);
       editor.focus();
-    });
-  }
-
-  if (fontSizeInput && increaseFontSizeBtn && decreaseFontSizeBtn) {
-    const updateSize = () => {
-      const size = parseInt(fontSizeInput.value, 10);
-      if (!isNaN(size) && size > 0) {
-        applyFontSize(size);
-      }
-      editor.focus();
-    };
-
-    fontSizeInput.addEventListener('change', updateSize);
-
-    increaseFontSizeBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      fontSizeInput.value = parseInt(fontSizeInput.value, 10) + 1;
-      updateSize();
-    });
-
-    decreaseFontSizeBtn.addEventListener('mousedown', (e) => {
-      e.preventDefault();
-      const currentSize = parseInt(fontSizeInput.value, 10);
-      if (currentSize > 1) {
-        fontSizeInput.value = currentSize - 1;
-        updateSize();
-      }
     });
   }
 }

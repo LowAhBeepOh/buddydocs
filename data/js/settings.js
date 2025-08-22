@@ -23,6 +23,11 @@ async function loadSettings(){
   const aiProvider = await getSetting('aiProvider', 'ollama');
   const aiModel = await getSetting('aiModel', '');
   const aiBaseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
+  const smartComposeTrainFromDocs = await getSetting('smartComposeTrainFromDocs', false);
+  const scConf = await getSetting('smartComposeConfThresh', 0.88);
+  const scMinCtx = await getSetting('smartComposeMinContext', 2);
+  const scMaxCont = await getSetting('smartComposeMaxCont', 2);
+  const scRequireNames = await getSetting('smartComposeRequireSeenNames', true);
 
   document.getElementById('themeSelect').value = theme;
   document.getElementById('fontSize').value = fontSize;
@@ -38,6 +43,16 @@ async function loadSettings(){
   document.getElementById('aiProvider').value = aiProvider;
   document.getElementById('aiModel').value = aiModel;
   document.getElementById('aiBaseUrl').value = aiBaseUrl;
+  const scTrain = document.getElementById('smartComposeTrainDocs');
+  if (scTrain) scTrain.checked = !!smartComposeTrainFromDocs;
+  const confEl = document.getElementById('smartComposeConfThresh');
+  if (confEl) confEl.value = scConf;
+  const minCtxEl = document.getElementById('smartComposeMinContext');
+  if (minCtxEl) minCtxEl.value = scMinCtx;
+  const maxContEl = document.getElementById('smartComposeMaxCont');
+  if (maxContEl) maxContEl.value = scMaxCont;
+  const reqNamesEl = document.getElementById('smartComposeRequireSeenNames');
+  if (reqNamesEl) reqNamesEl.checked = !!scRequireNames;
   
   const preview = document.getElementById('profilePreview');
   if (profilePicture) {
@@ -68,6 +83,11 @@ async function saveSettings(){
   const aiProvider = document.getElementById('aiProvider').value;
   const aiModel = document.getElementById('aiModel').value.trim();
   const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim() || 'http://localhost:11434';
+  const smartComposeTrainFromDocs = document.getElementById('smartComposeTrainDocs')?.checked || false;
+  const scConf = Number(document.getElementById('smartComposeConfThresh')?.value || 0.88);
+  const scMinCtx = Number(document.getElementById('smartComposeMinContext')?.value || 2);
+  const scMaxCont = Number(document.getElementById('smartComposeMaxCont')?.value || 2);
+  const scRequireNames = !!document.getElementById('smartComposeRequireSeenNames')?.checked;
 
   await Promise.all([
     setSetting('theme', theme),
@@ -81,6 +101,11 @@ async function saveSettings(){
     setSetting('aiProvider', aiProvider),
     setSetting('aiModel', aiModel),
     setSetting('aiBaseUrl', aiBaseUrl),
+    setSetting('smartComposeTrainFromDocs', smartComposeTrainFromDocs),
+    setSetting('smartComposeConfThresh', scConf),
+    setSetting('smartComposeMinContext', scMinCtx),
+    setSetting('smartComposeMaxCont', scMaxCont),
+    setSetting('smartComposeRequireSeenNames', scRequireNames),
   ]);
 
   alert('Settings saved');
