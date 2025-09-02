@@ -72,6 +72,16 @@
       object-fit: contain;
       transition: opacity 0.3s ease;
     }
+    .gallery-item.spoiler img:not(.revealed){
+      filter: blur(60px);
+    }
+    /* Locked: hide image entirely until unlocked; show dark background */
+    .gallery-item.locked{ background:var(--bg); }
+    .gallery-item.locked img{ opacity:0; }
+    .gallery-item.locked img.revealed{ opacity:1; }
+    .gallery-item .overlay{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; letter-spacing:.2em; text-shadow:0 2px 8px rgba(0,0,0,.25); pointer-events:none; background:transparent }
+    .gallery-item .overlay .material-symbols-outlined{ font-size:40px; margin-right:8px; }
+    .gallery-item .overlay.hidden{ display:none }
     
     .gallery-item img.lazy {
       opacity: 0.7;
@@ -188,6 +198,7 @@
     import { setSetting, getSetting } from './data/js/idb.js';
 
     let currentDoc = { id:null, title:'Untitled', type:'gallery', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
+    let gallerySessionUnlocked = false; // unlock state for locked images on this page only
     
     const titleEl = document.getElementById('docTitle');
     const typeEl = document.getElementById('docType');
@@ -204,13 +215,23 @@
       return u.searchParams.get(name);
     }
 
-    function createGalleryItem(imageData, lazy = true) {
+    function createGalleryItem(imageEntry, lazy = true) {
       const item = itemTemplate.content.cloneNode(true).children[0];
       const img = item.querySelector('img');
-      
+      // imageEntry can be string (src) or object {src, spoiler, locked}
+      const meta = typeof imageEntry === 'string' ? { src: imageEntry, spoiler: false, locked: false } : {
+        src: imageEntry.src,
+        spoiler: !!imageEntry.spoiler,
+        locked: !!imageEntry.locked
+      };
+      if (meta.spoiler) item.classList.add('spoiler');
+      if (meta.locked) item.classList.add('locked');
+      item.dataset.spoiler = String(!!meta.spoiler);
+      item.dataset.locked = String(!!meta.locked);
+
       if (lazy) {
         // Lazy loading: set data-src instead of src
-        img.dataset.src = imageData;
+        img.dataset.src = meta.src;
         img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
         img.classList.add('lazy');
         
@@ -219,11 +240,39 @@
           window.imageObserver.observe(img);
         }
       } else {
-        img.src = imageData;
+        img.src = meta.src;
       }
-      
+      // Overlays for spoiler/locked
+      const overlay = document.createElement('div');
+      overlay.className = 'overlay' + ((meta.spoiler || (meta.locked && !gallerySessionUnlocked)) ? '' : ' hidden');
+      overlay.innerHTML = meta.locked && !gallerySessionUnlocked ? '<span class="material-symbols-outlined">lock</span>' : 'SPOILER';
+      item.appendChild(overlay);
+
+      // Click to reveal spoiler or unlock images
+      img.addEventListener('click', async () => {
+        const isLocked = item.dataset.locked === 'true';
+        const isSpoiler = item.dataset.spoiler === 'true';
+        if (isLocked && !gallerySessionUnlocked){
+          const ok = await requireAuth();
+          if (ok){
+            gallerySessionUnlocked = true;
+            revealAllLockedImages();
+          }
+          return;
+        }
+        if (isSpoiler && !img.classList.contains('revealed')){
+          img.classList.add('revealed');
+          overlay.classList.add('hidden');
+        }
+      });
+
       const removeBtn = item.querySelector('.remove-btn');
       removeBtn.addEventListener('click', () => {
+        // Prevent removing while locked
+        if (item.dataset.locked === 'true' && !gallerySessionUnlocked) {
+          alert('Unlock the image first.');
+          return;
+        }
         if (window.imageObserver && img.classList.contains('lazy')) {
           window.imageObserver.unobserve(img);
         }
@@ -231,6 +280,12 @@
         saveNow();
       });
       enableReorder(item);
+
+      // Context menu for spoiler/lock
+      item.addEventListener('contextmenu', (e)=>{
+        e.preventDefault();
+        openContextMenu(e.clientX, e.clientY, item);
+      });
       
       gallery.insertBefore(item, addImageBtn);
       return item;
@@ -399,6 +454,16 @@
       });
     }
 
+    function revealAllLockedImages(){
+      const items = gallery.querySelectorAll('.gallery-item.locked');
+      items.forEach(el => {
+        const img = el.querySelector('img');
+        const ov = el.querySelector('.overlay');
+        if (img) img.classList.add('revealed');
+        if (ov) ov.classList.add('hidden');
+      });
+    }
+
     async function loadOrCreate(){
       const id = getParam('id');
       if (id){
@@ -416,16 +481,22 @@
       if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
       
       // Load images with lazy loading
-      currentDoc.content.forEach(imageData => {
-        createGalleryItem(imageData, true); // Enable lazy loading for existing images
+      currentDoc.content.forEach(entry => {
+        createGalleryItem(entry, true); // Enable lazy loading for existing images
       });
       // enable reorder for any pre-existing items (safety)
       gallery.querySelectorAll('.gallery-item').forEach(el=> enableReorder(el));
     }
 
     async function saveNow(){
-      const images = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image) img'));
-      currentDoc.content = images.map(img => img.dataset?.src || img.src);
+      const items = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
+      currentDoc.content = items.map(item => {
+        const img = item.querySelector('img');
+        const src = img?.dataset?.src || img?.src;
+        const spoiler = item.dataset.spoiler === 'true';
+        const locked = item.dataset.locked === 'true';
+        return { src, spoiler, locked };
+      });
       const saved = await saveDocument(currentDoc);
       if (!getParam('id')){
         history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);
@@ -518,6 +589,87 @@
 
     // Delete button
     document.getElementById('deleteBtn').addEventListener('click', deleteNow);
+
+    // Simple context menu implementation
+    const ctx = document.createElement('div');
+    ctx.className = 'dropdown-menu';
+    ctx.style.position = 'fixed';
+    ctx.style.zIndex = '1000';
+    ctx.hidden = true;
+    document.body.appendChild(ctx);
+
+    function openContextMenu(x, y, item){
+      const isSpoiler = item.dataset.spoiler === 'true';
+      const isLocked = item.dataset.locked === 'true';
+      ctx.innerHTML = '';
+      const mk = document.createElement('button');
+      mk.className = 'menu-item';
+      mk.textContent = isSpoiler ? 'Unmark spoiler' : 'Mark as spoiler';
+      mk.addEventListener('click', ()=>{
+        item.dataset.spoiler = String(!isSpoiler);
+        item.classList.toggle('spoiler', !isSpoiler);
+        const img = item.querySelector('img');
+        const ov = item.querySelector('.overlay');
+        if (!isSpoiler){ // now spoiler
+          img.classList.remove('revealed');
+          if (ov){ ov.classList.remove('hidden'); ov.textContent = 'SPOILER'; }
+        } else {
+          if (ov){ ov.classList.add('hidden'); }
+        }
+        closeContextMenu();
+        saveNow();
+      });
+      const lk = document.createElement('button');
+      lk.className = 'menu-item';
+      lk.textContent = isLocked ? 'Unlock image' : 'Lock image';
+      lk.addEventListener('click', async ()=>{
+        if (isLocked){
+          // Unlock requires auth
+          const ok = await requireAuth();
+          if (!ok) { closeContextMenu(); return; }
+          gallerySessionUnlocked = true;
+          item.dataset.locked = 'false';
+          item.classList.remove('locked');
+          const ov = item.querySelector('.overlay');
+          if (ov) ov.classList.add('hidden');
+        } else {
+          item.dataset.locked = 'true';
+          item.classList.add('locked');
+          const ov = item.querySelector('.overlay');
+          if (ov){ ov.classList.remove('hidden'); ov.innerHTML = '<span class="material-symbols-outlined">lock</span>'; }
+        }
+        closeContextMenu();
+        saveNow();
+      });
+      ctx.appendChild(mk);
+      ctx.appendChild(lk);
+      ctx.style.left = `${x}px`;
+      ctx.style.top = `${y}px`;
+      ctx.hidden = false;
+      setTimeout(()=>{
+        document.addEventListener('click', closeContextMenu, { once:true });
+      });
+      function closeContextMenu(){ ctx.hidden = true; }
+    }
+
+    async function requireAuth(){
+      const secretSet = await getSetting('secretSet', false);
+      if (!secretSet) return true;
+      const usePin = await getSetting('usePin', false);
+      const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
+      if (input == null) return false;
+      try {
+        const enc = new TextEncoder();
+        const data = enc.encode(input);
+        const digest = await crypto.subtle.digest('SHA-256', data);
+        const bytes = Array.from(new Uint8Array(digest));
+        const hash = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+        const stored = await getSetting('secretHash', '');
+        return stored && hash === stored;
+      } catch {
+        return false;
+      }
+    }
   </script>
 </body>
 </html>

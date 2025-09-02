@@ -140,7 +140,7 @@
   <template id="docCardTmpl">
     <div class="doc-card">
       <a class="doc-link" href="#">
-        <div class="thumb" style="height: 120px; overflow: hidden;"><span class="material-symbols-outlined">description</span></div>
+        <div class="thumb" style="height: 120px; overflow: hidden; position: relative;"><span class="material-symbols-outlined">description</span></div>
         <div class="meta">
           <strong class="title">Untitled</strong>
           <span class="type">Document</span>
@@ -150,6 +150,10 @@
       <div class="menu-container">
         <button class="more icon-btn" title="More"><span class="material-symbols-outlined">more_horiz</span></button>
         <div class="dropdown-menu" hidden>
+          <button class="menu-item" data-action="toggle-lock">
+            <span class="material-symbols-outlined">lock</span>
+            Lock/Unlock
+          </button>
           <button class="menu-item" data-action="archive">
             <span class="material-symbols-outlined">archive</span>
             Archive
@@ -171,6 +175,14 @@
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/home.js" type="module"></script>
   <script src="data/js/ai-command.js" type="module"></script>
+  <style>
+    .thumb.locked { filter: blur(6px); }
+    .thumb .lock-overlay{
+      position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
+      pointer-events:none;
+    }
+    .thumb .lock-overlay .material-symbols-outlined{ font-size: 42px; color: var(--text-secondary); text-shadow: 0 2px 8px rgba(0,0,0,.25); }
+  </style>
   <script type="module">
     import { initAiCommandBar } from './data/js/ai-command.js';
     if (document.readyState === 'loading') {

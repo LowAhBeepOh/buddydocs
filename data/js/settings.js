@@ -17,6 +17,8 @@ async function loadSettings(){
   const displayName = await getSetting('displayName', 'Buddy');
   const initials = await getSetting('initials', 'BD');
   const profilePicture = await getSetting('profilePicture', null);
+  const usePin = await getSetting('usePin', false);
+  const secretSet = await getSetting('secretSet', false);
   
   // AI settings
   const aiEnabled = await getSetting('aiEnabled', false);
@@ -37,6 +39,15 @@ async function loadSettings(){
   document.getElementById('reduceMotion').checked = !!reduceMotion;
   document.getElementById('displayName').value = displayName;
   document.getElementById('initials').value = initials;
+  // Security
+  const usePinEl = document.getElementById('usePin');
+  if (usePinEl) usePinEl.checked = !!usePin;
+  const labelEl = document.getElementById('secretLabel');
+  if (labelEl) labelEl.textContent = usePin ? 'PIN' : 'Password';
+  const secretInput = document.getElementById('secretInput');
+  const secretConfirm = document.getElementById('secretConfirm');
+  if (secretInput) secretInput.value = '';
+  if (secretConfirm) secretConfirm.value = '';
   
   // Set AI settings
   document.getElementById('aiEnabled').checked = !!aiEnabled;
@@ -77,6 +88,9 @@ async function saveSettings(){
   const initials = document.getElementById('initials').value.trim().slice(0,3).toUpperCase() || 'BD';
   const profilePicture = document.getElementById('profilePreview').style.backgroundImage;
   const profilePicDataUrl = profilePicture ? profilePicture.slice(5, -2) : null;
+  const usePin = document.getElementById('usePin')?.checked || false;
+  const secret = document.getElementById('secretInput')?.value || '';
+  const secret2 = document.getElementById('secretConfirm')?.value || '';
   
   // Get AI settings
   const aiEnabled = document.getElementById('aiEnabled').checked;
@@ -106,7 +120,32 @@ async function saveSettings(){
     setSetting('smartComposeMinContext', scMinCtx),
     setSetting('smartComposeMaxCont', scMaxCont),
     setSetting('smartComposeRequireSeenNames', scRequireNames),
+    setSetting('usePin', usePin),
   ]);
+
+  // Save secret if provided and matches
+  if (secret || secret2){
+    if (secret !== secret2){
+      alert('Secret confirmation does not match.');
+      return;
+    }
+    if (usePin && !/^\d{4,8}$/.test(secret)){
+      alert('PIN must be 4-8 digits.');
+      return;
+    }
+    if (!usePin && secret.length < 4){
+      alert('Password must be at least 4 characters.');
+      return;
+    }
+    // Simple hash for local verification (not strong, but better than plain)
+    const enc = new TextEncoder();
+    const data = enc.encode(secret);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const bytes = Array.from(new Uint8Array(digest));
+    const hash = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+    await setSetting('secretHash', hash);
+    await setSetting('secretSet', true);
+  }
 
   alert('Settings saved');
 }
@@ -160,4 +199,13 @@ document.getElementById('highContrast')?.addEventListener('change', (e)=>{
   const isOn = !!e.target.checked;
   const currentBorder = getComputedStyle(root).getPropertyValue('--border') || '#E6E4F4';
   root.style.setProperty('--border', isOn ? '#8f8d9f' : currentBorder);
+});
+
+// Security label toggle
+document.getElementById('usePin')?.addEventListener('change', (e)=>{
+  const isPin = !!e.target.checked;
+  const labelEl = document.getElementById('secretLabel');
+  if (labelEl) labelEl.textContent = isPin ? 'PIN' : 'Password';
+  const input = document.getElementById('secretInput');
+  if (input) input.placeholder = isPin ? 'Set 4-8 digit PIN' : 'Set password';
 });

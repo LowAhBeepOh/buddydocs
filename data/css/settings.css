@@ -21,6 +21,10 @@
 .tile:active{transform:translateY(1px)}
 .tile > span{font-size:12px; text-transform:uppercase; letter-spacing:.08em; color:var(--muted)}
 
+/* Helper text inside tiles */
+.tile .help{ font-size:11px; color:var(--muted); margin-top:-2px }
+.toggle-row{ display:flex; align-items:center; justify-content:space-between }
+
 .range-field{display:flex; align-items:center; gap:10px}
 .range-field output{min-width:48px; text-align:right; color:var(--muted); font-variant-numeric:tabular-nums}
 

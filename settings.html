@@ -55,6 +55,33 @@
     </section>
 
     <section>
+      <h2>Security</h2>
+      <div class="row">
+        <label class="tile toggle-row">
+          <span>Use PIN instead of password</span>
+          <input id="usePin" class="toggle" type="checkbox" />
+        </label>
+      </div>
+      <div class="row">
+        <label class="tile">
+          <span id="secretLabel">Password</span>
+          <input id="secretInput" class="input" type="password" placeholder="Set password or PIN" />
+          <small class="help">Password: at least 4 characters. PIN: 4–8 digits when enabled.</small>
+        </label>
+        <label class="tile">
+          <span>Confirm</span>
+          <input id="secretConfirm" class="input" type="password" placeholder="Confirm" />
+          <small class="help">Re-enter to confirm. Leave both blank to keep current secret.</small>
+        </label>
+      </div>
+      <div class="row">
+        <div class="tile" style="flex:1">
+          <p class="muted">This credential protects any documents or galleries you lock. If you forget it, there is no recovery.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
       <h2>Accessibility</h2>
       <div class="row">
         <label class="tile">

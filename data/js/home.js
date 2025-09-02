@@ -4,6 +4,25 @@ import { TEMPLATES } from './templates.js';
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
+async function requireAuth(){
+  const secretSet = await getSetting('secretSet', false);
+  if (!secretSet) return true;
+  const usePin = await getSetting('usePin', false);
+  const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
+  if (input == null) return false;
+  try {
+    const enc = new TextEncoder();
+    const data = enc.encode(input);
+    const digest = await crypto.subtle.digest('SHA-256', data);
+    const bytes = Array.from(new Uint8Array(digest));
+    const hash = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+    const stored = await getSetting('secretHash', '');
+    return stored && hash === stored;
+  } catch {
+    return false;
+  }
+}
+
 
 function showNewDocumentDialog() {
     // This function needs to be implemented to show the new document dialog
@@ -493,6 +512,24 @@ function closeAllMenus(except) {
 
 async function handleDocAction(doc, action) {
   switch(action) {
+    case 'toggle-lock': {
+      const secretSet = await getSetting('secretSet', false);
+      if (!secretSet){
+        alert('Set a password or PIN in Settings first.');
+        break;
+      }
+      if (!doc.locked){
+        doc.locked = true;
+        await saveDocument(doc);
+      } else {
+        const ok = await requireAuth();
+        if (ok){
+          doc.locked = false;
+          await saveDocument(doc);
+        }
+      }
+      break;
+    }
     case 'archive':
       doc.archived = true;
       await saveDocument(doc);
@@ -517,12 +554,19 @@ function createDocCard(doc){
   const node = tmpl.content.firstElementChild.cloneNode(true);
   const link = node.querySelector('.doc-link');
   
-  // Route to appropriate page based on document type
-  if (doc.type === 'gallery') {
-    link.href = `gallery.html?id=${encodeURIComponent(doc.id)}`;
-  } else {
-    link.href = `editor.html?id=${encodeURIComponent(doc.id)}`;
-  }
+  // Route handler with lock protection
+  const targetHref = doc.type === 'gallery'
+    ? `gallery.html?id=${encodeURIComponent(doc.id)}`
+    : `editor.html?id=${encodeURIComponent(doc.id)}`;
+  link.href = '#';
+  link.addEventListener('click', async (e)=>{
+    e.preventDefault();
+    if (doc.locked){
+      const ok = await requireAuth();
+      if (!ok) return;
+    }
+    location.href = targetHref;
+  });
   
   node.querySelector('.title').textContent = doc.title || 'Untitled';
   node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
@@ -531,12 +575,26 @@ function createDocCard(doc){
   // Show document preview in thumb
   const thumb = node.querySelector('.thumb');
   if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
-    // For galleries, show a random image from the gallery
-    const randomImage = doc.content[Math.floor(Math.random() * doc.content.length)];
-    thumb.innerHTML = `<img src="${randomImage}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+    // For galleries, choose a random non-spoiler, non-locked image
+    const candidates = doc.content
+      .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
+      .filter(e => !e.spoiler && !e.locked);
+    const chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
+    if (chosen){
+      thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+    }
     thumb.style.padding = '0';
   } else if (doc.content) {
     thumb.innerHTML = doc.content.slice(0, 200) + (doc.content.length > 200 ? '...' : '');
+  }
+
+  // Lock UI overlay
+  if (doc.locked){
+    thumb.classList.add('locked');
+    const overlay = document.createElement('div');
+    overlay.className = 'lock-overlay';
+    overlay.innerHTML = '<span class="material-symbols-outlined">lock</span>';
+    thumb.appendChild(overlay);
   }
 
   // Handle dropdown menu
