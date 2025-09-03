@@ -14,7 +14,7 @@ Also another place for me to test my coding.
 - **Themes**: Make it how you want it to look like, though no custom themes.
 - **Document Types**: ACTUALLY have different document types, unlike the previous version.
 - **Buddy Ecosystem**: Integrates with other Buddy apps, like Buddy Music and other compatible apps.
-- **Integration with CompactB (AI)**: Get summerizations, plan stuff, and chat. (Coming soon)
+- **Integration with CompactB (AI)**: Get summerizations, plan stuff, and chat. (somewhat added)
 - **Study Tools**: Get tools like these
   - Study Pages (Coming soon)
   - Writing Buddy (Coming soon, uses AI)
