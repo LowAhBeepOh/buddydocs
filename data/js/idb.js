@@ -29,7 +29,7 @@ function openDB() {
   });
 }
 
-async function tx(storeName, mode = 'readonly') {
+export async function tx(storeName, mode = 'readonly') {
   const db = await openDB();
   const t = db.transaction(storeName, mode);
   return new Promise((resolve, reject) => {

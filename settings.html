@@ -54,29 +54,49 @@
       </div>
     </section>
 
-    <section>
+    <section class="security-section">
       <h2>Security</h2>
-      <div class="row">
-        <label class="tile toggle-row">
-          <span>Use PIN instead of password</span>
-          <input id="usePin" class="toggle" type="checkbox" />
-        </label>
-      </div>
-      <div class="row">
-        <label class="tile">
-          <span id="secretLabel">Password</span>
-          <input id="secretInput" class="input" type="password" placeholder="Set password or PIN" />
-          <small class="help">Password: at least 4 characters. PIN: 4–8 digits when enabled.</small>
-        </label>
-        <label class="tile">
-          <span>Confirm</span>
-          <input id="secretConfirm" class="input" type="password" placeholder="Confirm" />
-          <small class="help">Re-enter to confirm. Leave both blank to keep current secret.</small>
-        </label>
-      </div>
-      <div class="row">
-        <div class="tile" style="flex:1">
-          <p class="muted">This credential protects any documents or galleries you lock. If you forget it, there is no recovery.</p>
+      <div class="security-container">
+        <div class="security-option">
+          <div class="tile toggle-row">
+            <span>Use PIN instead of password</span>
+            <input id="usePin" class="toggle" type="checkbox" />
+          </div>
+        </div>
+        
+        <div id="changePasswordSection" class="password-form">
+          <div class="form-row">
+            <div class="tile">
+              <label for="currentSecret">Current Password</label>
+              <input id="currentSecret" class="input" type="password" placeholder="Enter current password/PIN" />
+            </div>
+          </div>
+          
+          <div class="form-row">
+            <div class="tile">
+              <label for="secretInput" id="secretLabel">New Password</label>
+              <input id="secretInput" class="input" type="password" placeholder="Set new password or PIN" />
+              <p class="help-text">Password: at least 4 characters. PIN: 4–8 digits when enabled.</p>
+            </div>
+            
+            <div class="tile">
+              <label for="secretConfirm">Confirm New Password</label>
+              <input id="secretConfirm" class="input" type="password" placeholder="Confirm new password/PIN" />
+            </div>
+          </div>
+        </div>
+        
+        <div class="forgot-password-container">
+          <div class="tile">
+            <p class="muted">This credential protects any documents or galleries you lock.</p>
+            <div class="forgot-password">
+              <a href="#" id="forgotPassword">Forgot your password?</a>
+              <div id="passwordHint" class="hidden">
+                <p class="hint-text">Password hint: <span id="passwordHintText"></span></p>
+                <button id="resetPassword" class="btn secondary small">Reset Password (will delete locked content)</button>
+              </div>
+            </div>
+          </div>
         </div>
       </div>
     </section>

@@ -142,13 +142,14 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
     return { greeting: '>_<', sub: 'Keep your docs organized and on track.' };
   }
   
-  // Go to sleep message (1 AM to 5 AM)
+  // Late night/early morning messages (1 AM to 5 AM)
   if (h >= 1 && h < 5) {
     const sleepMessages = [
-      { greeting: `Time for bed, ${displayName}`, sub: 'Your docs will be here tomorrow.' },
-      { greeting: `Maybe some sleep?`, sub: 'Your documents can wait until morning.' },
-      { greeting: `Late night session?`, sub: 'Don\'t forget to rest.' },
-      { greeting: `Still working, ${displayName}?`, sub: 'Consider getting some sleep.' }
+      { greeting: `Time for rest, ${displayName}`, sub: 'A fresh start awaits in the morning.' },
+      { greeting: `Late night thoughts?`, sub: 'Capture them now, refine them tomorrow.' },
+      { greeting: `Still writing, ${displayName}?`, sub: 'Your dedication is inspiring.' },
+      { greeting: `The world sleeps`, sub: 'But great ideas never rest.' },
+      { greeting: `Night owl hours`, sub: 'When creativity meets tranquility.' }
     ];
     return sleepMessages[Math.floor(Math.random() * sleepMessages.length)];
   }
@@ -163,11 +164,24 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   });
   
   if (urgentDeadlines.length > 0) {
-    const hoursLeft = Math.floor((new Date(urgentDeadlines[0].dueDate) - now) / (1000 * 60 * 60));
+    const hoursLeft = Math.ceil((new Date(urgentDeadlines[0].dueDate) - now) / (1000 * 60 * 60));
+    const minutesLeft = Math.ceil(((new Date(urgentDeadlines[0].dueDate) - now) % (1000 * 60 * 60)) / (1000 * 60));
+    
+    let timeLeft = '';
+    if (hoursLeft > 1) {
+      timeLeft = `${hoursLeft} hours`;
+    } else if (hoursLeft === 1) {
+      timeLeft = `1 hour and ${minutesLeft} minutes`;
+    } else {
+      timeLeft = `${minutesLeft} minutes`;
+    }
+    
     const urgentMessages = [
-      { greeting: `Deadline approaching, ${displayName}`, sub: `${urgentDeadlines.length} item${urgentDeadlines.length > 1 ? 's' : ''} due in ${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''} or less` },
-      { greeting: `Time's ticking`, sub: `${urgentDeadlines.length} deadline${urgentDeadlines.length > 1 ? 's' : ''} coming up soon` },
-      { greeting: `Almost deadline time`, sub: `${hoursLeft} hour${hoursLeft !== 1 ? 's' : ''} left on ${urgentDeadlines.length} item${urgentDeadlines.length > 1 ? 's' : ''}` }
+      { greeting: `⏰ Deadline approaching`, sub: `${urgentDeadlines.length} item${urgentDeadlines.length > 1 ? 's' : ''} due in ${timeLeft}` },
+      { greeting: `Time to focus, ${displayName}`, sub: `${urgentDeadlines.length} deadline${urgentDeadlines.length > 1 ? 's' : ''} coming up in ${timeLeft}` },
+      { greeting: `Heads up!`, sub: `${urgentDeadlines.length} item${urgentDeadlines.length > 1 ? 's' : ''} due in ${timeLeft}` },
+      { greeting: `Quick check-in`, sub: `You have ${urgentDeadlines.length} deadline${urgentDeadlines.length > 1 ? 's' : ''} in ${timeLeft}` },
+      { greeting: `Action needed`, sub: `${urgentDeadlines.length} item${urgentDeadlines.length > 1 ? 's' : ''} due in ${timeLeft}` }
     ];
     return urgentMessages[Math.floor(Math.random() * urgentMessages.length)];
   }
@@ -189,11 +203,21 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   
   if (overdueDeadlines.length > 0) {
     const oldestOverdue = overdueDeadlines.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))[0];
-    const daysOverdue = Math.floor((now - new Date(oldestOverdue.dueDate)) / (1000 * 60 * 60 * 24));
+    const daysOverdue = Math.ceil((now - new Date(oldestOverdue.dueDate)) / (1000 * 60 * 60 * 24));
+    
+    // More descriptive time phrases
+    let timePhrase = '';
+    if (daysOverdue === 1) timePhrase = 'yesterday';
+    else if (daysOverdue < 7) timePhrase = `${daysOverdue} days ago`;
+    else if (daysOverdue < 30) timePhrase = `${Math.floor(daysOverdue/7)} week${Math.floor(daysOverdue/7) > 1 ? 's' : ''} ago`;
+    else timePhrase = `${Math.floor(daysOverdue/30)} month${Math.floor(daysOverdue/30) > 1 ? 's' : ''} ago`;
+    
     const overdueMessages = [
-      { greeting: `${overdueDeadlines.length} overdue item${overdueDeadlines.length > 1 ? 's' : ''}`, sub: `Oldest is ${daysOverdue} day${daysOverdue !== 1 ? 's' : ''} behind` },
-      { greeting: `Catch up time, ${displayName}`, sub: `${overdueDeadlines.length} item${overdueDeadlines.length > 1 ? 's' : ''} overdue` },
-      { greeting: `Some items are overdue`, sub: `Time to tackle those ${overdueDeadlines.length} task${overdueDeadlines.length > 1 ? 's' : ''}` }
+      { greeting: `📅 ${overdueDeadlines.length} item${overdueDeadlines.length > 1 ? 's' : ''} need attention`, sub: `Oldest is from ${timePhrase}` },
+      { greeting: `Let's catch up, ${displayName}`, sub: `You have ${overdueDeadlines.length} overdue item${overdueDeadlines.length > 1 ? 's' : ''}` },
+      { greeting: `Time to check in`, sub: `${overdueDeadlines.length} item${overdueDeadlines.length > 1 ? 's' : ''} waiting for your attention` },
+      { greeting: `Overdue items found`, sub: `You have ${overdueDeadlines.length} task${overdueDeadlines.length > 1 ? 's' : ''} to review` },
+      { greeting: `📌 Quick update needed`, sub: `${overdueDeadlines.length} item${overdueDeadlines.length > 1 ? 's' : ''} from ${timePhrase}` }
     ];
     return overdueMessages[Math.floor(Math.random() * overdueMessages.length)];
   }
@@ -211,68 +235,174 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   const dayOfWeek = date.getDay();
   if (dayOfWeek === 0 || dayOfWeek === 6) {
     const weekendGreetings = [
-      { greeting: `Weekend time, ${displayName}`, sub: 'Good time to catch up on things.' },
-      { greeting: `Happy weekend`, sub: 'Maybe organize some docs?' },
-      { greeting: `Weekend vibes`, sub: 'Relax, but stay productive.' },
-      { greeting: `It's the weekend`, sub: 'Perfect for some quiet work.' },
-      { greeting: `Weekend mode`, sub: 'Time to tackle that backlog.' },
-      { greeting: `Enjoy your weekend, ${displayName}`, sub: 'Don\'t forget about your docs though.' }
+      { 
+        greeting: dayOfWeek === 6 ? `Happy Saturday, ${displayName}` : `Peaceful Sunday, ${displayName}`, 
+        sub: dayOfWeek === 6 ? 'A great day for creative work' : 'Perfect time to plan the week ahead'
+      },
+      { 
+        greeting: 'Weekend productivity', 
+        sub: 'When great ideas have space to breathe'
+      },
+      { 
+        greeting: 'Weekend mode', 
+        sub: 'Perfect for those side projects and personal growth'
+      },
+      { 
+        greeting: `Hello ${displayName}`, 
+        sub: dayOfWeek === 6 ? 'Saturday is made for catching up' : 'Sunday is for planning and reflection'
+      },
+      { 
+        greeting: 'Weekend thoughts', 
+        sub: 'Jot them down before they float away'
+      },
+      { 
+        greeting: dayOfWeek === 6 ? 'Saturday session' : 'Sunday planning', 
+        sub: dayOfWeek === 6 ? 'Time to make progress' : 'Set yourself up for success'
+      },
+      { 
+        greeting: 'Weekend warrior', 
+        sub: 'Making the most of your free time'
+      }
     ];
     return weekendGreetings[Math.floor(Math.random() * weekendGreetings.length)];
   }
   
-  // Check for early morning (before 8 AM)
+  // Early morning messages (before 8 AM)
   if (h < 8) {
     const earlyGreetings = [
-      { greeting: `Early start, ${displayName}`, sub: 'Good time to plan ahead.' },
-      { greeting: `Morning person`, sub: 'Getting things done before others wake up.' },
-      { greeting: `Up early today`, sub: 'Perfect time for focused work.' },
-      { greeting: `Early bird`, sub: 'Making the most of the quiet hours.' },
-      { greeting: `Bright and early`, sub: 'Ready to tackle the day.' },
-      { greeting: `Morning, ${displayName}`, sub: 'Starting strong today.' },
-      { greeting: `Early riser`, sub: 'Time to get organized.' }
+      { 
+        greeting: `Early start, ${displayName}`, 
+        sub: 'The world is quiet - perfect for focused work' 
+      },
+      { 
+        greeting: `Good morning, early bird`, 
+        sub: 'The early hours are yours to conquer' 
+      },
+      { 
+        greeting: `Rise and shine`, 
+        sub: 'A fresh day awaits your brilliance' 
+      },
+      { 
+        greeting: `First light productivity`, 
+        sub: 'Set the tone for a successful day' 
+      },
+      { 
+        greeting: `Morning, ${displayName}`, 
+        sub: 'Early hours, endless possibilities' 
+      },
+      { 
+        greeting: `Before the world wakes`, 
+        sub: 'Perfect time for strategic thinking' 
+      },
+      { 
+        greeting: `Dawn of a new day`, 
+        sub: 'Make it count' 
+      }
     ];
     return earlyGreetings[Math.floor(Math.random() * earlyGreetings.length)];
   }
   
-  // Check for late night (after 10 PM)
+  // Late evening messages (after 10 PM)
   if (h >= 22) {
     const lateGreetings = [
-      { greeting: `Working late, ${displayName}`, sub: 'Night time productivity.' },
-      { greeting: `Evening session`, sub: 'Quiet hours for deep work.' },
-      { greeting: `Night owl`, sub: 'Making progress in the calm hours.' },
-      { greeting: `Late night work`, sub: 'Sometimes the best ideas come at night.' },
-      { greeting: `Still at it?`, sub: 'Night time can be surprisingly productive.' },
-      { greeting: `Evening, ${displayName}`, sub: 'Perfect time for some focused writing.' },
-      { greeting: `Burning the midnight oil`, sub: 'Getting things done after hours.' }
+      { 
+        greeting: `Night owl hours, ${displayName}`, 
+        sub: 'When creativity flows freely' 
+      },
+      { 
+        greeting: `Late night thoughts`, 
+        sub: 'Capture them before they slip away' 
+      },
+      { 
+        greeting: `Evening deep work`, 
+        sub: 'The world is quiet, your mind is sharp' 
+      },
+      { 
+        greeting: `Still creating?`, 
+        sub: 'Some of the best work happens after hours' 
+      },
+      { 
+        greeting: `Midnight oil`, 
+        sub: 'Burning bright with ideas' 
+      },
+      { 
+        greeting: `Night shift`, 
+        sub: 'Making progress while others sleep' 
+      },
+      { 
+        greeting: `Late night clarity`, 
+        sub: 'When the best ideas often come' 
+      }
     ];
     return lateGreetings[Math.floor(Math.random() * lateGreetings.length)];
   }
   
-  // Check for Monday blues
+  // Monday motivation messages
   if (dayOfWeek === 1) {
     const mondayGreetings = [
-      { greeting: `Monday, ${displayName}`, sub: 'New week, fresh start.' },
-      { greeting: `Here we go again`, sub: 'Another week begins.' },
-      { greeting: `Monday mood`, sub: 'Time to get back into it.' },
-      { greeting: `Week one, day one`, sub: 'Let\'s see what this week brings.' },
-      { greeting: `Monday morning`, sub: 'Coffee and documents await.' },
-      { greeting: `Starting the week`, sub: 'Ready or not, here we go.' },
-      { greeting: `Mondays...`, sub: 'At least your docs are organized.' }
+      { 
+        greeting: `New week, new opportunities`, 
+        sub: 'Make it count, ' + displayName 
+      },
+      { 
+        greeting: `Monday motivation`, 
+        sub: 'Set the tone for an amazing week' 
+      },
+      { 
+        greeting: `Fresh start`, 
+        sub: 'A whole week of potential ahead' 
+      },
+      { 
+        greeting: `Week ahead`, 
+        sub: 'Plan your priorities and crush your goals' 
+      },
+      { 
+        greeting: `Hello Monday`, 
+        sub: 'Your chance to make this week better than the last' 
+      },
+      { 
+        greeting: `Monday mindset`, 
+        sub: 'Approach today with purpose and energy' 
+      },
+      { 
+        greeting: `Let's do this`, 
+        sub: 'Kick off the week with focus and determination' 
+      }
     ];
     return mondayGreetings[Math.floor(Math.random() * mondayGreetings.length)];
   }
   
-  // Check for Friday excitement
+  // Friday celebration messages
   if (dayOfWeek === 5) {
     const fridayGreetings = [
-      { greeting: `Friday, ${displayName}`, sub: 'Almost there - wrap things up.' },
-      { greeting: `End of the week`, sub: 'Time to finish strong.' },
-      { greeting: `Friday feeling`, sub: 'One more push before the weekend.' },
-      { greeting: `TGIF`, sub: 'Finish up and enjoy your weekend.' },
-      { greeting: `Final stretch`, sub: 'Close out the week properly.' },
-      { greeting: `Friday vibes`, sub: 'Weekend is just around the corner.' },
-      { greeting: `Last day`, sub: 'Make it count, then relax.' }
+      { 
+        greeting: `Friday feeling, ${displayName}`, 
+        sub: 'Time to wrap up and celebrate your wins' 
+      },
+      { 
+        greeting: `Weekend countdown`, 
+        sub: 'Finish strong and start your weekend right' 
+      },
+      { 
+        greeting: `TGIF`, 
+        sub: 'Time to complete what you started this week' 
+      },
+      { 
+        greeting: `Final stretch`, 
+        sub: 'Make today count before the weekend begins' 
+      },
+      { 
+        greeting: `Friday energy`, 
+        sub: 'One more productive day before you recharge' 
+      },
+      { 
+        greeting: `Weekend is calling`, 
+        sub: 'But first, let\'s finish strong' 
+      },
+      { 
+        greeting: `Friday focus`, 
+        sub: 'Set yourself up for a relaxing weekend' 
+      }
     ];
     return fridayGreetings[Math.floor(Math.random() * fridayGreetings.length)];
   }
@@ -293,15 +423,37 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
     return productiveMessages[Math.floor(Math.random() * productiveMessages.length)];
   }
   
-  // Check for empty state (no documents)
+  // Empty state messages (no documents)
   if (deadlines.length === 0) {
     const emptyGreetings = [
-      { greeting: `Welcome, ${displayName}`, sub: 'Ready to create your first document?' },
-      { greeting: `Clean slate`, sub: 'Time to start building your collection.' },
-      { greeting: `Fresh start`, sub: 'Your first document awaits.' },
-      { greeting: `New workspace`, sub: 'Let\'s get you organized.' },
-      { greeting: `Getting started`, sub: 'Create something worth documenting.' },
-      { greeting: `Hello, ${displayName}`, sub: 'Your organized workspace awaits.' }
+      { 
+        greeting: `Welcome to your workspace, ${displayName}`, 
+        sub: 'Ready to create something amazing?' 
+      },
+      { 
+        greeting: `Fresh canvas`, 
+        sub: 'Every great project starts with a single document' 
+      },
+      { 
+        greeting: `Let's begin`, 
+        sub: 'Create your first note, list, or document' 
+      },
+      { 
+        greeting: `Your digital notebook`, 
+        sub: 'Organized, accessible, and ready for your ideas' 
+      },
+      { 
+        greeting: `Hello, ${displayName}`, 
+        sub: 'Start capturing your thoughts and ideas' 
+      },
+      { 
+        greeting: `Blank page`, 
+        sub: 'Infinite possibilities await your first words' 
+      },
+      { 
+        greeting: `Getting started`, 
+        sub: 'Create, organize, and find your perfect workflow' 
+      }
     ];
     return emptyGreetings[Math.floor(Math.random() * emptyGreetings.length)];
   }
@@ -309,40 +461,94 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   // Time-based greetings with variations
   const greetings = {
     morning: [
-      { greeting: 'Good morning', sub: 'Time to check your documents.' },
-      { greeting: 'Morning', sub: 'Ready for another productive day?' },
-      { greeting: 'New day', sub: 'What will you accomplish today?' },
-      { greeting: 'Good morning', sub: 'Your docs are waiting.' },
-      { greeting: 'Rise and shine', sub: 'Time to organize your thoughts.' },
-      { greeting: 'Morning time', sub: 'Perfect for some planning.' },
-      { greeting: 'Another day', sub: 'Let\'s make it count.' },
-      { greeting: 'Fresh start', sub: 'Ready to tackle your tasks?' },
-      { greeting: 'Hello there', sub: 'Morning productivity awaits.' },
-      { greeting: 'Day begins', sub: 'Time to get organized.' }
+      { 
+        greeting: 'Good morning', 
+        sub: 'A new day to create something great' 
+      },
+      { 
+        greeting: 'Morning, ' + displayName, 
+        sub: 'What will you accomplish today?' 
+      },
+      { 
+        greeting: 'New day, new possibilities', 
+        sub: 'Make it count' 
+      },
+      { 
+        greeting: 'Rise and shine', 
+        sub: 'Your documents are ready when you are' 
+      },
+      { 
+        greeting: 'Hello there', 
+        sub: 'Perfect time for focused work' 
+      },
+      { 
+        greeting: 'Morning productivity', 
+        sub: 'Set the tone for a successful day' 
+      },
+      { 
+        greeting: 'Fresh start', 
+        sub: 'Organize your thoughts and ideas' 
+      }
     ],
     afternoon: [
-      { greeting: 'Good afternoon', sub: 'How are your docs coming along?' },
-      { greeting: 'Midday check-in', sub: 'Making progress on your work?' },
-      { greeting: 'Afternoon', sub: 'Time for a productivity boost.' },
-      { greeting: 'Half way through', sub: 'Keep the momentum going.' },
-      { greeting: 'Lunch break over?', sub: 'Back to your documents.' },
-      { greeting: 'Afternoon session', sub: 'What needs your attention?' },
-      { greeting: 'Middle of the day', sub: 'Perfect time to organize.' },
-      { greeting: 'Post-lunch time', sub: 'Ready to dive back in?' },
-      { greeting: 'Good day so far?', sub: 'Let\'s keep it productive.' },
-      { greeting: 'Afternoon productivity', sub: 'Time to make progress.' }
+      { 
+        greeting: 'Good afternoon', 
+        sub: 'How\'s your day going?' 
+      },
+      { 
+        greeting: 'Afternoon check-in', 
+        sub: 'Making progress on your goals?' 
+      },
+      { 
+        greeting: 'Afternoon energy', 
+        sub: 'Perfect time to tackle challenging tasks' 
+      },
+      { 
+        greeting: 'Midday momentum', 
+        sub: 'Keep the productivity going' 
+      },
+      { 
+        greeting: 'Hello again', 
+        sub: 'What\'s next on your list?' 
+      },
+      { 
+        greeting: 'Afternoon focus', 
+        sub: 'Time to make things happen' 
+      },
+      { 
+        greeting: 'Productive afternoon', 
+        sub: 'Your future self will thank you' 
+      }
     ],
     evening: [
-      { greeting: 'Good evening', sub: 'Winding down with some docs?' },
-      { greeting: 'Evening', sub: 'Perfect time to reflect and organize.' },
-      { greeting: 'End of day', sub: 'Time to wrap things up.' },
-      { greeting: 'Evening session', sub: 'Quiet time for focused work.' },
-      { greeting: 'Day\'s end', sub: 'Review and organize your thoughts.' },
-      { greeting: 'Evening work', sub: 'Sometimes the best time to focus.' },
-      { greeting: 'Closing time', sub: 'Finish strong before you rest.' },
-      { greeting: 'Evening hours', sub: 'Perfect for some deep work.' },
-      { greeting: 'Day wrapping up', sub: 'Time to get organized.' },
-      { greeting: 'Evening productivity', sub: 'Making the most of your time.' }
+      { 
+        greeting: 'Good evening', 
+        sub: 'Time to reflect on today\'s progress' 
+      },
+      { 
+        greeting: 'Evening hours', 
+        sub: 'Perfect for wrapping up loose ends' 
+      },
+      { 
+        greeting: 'Day\'s end', 
+        sub: 'Review and plan for tomorrow' 
+      },
+      { 
+        greeting: 'Evening thoughts', 
+        sub: 'Capture them before they fade' 
+      },
+      { 
+        greeting: 'Sunset session', 
+        sub: 'A peaceful time to create' 
+      },
+      { 
+        greeting: 'End of day', 
+        sub: 'Finish strong' 
+      },
+      { 
+        greeting: 'Evening reflection', 
+        sub: 'What went well today?' 
+      }
     ]
   };
   

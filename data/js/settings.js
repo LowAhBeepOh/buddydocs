@@ -1,4 +1,4 @@
-import { getSetting, setSetting } from './idb.js';
+import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES } from './idb.js';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -9,7 +9,18 @@ function updateMetaThemeColor(){
   meta.setAttribute('content', bg);
 }
 
-async function loadSettings(){
+// Store the original secret for hint purposes
+let originalSecret = '';
+
+async function hashSecret(secret) {
+  const enc = new TextEncoder();
+  const data = enc.encode(secret);
+  const digest = await crypto.subtle.digest('SHA-256', data);
+  const bytes = Array.from(new Uint8Array(digest));
+  return bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+async function loadSettings() {
   const theme = await getSetting('theme', 'light');
   const fontSize = await getSetting('fontSize', 16);
   const highContrast = await getSetting('highContrast', false);
@@ -19,6 +30,9 @@ async function loadSettings(){
   const profilePicture = await getSetting('profilePicture', null);
   const usePin = await getSetting('usePin', false);
   const secretSet = await getSetting('secretSet', false);
+  
+  // Store the original secret for hint
+  originalSecret = await getSetting('originalSecret', '');
   
   // AI settings
   const aiEnabled = await getSetting('aiEnabled', false);
@@ -43,11 +57,47 @@ async function loadSettings(){
   const usePinEl = document.getElementById('usePin');
   if (usePinEl) usePinEl.checked = !!usePin;
   const labelEl = document.getElementById('secretLabel');
-  if (labelEl) labelEl.textContent = usePin ? 'PIN' : 'Password';
+  if (labelEl) labelEl.textContent = usePin ? 'New PIN' : 'New Password';
   const secretInput = document.getElementById('secretInput');
   const secretConfirm = document.getElementById('secretConfirm');
+  const currentSecretInput = document.getElementById('currentSecret');
+  
   if (secretInput) secretInput.value = '';
   if (secretConfirm) secretConfirm.value = '';
+  if (currentSecretInput) currentSecretInput.value = '';
+  
+  // Handle password section visibility
+  const changePasswordSection = document.getElementById('changePasswordSection');
+  const forgotPasswordLink = document.getElementById('forgotPassword');
+  const passwordHint = document.getElementById('passwordHint');
+  const passwordHintText = document.getElementById('passwordHintText');
+  const currentPasswordField = document.getElementById('currentSecret');
+  
+  // Always show the password section
+  if (changePasswordSection) changePasswordSection.style.display = 'block';
+  
+  if (secretSet) {
+    // If password is set, show forgot password link and require current password
+    if (forgotPasswordLink) forgotPasswordLink.style.display = 'block';
+    if (currentPasswordField) {
+      currentPasswordField.required = true;
+      currentPasswordField.closest('.form-row').style.display = 'block';
+    }
+    
+    // Show first 2 characters of the original secret as a hint
+    if (originalSecret && originalSecret.length > 2 && passwordHintText) {
+      const hint = originalSecret.substring(0, 2) + '*'.repeat(originalSecret.length - 2);
+      passwordHintText.textContent = hint;
+    }
+  } else {
+    // If no password is set yet, hide the current password field and forgot password link
+    if (forgotPasswordLink) forgotPasswordLink.style.display = 'none';
+    if (passwordHint) passwordHint.classList.add('hidden');
+    if (currentPasswordField) {
+      currentPasswordField.required = false;
+      currentPasswordField.closest('.form-row').style.display = 'none';
+    }
+  }
   
   // Set AI settings
   document.getElementById('aiEnabled').checked = !!aiEnabled;
@@ -79,7 +129,88 @@ async function loadSettings(){
   updateMetaThemeColor();
 }
 
-async function saveSettings(){
+async function verifyCurrentPassword(secret) {
+  const storedHash = await getSetting('secretHash');
+  if (!storedHash) return true; // No password set yet
+  
+  const inputHash = await hashSecret(secret);
+  return inputHash === storedHash;
+}
+
+async function resetPassword() {
+  if (!confirm('WARNING: This will delete all locked documents, galleries, and images. Are you sure you want to continue?')) {
+    return false;
+  }
+  
+  try {
+    const store = await tx(STORES.documents, 'readwrite');
+    const req = store.getAll();
+    
+    return new Promise((resolve, reject) => {
+      req.onsuccess = async () => {
+        const documents = req.result || [];
+        const lockedDocs = [];
+        const galleriesToUpdate = [];
+        
+        // First pass: find locked documents and process galleries
+        for (const doc of documents) {
+          if (doc.locked) {
+            lockedDocs.push(doc);
+          } else if (doc.type === 'gallery' && Array.isArray(doc.content)) {
+            // Check for locked images in gallery content
+            const hasLockedImages = doc.content.some(entry => {
+              // Handle both string entries and object entries with locked property
+              const isLocked = typeof entry === 'object' && entry !== null && entry.locked === true;
+              return isLocked;
+            });
+            
+            if (hasLockedImages) {
+              // Create a copy of the gallery with locked images removed
+              const updatedGallery = {
+                ...doc,
+                content: doc.content.filter(entry => {
+                  // Keep entries that are not objects, or don't have locked: true
+                  return typeof entry !== 'object' || !entry || entry.locked !== true;
+                }),
+                updatedAt: Date.now()
+              };
+              galleriesToUpdate.push(updatedGallery);
+            }
+          }
+        }
+        
+        // Delete locked documents
+        for (const doc of lockedDocs) {
+          await deleteDocument(doc.id);
+        }
+        
+        // Update galleries to remove locked images
+        for (const gallery of galleriesToUpdate) {
+          await saveDocument(gallery);
+        }
+        
+        // Clear the password
+        await setSetting('secretHash', '');
+        await setSetting('secretSet', false);
+        await setSetting('originalSecret', '');
+        
+        // Reload settings
+        await loadSettings();
+        
+        const deletedCount = lockedDocs.length + galleriesToUpdate.length;
+        alert(`Password has been reset. Deleted ${lockedDocs.length} locked documents and removed locked images from ${galleriesToUpdate.length} galleries.`);
+        resolve(true);
+      };
+      req.onerror = () => reject(req.error);
+    });
+  } catch (error) {
+    console.error('Error resetting password:', error);
+    alert('Error resetting password. Please try again.');
+    return false;
+  }
+}
+
+async function saveSettings() {
   const theme = document.getElementById('themeSelect').value;
   const fontSize = Number(document.getElementById('fontSize').value);
   const highContrast = document.getElementById('highContrast').checked;
@@ -89,8 +220,9 @@ async function saveSettings(){
   const profilePicture = document.getElementById('profilePreview').style.backgroundImage;
   const profilePicDataUrl = profilePicture ? profilePicture.slice(5, -2) : null;
   const usePin = document.getElementById('usePin')?.checked || false;
-  const secret = document.getElementById('secretInput')?.value || '';
-  const secret2 = document.getElementById('secretConfirm')?.value || '';
+  const currentSecret = document.getElementById('currentSecret')?.value || '';
+  const newSecret = document.getElementById('secretInput')?.value || '';
+  const secretConfirm = document.getElementById('secretConfirm')?.value || '';
   
   // Get AI settings
   const aiEnabled = document.getElementById('aiEnabled').checked;
@@ -124,27 +256,44 @@ async function saveSettings(){
   ]);
 
   // Save secret if provided and matches
-  if (secret || secret2){
-    if (secret !== secret2){
-      alert('Secret confirmation does not match.');
+  if (newSecret || secretConfirm) {
+    // Check if this is a password change (not initial set)
+    const isPasswordChange = await getSetting('secretSet');
+    
+    if (isPasswordChange) {
+      // Verify current password
+      const isCurrentValid = await verifyCurrentPassword(currentSecret);
+      if (!isCurrentValid) {
+        alert('Current password is incorrect.');
+        return;
+      }
+    }
+    
+    if (newSecret !== secretConfirm) {
+      alert('New password confirmation does not match.');
       return;
     }
-    if (usePin && !/^\d{4,8}$/.test(secret)){
+    
+    if (usePin && !/^\d{4,8}$/.test(newSecret)) {
       alert('PIN must be 4-8 digits.');
       return;
     }
-    if (!usePin && secret.length < 4){
+    
+    if (!usePin && newSecret.length < 4) {
       alert('Password must be at least 4 characters.');
       return;
     }
-    // Simple hash for local verification (not strong, but better than plain)
-    const enc = new TextEncoder();
-    const data = enc.encode(secret);
-    const digest = await crypto.subtle.digest('SHA-256', data);
-    const bytes = Array.from(new Uint8Array(digest));
-    const hash = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+    
+    // Hash and save the new password
+    const hash = await hashSecret(newSecret);
     await setSetting('secretHash', hash);
     await setSetting('secretSet', true);
+    await setSetting('originalSecret', newSecret);
+    
+    // Clear the password fields
+    document.getElementById('currentSecret').value = '';
+    document.getElementById('secretInput').value = '';
+    document.getElementById('secretConfirm').value = '';
   }
 
   alert('Settings saved');
@@ -171,10 +320,50 @@ function removeProfilePicture() {
   document.getElementById('profilePicture').value = '';
 }
 
-loadSettings();
-document.getElementById('saveSettings').addEventListener('click', saveSettings);
-document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
-document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+// Initialize the app
+loadSettings().then(() => {
+  // Add event listeners
+  document.getElementById('saveSettings').addEventListener('click', saveSettings);
+  document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
+  document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+  
+  // Forgot password functionality
+  const forgotPasswordLink = document.getElementById('forgotPassword');
+  const passwordHint = document.getElementById('passwordHint');
+  const resetPasswordBtn = document.getElementById('resetPassword');
+  
+  if (forgotPasswordLink) {
+    forgotPasswordLink.addEventListener('click', (e) => {
+      e.preventDefault();
+      passwordHint.classList.toggle('hidden');
+    });
+  }
+  
+  if (resetPasswordBtn) {
+    resetPasswordBtn.addEventListener('click', async (e) => {
+      e.preventDefault();
+      const success = await resetPassword();
+      if (success) {
+        passwordHint.classList.add('hidden');
+      }
+    });
+  }
+  
+  // Toggle between PIN and password
+  const usePinToggle = document.getElementById('usePin');
+  if (usePinToggle) {
+    usePinToggle.addEventListener('change', () => {
+      const labelEl = document.getElementById('secretLabel');
+      if (labelEl) {
+        labelEl.textContent = usePinToggle.checked ? 'New PIN' : 'New Password';
+      }
+      const secretInput = document.getElementById('secretInput');
+      const secretConfirm = document.getElementById('secretConfirm');
+      if (secretInput) secretInput.value = '';
+      if (secretConfirm) secretConfirm.value = '';
+    });
+  }
+});
 
 // Live previews
 document.getElementById('fontSize')?.addEventListener('input', (e)=>{
