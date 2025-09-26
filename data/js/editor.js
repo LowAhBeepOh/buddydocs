@@ -531,9 +531,17 @@ async function exportAs(type){
 }
 
 function setupAutoFormat(){
+  // Track if we're at the start of a new line
+  let isNewLine = false;
+  let lastInputWasSpace = false;
+  let lastLineStart = 0;
+  
   editor.addEventListener('input', (e) => {
     // Only handle text input events
-    if (e.inputType !== 'insertText' && e.inputType !== 'insertCompositionText') return;
+    if (e.inputType !== 'insertText' && e.inputType !== 'insertCompositionText') {
+      lastInputWasSpace = false;
+      return;
+    }
     
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
@@ -547,62 +555,209 @@ function setupAutoFormat(){
     const textContent = currentNode.textContent;
     const cursorPos = range.startOffset;
     
-    // Check if we just typed a space after a markdown pattern
+    // Check for new line (Enter key)
+    if (e.data === '\n') {
+      isNewLine = true;
+      lastLineStart = cursorPos;
+      lastInputWasSpace = false;
+      return;
+    }
+    
+    // Check for space after list markers
     if (e.data === ' ') {
+      lastInputWasSpace = true;
+      
       const textBeforeCursor = textContent.substring(0, cursorPos);
       const lineStart = textBeforeCursor.lastIndexOf('\n') + 1;
       const lineText = textBeforeCursor.substring(lineStart);
       
-      // Handle unordered lists (- )
-      if (lineText === '- ') {
+      // Handle unordered lists (-, *, +)
+      if (['-', '*', '+'].includes(lineText.trim())) {
         e.preventDefault();
         transformToList('ul', currentNode, lineStart, cursorPos);
         return;
       }
       
-      // Handle ordered lists (1. , 2. , etc.)
-      const numberMatch = lineText.match(/^(\d+)\. $/);
+      // Handle ordered lists (1., 2., etc.)
+      const numberMatch = lineText.match(/^(\d+)\.?$/);
       if (numberMatch) {
         e.preventDefault();
         transformToList('ol', currentNode, lineStart, cursorPos, parseInt(numberMatch[1]));
         return;
       }
       
-      // Handle headings (# , ## , ### )
-      const headingMatch = lineText.match(/^(#{1,6}) $/);
+      // Handle headings (#, ##, ###, etc.)
+      const headingMatch = lineText.match(/^(#{1,6})$/);
       if (headingMatch) {
         e.preventDefault();
         const level = headingMatch[1].length;
         transformToHeading(level, currentNode, lineStart, cursorPos);
         return;
       }
+    } else {
+      lastInputWasSpace = false;
+    }
+    
+    // Auto-continue lists on new lines
+    if (isNewLine) {
+      const parentElement = currentNode.parentElement;
+      const listItem = parentElement.closest('li');
+      const list = parentElement.closest('ol, ul');
+      
+      if (listItem && list) {
+        // If the user just pressed Enter in a list, continue the list
+        if (e.data === '\n' || e.data === null) {
+          e.preventDefault();
+          
+          // Create a new list item
+          const newItem = document.createElement('li');
+          
+          // For ordered lists, set the correct number
+          if (list.tagName === 'OL') {
+            const itemNumber = list.children.length + 1;
+            newItem.setAttribute('value', itemNumber);
+          }
+          
+          // Insert the new item after the current one
+          list.appendChild(newItem);
+          
+          // Move the cursor to the new item
+          const newRange = document.createRange();
+          newRange.selectNodeContents(newItem);
+          newRange.collapse(true);
+          
+          const sel = window.getSelection();
+          sel.removeAllRanges();
+          sel.addRange(newRange);
+          
+          return;
+        }
+      }
+      isNewLine = false;
     }
   });
   
-  // Handle backspace to revert formatting
+  // Handle backspace and other key events
   editor.addEventListener('keydown', (e) => {
+    const selection = window.getSelection();
+    if (!selection.rangeCount) return;
+    
+    const range = selection.getRangeAt(0);
+    const currentElement = range.startContainer.nodeType === Node.TEXT_NODE 
+      ? range.startContainer.parentElement 
+      : range.startContainer;
+    
+    // Handle backspace key
     if (e.key === 'Backspace') {
-      const selection = window.getSelection();
-      if (!selection.rangeCount) return;
+      const listItem = currentElement.closest('li');
       
-      const range = selection.getRangeAt(0);
-      const currentElement = range.startContainer.nodeType === Node.TEXT_NODE 
-        ? range.startContainer.parentElement 
-        : range.startContainer;
-      
-      // Check if we're at the beginning of a list item or heading
+      // If at the start of a list item
       if (range.startOffset === 0 && range.collapsed) {
-        if (currentElement.tagName === 'LI') {
-          e.preventDefault();
-          revertListItem(currentElement);
-          return;
+        // If we're at the start of a list item
+        if (listItem) {
+          // If the list item is empty, convert it to a paragraph
+          if (listItem.textContent.trim() === '') {
+            e.preventDefault();
+            
+            // If this is the only item in the list, remove the entire list
+            const list = listItem.parentNode;
+            if (list.children.length === 1) {
+              const paragraph = document.createElement('p');
+              paragraph.innerHTML = '<br>';
+              list.parentNode.replaceChild(paragraph, list);
+              
+              // Move cursor to the new paragraph
+              const newRange = document.createRange();
+              newRange.selectNodeContents(paragraph);
+              newRange.collapse(true);
+              
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+            } else {
+              // Otherwise, just remove this list item
+              const prevItem = listItem.previousElementSibling;
+              listItem.remove();
+              
+              // Move cursor to the end of the previous item or start of the next item
+              const newRange = document.createRange();
+              if (prevItem) {
+                newRange.selectNodeContents(prevItem);
+                newRange.collapse(false);
+              } else if (list.firstChild) {
+                newRange.selectNodeContents(list.firstChild);
+                newRange.collapse(true);
+              }
+              
+              selection.removeAllRanges();
+              selection.addRange(newRange);
+            }
+            return;
+          }
         }
         
-        if (/^H[1-6]$/.test(currentElement.tagName)) {
+        // Handle headings
+        if (/^H[1-6]$/.test(currentElement.tagName) && currentElement.textContent.trim() === '') {
           e.preventDefault();
           revertHeading(currentElement);
           return;
         }
+      }
+    }
+    // Handle Enter key
+    else if (e.key === 'Enter') {
+      const listItem = currentElement.closest('li');
+      
+      // If we're in a list
+      if (listItem) {
+        e.preventDefault();
+        
+        // If the list item is empty, exit the list
+        if (listItem.textContent.trim() === '') {
+          const list = listItem.parentNode;
+          
+          // Create a new paragraph after the list
+          const paragraph = document.createElement('p');
+          paragraph.innerHTML = '<br>';
+          
+          // If this is the only item in the list, replace the list with a paragraph
+          if (list.children.length === 1) {
+            list.parentNode.replaceChild(paragraph, list);
+          } else {
+            // Otherwise, just remove this list item and add a paragraph after the list
+            listItem.remove();
+            list.parentNode.insertBefore(paragraph, list.nextSibling);
+          }
+          
+          // Move cursor to the new paragraph
+          const newRange = document.createRange();
+          newRange.selectNodeContents(paragraph);
+          newRange.collapse(true);
+          
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        } else {
+          // If the list item has content, create a new list item
+          const newItem = document.createElement('li');
+          const list = listItem.parentNode;
+          
+          // For ordered lists, set the correct number
+          if (list.tagName === 'OL') {
+            const itemNumber = list.children.length + 1;
+            newItem.setAttribute('value', itemNumber);
+          }
+          
+          // Insert the new item after the current one
+          listItem.after(newItem);
+          
+          // Move the cursor to the new item
+          const newRange = document.createRange();
+          newRange.selectNodeContents(newItem);
+          newRange.collapse(true);
+          
+          selection.removeAllRanges();
+          selection.addRange(newRange);
+        }
+        return;
       }
     }
   });
@@ -692,25 +847,57 @@ function revertListItem(listItem) {
   const isOrdered = list.tagName === 'OL';
   const startNum = isOrdered ? (list.start || 1) : null;
   
-  // Create the markdown text
-  const markdownPrefix = isOrdered ? `${startNum}. ` : '- ';
-  const content = listItem.textContent;
-  
-  // Create new paragraph with the markdown text
-  const paragraph = document.createElement('p');
-  paragraph.textContent = markdownPrefix + content;
-  
-  // Replace the list with the paragraph
-  list.parentNode.replaceChild(paragraph, list);
-  
-  // Set cursor after the markdown prefix
-  const range = document.createRange();
-  const textNode = paragraph.firstChild;
-  range.setStart(textNode, markdownPrefix.length);
-  range.collapse(true);
-  const selection = window.getSelection();
-  selection.removeAllRanges();
-  selection.addRange(range);
+  // Check if this is the only item in the list
+  if (list.children.length === 1) {
+    // Single item - replace the entire list with a paragraph
+    const markdownPrefix = isOrdered ? `${startNum}. ` : '- ';
+    const content = listItem.textContent;
+    const paragraph = document.createElement('p');
+    paragraph.textContent = markdownPrefix + content;
+    list.parentNode.replaceChild(paragraph, list);
+    
+    // Set cursor after the markdown prefix
+    const range = document.createRange();
+    const textNode = paragraph.firstChild || paragraph;
+    range.setStart(textNode, markdownPrefix.length);
+    range.collapse(true);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  } else {
+    // Multiple items - just remove this list item and move cursor to previous line
+    const previousSibling = listItem.previousElementSibling;
+    const nextSibling = listItem.nextElementSibling;
+    const range = document.createRange();
+    const selection = window.getSelection();
+    
+    // If there's a previous sibling, place cursor at its end
+    if (previousSibling) {
+      range.selectNodeContents(previousSibling);
+      range.collapse(false); // false means to the end of the range
+    } 
+    // If there's a next sibling, place cursor at its start
+    else if (nextSibling) {
+      range.selectNodeContents(nextSibling);
+      range.collapse(true); // true means to the start of the range
+    }
+    
+    // Remove the list item
+    list.removeChild(listItem);
+    
+    // Update the selection
+    selection.removeAllRanges();
+    selection.addRange(range);
+    
+    // If this was an ordered list, update the numbering
+    if (isOrdered && startNum) {
+      Array.from(list.children).forEach((item, index) => {
+        if (item.value !== undefined) {
+          item.value = startNum + index;
+        }
+      });
+    }
+  }
 }
 
 function revertHeading(heading) {

@@ -11,12 +11,31 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
   <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
-
   <link rel="stylesheet" href="data/css/base.css" />
   <link rel="stylesheet" href="data/css/editor.css" />
   <title>Gallery • Buddy Docs</title>
 
   <style>
+    /* Image security */
+    .gallery-item {
+      transition: transform 0.2s ease, box-shadow 0.2s ease;
+      -webkit-user-modify: read-only !important;
+    }
+    
+    /* Add a protective overlay for locked/spoiler images */
+    .gallery-item.locked::before,
+    .gallery-item.spoiler::before {
+      content: '';
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 2;
+      background: transparent;
+      pointer-events: auto;
+    }
+    
     /* Adjust meta panel position */
     .meta-panel {
       margin-left: 8px;
@@ -60,9 +79,17 @@
       box-shadow: 0 2px 8px rgba(0,0,0,0.1);
     }
 
-    .gallery-item.dragging{
-      opacity:.6;
+    .gallery-item.dragging:not(.locked) {
+      opacity: .6;
       transform: scale(.98);
+    }
+    /* Prevent locked items from being dragged */
+    .gallery-item.locked {
+      -webkit-user-drag: none;
+      -khtml-user-drag: none;
+      -moz-user-drag: none;
+      -o-user-drag: none;
+      user-drag: none;
     }
 
     .gallery-item img {
@@ -76,9 +103,28 @@
       filter: blur(60px);
     }
     /* Locked: hide image entirely until unlocked; show dark background */
-    .gallery-item.locked{ background:var(--bg); }
-    .gallery-item.locked img{ opacity:0; }
-    .gallery-item.locked img.revealed{ opacity:1; }
+    .gallery-item.locked { 
+      background: var(--bg);
+      /* Prevent any transform or opacity changes during drag */
+      transform: none !important;
+      opacity: 1 !important;
+      /* Disable transitions during drag */
+      transition: none !important;
+    }
+    .gallery-item.locked img { 
+      opacity: 0;
+      /* Prevent any transform or opacity changes during drag */
+      transform: none !important;
+      transition: none !important;
+    }
+    .gallery-item.locked img.revealed { 
+      opacity: 1;
+      transform: none !important;
+    }
+    /* Disable hover effects on locked items */
+    .gallery-item.locked:hover {
+      transform: none !important;
+    }
     .gallery-item .overlay{ position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--text-secondary); font-weight:700; letter-spacing:.2em; text-shadow:0 2px 8px rgba(0,0,0,.25); pointer-events:none; background:transparent }
     .gallery-item .overlay .material-symbols-outlined{ font-size:40px; margin-right:8px; }
     .gallery-item .overlay.hidden{ display:none }
@@ -196,6 +242,30 @@
   <script type="module">
     import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
     import { setSetting, getSetting } from './data/js/idb.js';
+    
+    // Prevent context menu on protected elements
+    document.addEventListener('contextmenu', (e) => {
+      if (e.target.closest('.locked, .spoiler')) {
+        e.preventDefault();
+        return false;
+      }
+    });
+    
+    // Prevent drag start on protected images
+    document.addEventListener('dragstart', (e) => {
+      if (e.target.closest('.locked, .spoiler')) {
+        e.preventDefault();
+        return false;
+      }
+    });
+    
+    // Prevent drop on protected images
+    document.addEventListener('drop', (e) => {
+      if (e.target.closest('.locked, .spoiler')) {
+        e.preventDefault();
+        return false;
+      }
+    });
 
     let currentDoc = { id:null, title:'Untitled', type:'gallery', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
     let gallerySessionUnlocked = false; // unlock state for locked images on this page only
@@ -224,6 +294,12 @@
         spoiler: !!imageEntry.spoiler,
         locked: !!imageEntry.locked
       };
+      
+      // Add security attributes to the image
+      img.setAttribute('draggable', 'false');
+      img.setAttribute('loading', 'lazy');
+      
+      // Set item classes and data attributes
       if (meta.spoiler) item.classList.add('spoiler');
       if (meta.locked) item.classList.add('locked');
       item.dataset.spoiler = String(!!meta.spoiler);
@@ -242,17 +318,25 @@
       } else {
         img.src = meta.src;
       }
-      // Overlays for spoiler/locked
+      // Create overlay for spoiler/locked with security attributes
       const overlay = document.createElement('div');
       overlay.className = 'overlay' + ((meta.spoiler || (meta.locked && !gallerySessionUnlocked)) ? '' : ' hidden');
-      overlay.innerHTML = meta.locked && !gallerySessionUnlocked ? '<span class="material-symbols-outlined">lock</span>' : 'SPOILER';
+      overlay.setAttribute('aria-hidden', 'true');
+      overlay.setAttribute('role', 'presentation');
+      overlay.innerHTML = meta.locked && !gallerySessionUnlocked ? 
+        '<span class="material-symbols-outlined" style="pointer-events: none;">lock</span>' : 
+        '<span style="pointer-events: none;">SPOILER</span>';
       item.appendChild(overlay);
 
       // Click to reveal spoiler or unlock images
-      img.addEventListener('click', async () => {
+      item.addEventListener('click', async (e) => {
+        // Don't process clicks on the overlay itself, only on the image
+        if (e.target === overlay) return;
+        
         const isLocked = item.dataset.locked === 'true';
         const isSpoiler = item.dataset.spoiler === 'true';
-        if (isLocked && !gallerySessionUnlocked){
+        
+        if (isLocked && !gallerySessionUnlocked) {
           const ok = await requireAuth();
           if (ok){
             gallerySessionUnlocked = true;
@@ -605,7 +689,10 @@
       const mk = document.createElement('button');
       mk.className = 'menu-item';
       mk.textContent = isSpoiler ? 'Unmark spoiler' : 'Mark as spoiler';
-      mk.addEventListener('click', ()=>{
+      mk.disabled = isLocked;
+      mk.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const isSpoiler = item.dataset.spoiler === 'true';
         item.dataset.spoiler = String(!isSpoiler);
         item.classList.toggle('spoiler', !isSpoiler);
         const img = item.querySelector('img');
@@ -622,21 +709,23 @@
       const lk = document.createElement('button');
       lk.className = 'menu-item';
       lk.textContent = isLocked ? 'Unlock image' : 'Lock image';
-      lk.addEventListener('click', async ()=>{
-        if (isLocked){
-          // Unlock requires auth
+      lk.addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const isLocked = item.dataset.locked === 'true';
+        
+        if (!isLocked) {
           const ok = await requireAuth();
           if (!ok) { closeContextMenu(); return; }
           gallerySessionUnlocked = true;
+          item.dataset.locked = 'true';
+          item.classList.add('locked');
+          const ov = item.querySelector('.overlay');
+          if (ov) ov.classList.remove('hidden');
+        } else {
           item.dataset.locked = 'false';
           item.classList.remove('locked');
           const ov = item.querySelector('.overlay');
           if (ov) ov.classList.add('hidden');
-        } else {
-          item.dataset.locked = 'true';
-          item.classList.add('locked');
-          const ov = item.querySelector('.overlay');
-          if (ov){ ov.classList.remove('hidden'); ov.innerHTML = '<span class="material-symbols-outlined">lock</span>'; }
         }
         closeContextMenu();
         saveNow();
