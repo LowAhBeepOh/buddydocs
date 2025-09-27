@@ -62,7 +62,7 @@ class LogoManager {
       today = forceDate;
       currentMonth = today.getMonth();
       currentDate = today.getDate();
-      console.log(`[LogoManager] Using debug date: ${today.toDateString()}`);
+      if (this.debugMode) console.log(`[LogoManager] Using debug date: ${today.toDateString()}`);
     } else {
       // Use current date
       today = new Date();
@@ -204,25 +204,18 @@ class LogoManager {
       console.error('[LogoManager] Invalid date provided');
       return;
     }
-    console.log(`[LogoManager] Testing date: ${testDate.toDateString()}`);
     this.updateLogo(testDate);
   }
 }
 
-// Initialize the logo manager when the DOM is fully loaded
+  // Initialize the logo manager when the DOM is fully loaded
 document.addEventListener('DOMContentLoaded', () => {
   // Create global instance for easy access from console
   window.logoManager = new LogoManager();
-  logoManager.init();
+  window.logoManager.init();
   
   // Add helper functions to window for easier console access
-  window.showLogo = (name) => logoManager.showLogo(name);
-  window.testLogoDate = (date) => logoManager.testDate(date);
-  window.toggleLogoDebug = (enabled) => logoManager.setDebug(enabled);
-  
-  console.log('LogoManager initialized. Available commands:');
-  console.log('- showLogo("logoName"): Show a specific logo');
-  console.log('- testLogoDate("2023-12-25"): Test logo for a specific date');
-  console.log('- toggleLogoDebug(true/false): Toggle debug mode');
-  console.log('- logoManager: Access the full LogoManager instance');
+  window.showLogo = (name) => window.logoManager.showLogo(name);
+  window.testLogoDate = (date) => window.logoManager.testLogoDate(new Date(date));
+  window.toggleLogoDebug = (enabled) => window.logoManager.toggleDebug(enabled);
 });

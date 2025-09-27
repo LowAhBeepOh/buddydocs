@@ -155,6 +155,34 @@
           </select>
         </label>
       </div>
+      
+      <!-- AI Welcome Message Settings -->
+      <div id="aiWelcomeSettings" class="nested-section" style="display: none;">
+        <div class="row">
+          <label class="tile">
+            <span>Enable AI Welcome Message</span>
+            <input id="aiWelcomeEnabled" class="toggle" type="checkbox" />
+          </label>
+          <label class="tile">
+            <span>Message Tone</span>
+            <select id="aiWelcomeTone" class="input">
+              <option value="serious">Serious</option>
+              <option value="informative">Informative</option>
+              <option value="casual" selected>Casual</option>
+              <option value="polite">Polite</option>
+              <option value="aggressive">Aggressive</option>
+              <option value="maniac">Maniac</option>
+              <option value="custom">Custom...</option>
+            </select>
+          </label>
+        </div>
+        <div id="customToneContainer" class="row" style="display: none;">
+          <label class="tile">
+            <span>Custom Tone</span>
+            <input id="aiWelcomeCustomTone" class="input" type="text" placeholder="e.g., Whimsical, Professional, etc." />
+          </label>
+        </div>
+      </div>
       <div class="row">
         <label class="tile">
           <span>Model</span>

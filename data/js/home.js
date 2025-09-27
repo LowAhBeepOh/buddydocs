@@ -1,6 +1,7 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
 import { initAiCommandBar } from './ai-command.js';
 import { TEMPLATES } from './templates.js';
+import { generateWelcomeMessage } from './ai-utils.js';
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
@@ -639,16 +640,70 @@ function dueBadge(d){
 }
 
 async function renderGreeting(){
+  const aiEnabled = await getSetting('aiEnabled', false);
+  const aiWelcomeEnabled = await getSetting('aiWelcomeEnabled', false);
   const docs = await listDocuments();
-  const greetingData = await getDynamicGreeting(new Date(), docs);
+  
+  let greetingData;
+  
+  if (aiEnabled && aiWelcomeEnabled) {
+    // Get user context for AI welcome message
+    const displayName = await getSetting('displayName', 'Buddy');
+    const now = new Date();
+    
+    // Get recent documents (last 5 modified)
+    const recentDocs = [...docs]
+      .sort((a, b) => (b.updatedAt || 0) - (a.updatedAt || 0))
+      .slice(0, 5)
+      .map(doc => doc.title || 'Untitled');
+    
+    // Get upcoming deadlines (next 7 days)
+    const upcomingDeadlines = docs
+      .filter(doc => doc.dueDate && new Date(doc.dueDate) > now)
+      .sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate))
+      .slice(0, 5);
+    
+    // Get passed deadlines (overdue)
+    const passedDeadlines = docs
+      .filter(doc => doc.dueDate && new Date(doc.dueDate) < now && !doc.completed)
+      .sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate))
+      .slice(0, 5);
+    
+    // Get AI welcome message tone
+    const aiWelcomeTone = await getSetting('aiWelcomeTone', 'casual');
+    const aiWelcomeCustomTone = await getSetting('aiWelcomeCustomTone', '');
+    
+    try {
+      // Generate AI welcome message
+      greetingData = await generateWelcomeMessage({
+        name: displayName,
+        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+        date: now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+        recentDocuments: recentDocs,
+        upcomingDeadlines: upcomingDeadlines,
+        passedDeadlines: passedDeadlines,
+        tone: aiWelcomeCustomTone || aiWelcomeTone
+      });
+    } catch (error) {
+      console.error('Error generating AI welcome message:', error);
+      // Fall back to default greeting if AI fails
+      greetingData = await getDynamicGreeting(new Date(), docs);
+    }
+  } else {
+    // Use default greeting
+    greetingData = await getDynamicGreeting(new Date(), docs);
+  }
   
   // Handle both string and object formats for backward compatibility
   const greetingText = typeof greetingData === 'string' ? greetingData : greetingData.greeting;
   const subText = typeof greetingData === 'string' ? 'Keep your docs organized and on track.' : greetingData.sub;
   
-  document.getElementById('greetingText').textContent = greetingText;
+  // Update the DOM
+  const greetingElement = document.getElementById('greetingText');
+  if (greetingElement) {
+    greetingElement.textContent = greetingText;
+  }
   
-  // Update sub-greeting if it exists
   const subElement = document.querySelector('.greeting .sub');
   if (subElement) {
     subElement.textContent = subText;
@@ -869,53 +924,19 @@ async function renderDocs(){
   }
 }
 
-async function renderDeadlines(){
-  const docs = await listDocuments();
-  const today = startOfDay(new Date());
-  const items = docs.filter(d=>d.dueDate).map(d=>({ d, diff: Math.round((startOfDay(new Date(d.dueDate))-today)/(1000*60*60*24)) }))
-    .filter(x => x.diff <= 14) // more than 14 days not shown here
-    .sort((a,b)=>a.diff - b.diff)
-    .slice(0,8);
-  const ul = document.getElementById('deadlineList');
-  ul.innerHTML = '';
-  for(const {d} of items){
-    const li = document.createElement('li');
-    li.innerHTML = `<div><strong>${d.title||'Untitled'}</strong><div class="muted">${new Date(d.dueDate).toDateString()}</div></div>${dueBadge(d)}`;
-    ul.appendChild(li);
-  }
-  
-  // Update greeting when deadlines change
-  await renderGreeting();
-}
-
-function bindSearch(){
-  const s = document.getElementById('search');
-  s.addEventListener('input', () => renderDocs());
-  // Refresh when documents change (triggered by AI tools)
-  window.addEventListener('document-changed', async () => {
-    await renderDocs();
-    await renderDeadlines();
-  });
-}
-
-// Deadlines toggle functionality
 async function setupDeadlinesToggle() {
-  const toggleBtn = document.getElementById('deadlinesToggle');
-  const deadlinesSection = document.querySelector('.deadlines');
+  const section = document.querySelector('.deadlines');
+  const toggleBtn = document.querySelector('.deadlines .toggle-btn');
   
-  if (!toggleBtn || !deadlinesSection) {
-    console.error('Deadlines toggle elements not found');
-    return;
-  }
+  if (!section || !toggleBtn) return;
   
   const icon = toggleBtn.querySelector('.material-symbols-outlined');
   
   // Load saved state
   const isCollapsed = await getSetting('deadlinesCollapsed', false);
-  console.log('Loading deadlines collapsed state:', isCollapsed);
   
   if (isCollapsed) {
-    deadlinesSection.classList.add('collapsed');
+    section.classList.add('collapsed');
     icon.textContent = 'expand_content';
   } else {
     icon.textContent = 'collapse_content';
@@ -923,23 +944,63 @@ async function setupDeadlinesToggle() {
   
   // Handle toggle
   toggleBtn.addEventListener('click', async () => {
-    const isCurrentlyCollapsed = deadlinesSection.classList.contains('collapsed');
+    const isCurrentlyCollapsed = section.classList.contains('collapsed');
     const newState = !isCurrentlyCollapsed;
     
-    console.log('Toggling deadlines collapsed state to:', newState);
-    
     if (newState) {
-      deadlinesSection.classList.add('collapsed');
+      section.classList.add('collapsed');
       icon.textContent = 'expand_content';
     } else {
-      deadlinesSection.classList.remove('collapsed');
+      section.classList.remove('collapsed');
       icon.textContent = 'collapse_content';
     }
     
     // Save state to local storage
     await setSetting('deadlinesCollapsed', newState);
-    console.log('Saved deadlines collapsed state:', newState);
   });
+}
+
+async function renderDeadlines() {
+  const section = document.querySelector('.deadlines');
+  if (!section) return;
+  
+  const docs = await listDocuments();
+  const today = startOfDay(new Date());
+  const items = docs.filter(d => d.dueDate)
+    .map(d => ({ 
+      d, 
+      diff: Math.round((startOfDay(new Date(d.dueDate)) - today) / (1000 * 60 * 60 * 24)) 
+    }))
+    .filter(x => x.diff <= 14) // more than 14 days not shown here
+    .sort((a, b) => a.diff - b.diff)
+    .slice(0, 8);
+  
+  const ul = document.getElementById('deadlineList');
+  if (!ul) return;
+  
+  if (items.length === 0) {
+    section.style.display = 'none'; // Hide the entire section if no deadlines
+    return;
+  }
+  
+  // Show the section and populate the list
+  section.style.display = '';
+  ul.innerHTML = '';
+  
+  for (const { d } of items) {
+    const li = document.createElement('li');
+    li.innerHTML = `
+      <div>
+        <strong>${d.title || 'Untitled'}</strong>
+        <div class="muted">${new Date(d.dueDate).toDateString()}</div>
+      </div>
+      ${dueBadge(d)}
+    `;
+    ul.appendChild(li);
+  }
+  
+  // Update greeting when deadlines change
+  await renderGreeting();
 }
 
 function renderTemplates(category = 'All') {
@@ -1017,6 +1078,28 @@ function setupTemplatesModal() {
       sidebar.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
       e.target.classList.add('active');
       renderTemplates(category);
+    }
+  });
+}
+
+function bindSearch() {
+  const searchInput = document.getElementById('search');
+  if (!searchInput) return;
+
+  // Debounce search to avoid too many re-renders
+  let searchTimeout;
+  searchInput.addEventListener('input', (e) => {
+    clearTimeout(searchTimeout);
+    searchTimeout = setTimeout(() => {
+      renderDocs();
+    }, 300);
+  });
+
+  // Also search on Enter key
+  searchInput.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') {
+      clearTimeout(searchTimeout);
+      renderDocs();
     }
   });
 }

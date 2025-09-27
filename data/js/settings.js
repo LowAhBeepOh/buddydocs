@@ -35,6 +35,7 @@ async function loadSettings() {
   originalSecret = await getSetting('originalSecret', '');
   
   // AI settings
+  // AI Settings
   const aiEnabled = await getSetting('aiEnabled', false);
   const aiProvider = await getSetting('aiProvider', 'ollama');
   const aiModel = await getSetting('aiModel', '');
@@ -44,6 +45,11 @@ async function loadSettings() {
   const scMinCtx = await getSetting('smartComposeMinContext', 2);
   const scMaxCont = await getSetting('smartComposeMaxCont', 2);
   const scRequireNames = await getSetting('smartComposeRequireSeenNames', true);
+  
+  // AI Welcome Message Settings
+  const aiWelcomeEnabled = await getSetting('aiWelcomeEnabled', false);
+  const aiWelcomeTone = await getSetting('aiWelcomeTone', 'casual');
+  const aiWelcomeCustomTone = await getSetting('aiWelcomeCustomTone', '');
 
   document.getElementById('themeSelect').value = theme;
   document.getElementById('fontSize').value = fontSize;
@@ -100,7 +106,8 @@ async function loadSettings() {
   }
   
   // Set AI settings
-  document.getElementById('aiEnabled').checked = !!aiEnabled;
+  const aiEnabledEl = document.getElementById('aiEnabled');
+  aiEnabledEl.checked = !!aiEnabled;
   document.getElementById('aiProvider').value = aiProvider;
   document.getElementById('aiModel').value = aiModel;
   document.getElementById('aiBaseUrl').value = aiBaseUrl;
@@ -114,6 +121,26 @@ async function loadSettings() {
   if (maxContEl) maxContEl.value = scMaxCont;
   const reqNamesEl = document.getElementById('smartComposeRequireSeenNames');
   if (reqNamesEl) reqNamesEl.checked = !!scRequireNames;
+  
+  // Set AI Welcome Message settings
+  const aiWelcomeSettings = document.getElementById('aiWelcomeSettings');
+  const aiWelcomeEnabledEl = document.getElementById('aiWelcomeEnabled');
+  const aiWelcomeToneEl = document.getElementById('aiWelcomeTone');
+  const customToneContainer = document.getElementById('customToneContainer');
+  
+  if (aiWelcomeSettings && aiWelcomeEnabledEl && aiWelcomeToneEl) {
+    aiWelcomeSettings.style.display = aiEnabled ? 'block' : 'none';
+    aiWelcomeEnabledEl.checked = !!aiWelcomeEnabled;
+    aiWelcomeToneEl.value = aiWelcomeTone;
+    
+    // Show/hide custom tone input based on selection
+    if (aiWelcomeTone === 'custom') {
+      customToneContainer.style.display = 'block';
+      document.getElementById('aiWelcomeCustomTone').value = aiWelcomeCustomTone || '';
+    } else {
+      customToneContainer.style.display = 'none';
+    }
+  }
   
   const preview = document.getElementById('profilePreview');
   if (profilePicture) {
@@ -234,6 +261,13 @@ async function saveSettings() {
   const scMinCtx = Number(document.getElementById('smartComposeMinContext')?.value || 2);
   const scMaxCont = Number(document.getElementById('smartComposeMaxCont')?.value || 2);
   const scRequireNames = !!document.getElementById('smartComposeRequireSeenNames')?.checked;
+  
+  // Get AI Welcome Message settings
+  const aiWelcomeEnabled = document.getElementById('aiWelcomeEnabled')?.checked || false;
+  const aiWelcomeTone = document.getElementById('aiWelcomeTone')?.value || 'casual';
+  const aiWelcomeCustomTone = aiWelcomeTone === 'custom' 
+    ? (document.getElementById('aiWelcomeCustomTone')?.value || '').trim() 
+    : '';
 
   await Promise.all([
     setSetting('theme', theme),
@@ -252,6 +286,9 @@ async function saveSettings() {
     setSetting('smartComposeMinContext', scMinCtx),
     setSetting('smartComposeMaxCont', scMaxCont),
     setSetting('smartComposeRequireSeenNames', scRequireNames),
+    setSetting('aiWelcomeEnabled', aiWelcomeEnabled),
+    setSetting('aiWelcomeTone', aiWelcomeTone),
+    setSetting('aiWelcomeCustomTone', aiWelcomeCustomTone),
     setSetting('usePin', usePin),
   ]);
 
@@ -320,10 +357,51 @@ function removeProfilePicture() {
   document.getElementById('profilePicture').value = '';
 }
 
+// Toggle AI Welcome Message settings based on AI enabled state
+function toggleAiWelcomeSettings() {
+  const aiEnabled = document.getElementById('aiEnabled').checked;
+  const aiWelcomeSettings = document.getElementById('aiWelcomeSettings');
+  if (aiWelcomeSettings) {
+    aiWelcomeSettings.style.display = aiEnabled ? 'block' : 'none';
+    
+    // If AI is disabled, uncheck the welcome message toggle
+    if (!aiEnabled) {
+      const welcomeToggle = document.getElementById('aiWelcomeEnabled');
+      if (welcomeToggle) welcomeToggle.checked = false;
+    }
+  }
+}
+
+// Toggle custom tone input based on tone selection
+function toggleCustomToneInput() {
+  const toneSelect = document.getElementById('aiWelcomeTone');
+  const customToneContainer = document.getElementById('customToneContainer');
+  
+  if (toneSelect && customToneContainer) {
+    if (toneSelect.value === 'custom') {
+      customToneContainer.style.display = 'block';
+    } else {
+      customToneContainer.style.display = 'none';
+    }
+  }
+}
+
 // Initialize the app
 loadSettings().then(() => {
   // Add event listeners
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
+  
+  // Toggle AI Welcome Message settings when AI Enabled changes
+  const aiEnabledEl = document.getElementById('aiEnabled');
+  if (aiEnabledEl) {
+    aiEnabledEl.addEventListener('change', toggleAiWelcomeSettings);
+  }
+  
+  // Toggle custom tone input when tone selection changes
+  const aiWelcomeToneEl = document.getElementById('aiWelcomeTone');
+  if (aiWelcomeToneEl) {
+    aiWelcomeToneEl.addEventListener('change', toggleCustomToneInput);
+  }
   document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
   document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
   
