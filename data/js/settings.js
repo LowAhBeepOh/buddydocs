@@ -1,4 +1,5 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES } from './idb.js';
+import { applyDynamicTheme, applyClassicTheme } from './theme.js';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -21,10 +22,30 @@ async function hashSecret(secret) {
 }
 
 async function loadSettings() {
-  const theme = await getSetting('theme', 'light');
-  const fontSize = await getSetting('fontSize', 16);
-  const highContrast = await getSetting('highContrast', false);
-  const reduceMotion = await getSetting('reduceMotion', false);
+  const useDynamicTheme = await getSetting('useDynamicTheme', false);
+  const classicThemeSection = document.getElementById('classic-theme-section');
+  const dynamicThemeSection = document.getElementById('dynamic-theme-section');
+
+  if (useDynamicTheme) {
+    classicThemeSection.style.display = 'none';
+    dynamicThemeSection.style.display = 'block';
+
+    const hue = await getSetting('dynamicThemeHue', 220);
+    const mode = await getSetting('dynamicThemeMode', 'light');
+    const scheme = await getSetting('dynamicThemeScheme', 'normal');
+
+    document.getElementById('hueSlider').value = hue;
+    document.querySelector(`#themeMode button[data-value="${mode}"]`).classList.add('active');
+    document.querySelector(`#themeMode button:not([data-value="${mode}"])`).classList.remove('active');
+    document.getElementById('colorScheme').value = scheme;
+
+  } else {
+    classicThemeSection.style.display = 'block';
+    dynamicThemeSection.style.display = 'none';
+    const theme = await getSetting('theme', 'light');
+    document.getElementById('themeSelect').value = theme;
+  }
+
   const displayName = await getSetting('displayName', 'Buddy');
   const initials = await getSetting('initials', 'BD');
   const profilePicture = await getSetting('profilePicture', null);
@@ -51,12 +72,6 @@ async function loadSettings() {
   const aiWelcomeTone = await getSetting('aiWelcomeTone', 'casual');
   const aiWelcomeCustomTone = await getSetting('aiWelcomeCustomTone', '');
 
-  document.getElementById('themeSelect').value = theme;
-  document.getElementById('fontSize').value = fontSize;
-  const fsOut = document.getElementById('fontSizeValue');
-  if (fsOut) fsOut.textContent = `${fontSize}px`;
-  document.getElementById('highContrast').checked = !!highContrast;
-  document.getElementById('reduceMotion').checked = !!reduceMotion;
   document.getElementById('displayName').value = displayName;
   document.getElementById('initials').value = initials;
   // Security
@@ -151,9 +166,7 @@ async function loadSettings() {
     preview.textContent = initials;
   }
 
-  // Apply current theme instantly on settings page
-  root.setAttribute('data-theme', theme);
-  updateMetaThemeColor();
+  // No need to apply theme here, initTheme in theme.js handles it.
 }
 
 async function verifyCurrentPassword(secret) {
@@ -238,10 +251,24 @@ async function resetPassword() {
 }
 
 async function saveSettings() {
-  const theme = document.getElementById('themeSelect').value;
-  const fontSize = Number(document.getElementById('fontSize').value);
-  const highContrast = document.getElementById('highContrast').checked;
-  const reduceMotion = document.getElementById('reduceMotion').checked;
+  const useDynamicTheme = document.getElementById('dynamic-theme-section').style.display === 'block';
+
+  await setSetting('useDynamicTheme', useDynamicTheme);
+
+  if (useDynamicTheme) {
+    const hue = document.getElementById('hueSlider').value;
+    const mode = document.querySelector('#themeMode button.active').dataset.value;
+    const scheme = document.getElementById('colorScheme').value;
+    await setSetting('dynamicThemeHue', Number(hue));
+    await setSetting('dynamicThemeMode', mode);
+    await setSetting('dynamicThemeScheme', scheme);
+    applyDynamicTheme(Number(hue), mode, scheme);
+  } else {
+    const theme = document.getElementById('themeSelect').value;
+    await setSetting('theme', theme);
+    applyClassicTheme(theme);
+  }
+
   const displayName = document.getElementById('displayName').value.trim() || 'Buddy';
   const initials = document.getElementById('initials').value.trim().slice(0,3).toUpperCase() || 'BD';
   const profilePicture = document.getElementById('profilePreview').style.backgroundImage;
@@ -270,10 +297,6 @@ async function saveSettings() {
     : '';
 
   await Promise.all([
-    setSetting('theme', theme),
-    setSetting('fontSize', fontSize),
-    setSetting('highContrast', highContrast),
-    setSetting('reduceMotion', reduceMotion),
     setSetting('displayName', displayName),
     setSetting('initials', initials),
     setSetting('profilePicture', profilePicDataUrl),
@@ -386,8 +409,32 @@ function toggleCustomToneInput() {
   }
 }
 
+// Handle tab switching in the new settings page layout
+function handleTabSwitching() {
+  const tabs = document.querySelectorAll('.nav-tab');
+  const panes = document.querySelectorAll('.settings-pane');
+
+  tabs.forEach(tab => {
+    tab.addEventListener('click', () => {
+      const targetPaneId = tab.dataset.tab;
+
+      tabs.forEach(t => t.classList.remove('active'));
+      tab.classList.add('active');
+
+      panes.forEach(pane => {
+        if (pane.id === targetPaneId) {
+          pane.classList.add('active');
+        } else {
+          pane.classList.remove('active');
+        }
+      });
+    });
+  });
+}
+
 // Initialize the app
 loadSettings().then(() => {
+  handleTabSwitching();
   // Add event listeners
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   
@@ -405,6 +452,31 @@ loadSettings().then(() => {
   document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
   document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
   
+  // Theme switching buttons
+  document.getElementById('switchToDynamic').addEventListener('click', () => {
+    document.getElementById('classic-theme-section').style.display = 'none';
+    document.getElementById('dynamic-theme-section').style.display = 'block';
+  });
+
+  document.getElementById('switchToClassic').addEventListener('click', () => {
+    document.getElementById('classic-theme-section').style.display = 'block';
+    document.getElementById('dynamic-theme-section').style.display = 'none';
+    // Apply classic theme preview on switch back
+    const theme = document.getElementById('themeSelect').value;
+    applyClassicTheme(theme);
+  });
+
+  // Dynamic theme live preview
+  document.getElementById('hueSlider').addEventListener('input', livePreviewDynamicTheme);
+  document.getElementById('colorScheme').addEventListener('change', livePreviewDynamicTheme);
+  document.querySelectorAll('#themeMode button').forEach(btn => {
+    btn.addEventListener('click', () => {
+      document.querySelector('#themeMode button.active').classList.remove('active');
+      btn.classList.add('active');
+      livePreviewDynamicTheme();
+    });
+  });
+
   // Forgot password functionality
   const forgotPasswordLink = document.getElementById('forgotPassword');
   const passwordHint = document.getElementById('passwordHint');
@@ -441,14 +513,20 @@ loadSettings().then(() => {
       if (secretConfirm) secretConfirm.value = '';
     });
   }
+
+  // Handle tab switching
+  handleTabSwitching();
 });
 
+// Dynamic theme live preview function
+function livePreviewDynamicTheme() {
+  const hue = document.getElementById('hueSlider').value;
+  const mode = document.querySelector('#themeMode button.active').dataset.value;
+  const scheme = document.getElementById('colorScheme').value;
+  applyDynamicTheme(Number(hue), mode, scheme);
+}
+
 // Live previews
-document.getElementById('fontSize')?.addEventListener('input', (e)=>{
-  const v = Number(e.target.value);
-  const out = document.getElementById('fontSizeValue');
-  if (out) out.textContent = `${v}px`;
-});
 document.getElementById('initials')?.addEventListener('input', (e)=>{
   const preview = document.getElementById('profilePreview');
   if (preview && !preview.style.backgroundImage){
@@ -459,20 +537,5 @@ document.getElementById('initials')?.addEventListener('input', (e)=>{
 // Live theme/app prefs
 document.getElementById('themeSelect')?.addEventListener('change', (e)=>{
   const val = e.target.value;
-  root.setAttribute('data-theme', val);
-  updateMetaThemeColor();
-});
-document.getElementById('highContrast')?.addEventListener('change', (e)=>{
-  const isOn = !!e.target.checked;
-  const currentBorder = getComputedStyle(root).getPropertyValue('--border') || '#E6E4F4';
-  root.style.setProperty('--border', isOn ? '#8f8d9f' : currentBorder);
-});
-
-// Security label toggle
-document.getElementById('usePin')?.addEventListener('change', (e)=>{
-  const isPin = !!e.target.checked;
-  const labelEl = document.getElementById('secretLabel');
-  if (labelEl) labelEl.textContent = isPin ? 'PIN' : 'Password';
-  const input = document.getElementById('secretInput');
-  if (input) input.placeholder = isPin ? 'Set 4-8 digit PIN' : 'Set password';
+  applyClassicTheme(val);
 });

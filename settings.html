@@ -24,212 +24,243 @@
     </div>
   </header>
 
-  <main class="settings container">
-    <section>
-      <h2>Appearance</h2>
-      <div class="row">
-        <label class="tile">
-          <span>Theme</span>
-          <select id="themeSelect" class="input">
-            <option value="light">Light</option>
-            <option value="dark">Dark</option>
-            <option value="system">System</option>
-            <option value="pretty-pink">Pretty Pink (Light)</option>
-            <option value="dark-pink">Dark Pink (Dark)</option>
-            <option value="dr-pepper">Dr. Pepper (Dark)</option>
-            <option value="forest">Forest (Dark)</option>
-            <option value="leaf">Leaf (Light)</option>
-            <option value="pj">P&J (Dark)</option>
-            <option value="baby-blue">Baby Blue (Light)</option>
-            <option value="blueberries">Blueberries (Dark)</option>
-          </select>
-        </label>
-        <label class="tile">
-          <span>Font size</span>
-          <div class="range-field">
-            <input id="fontSize" type="range" min="14" max="22" step="1" />
-            <output id="fontSizeValue">16px</output>
-          </div>
-        </label>
-      </div>
-    </section>
+  <main class="settings-layout">
+    <nav class="settings-nav">
+      <button class="nav-tab active" data-tab="appearance">
+        <span class="material-symbols-outlined">palette</span>
+        <span>Appearance</span>
+      </button>
+      <button class="nav-tab" data-tab="security">
+        <span class="material-symbols-outlined">security</span>
+        <span>Security</span>
+      </button>
+      <button class="nav-tab" data-tab="profile">
+        <span class="material-symbols-outlined">account_circle</span>
+        <span>Profile</span>
+      </button>
+      <button class="nav-tab" data-tab="ai">
+        <span class="material-symbols-outlined">smart_toy</span>
+        <span>AI</span>
+      </button>
+    </nav>
 
-    <section class="security-section">
-      <h2>Security</h2>
-      <div class="security-container">
-        <div class="security-option">
-          <div class="tile toggle-row">
-            <span>Use PIN instead of password</span>
-            <input id="usePin" class="toggle" type="checkbox" />
+    <div class="settings-content">
+      <section id="appearance" class="settings-pane active">
+        <h2>Appearance</h2>
+
+        <div id="classic-theme-section">
+          <div class="row">
+            <label class="tile">
+              <span>Theme</span>
+              <select id="themeSelect" class="input">
+                <option value="light">Light</option>
+                <option value="dark">Dark</option>
+                <option value="system">System</option>
+                <option value="pretty-pink">Pretty Pink (Light)</option>
+                <option value="dark-pink">Dark Pink (Dark)</option>
+                <option value="dr-pepper">Dr. Pepper (Dark)</option>
+                <option value="forest">Forest (Dark)</option>
+                <option value="leaf">Leaf (Light)</option>
+                <option value="pj">P&J (Dark)</option>
+                <option value="baby-blue">Baby Blue (Light)</option>
+                <option value="blueberries">Blueberries (Dark)</option>
+              </select>
+            </label>
           </div>
+          <button id="switchToDynamic" class="btn secondary">Switch to new version</button>
         </div>
-        
-        <div id="changePasswordSection" class="password-form">
-          <div class="form-row">
-            <div class="tile">
-              <label for="currentSecret">Current Password</label>
-              <input id="currentSecret" class="input" type="password" placeholder="Enter current password/PIN" />
+
+        <div id="dynamic-theme-section" style="display: none;">
+          <div class="row">
+            <label class="tile">
+              <span>Hue</span>
+              <input type="range" id="hueSlider" min="0" max="360" class="hue-slider">
+            </label>
+          </div>
+          <div class="row">
+            <label class="tile">
+              <span>Mode</span>
+              <div id="themeMode" class="segmented-control">
+                <button data-value="light" class="active">Light</button>
+                <button data-value="dark">Dark</button>
+              </div>
+            </label>
+            <label class="tile">
+              <span>Scheme</span>
+              <select id="colorScheme" class="input">
+                <option value="normal">Normal</option>
+                <option value="vivid">Vivid</option>
+                <option value="expressive">Expressive</option>
+              </select>
+            </label>
+          </div>
+          <button id="switchToClassic" class="btn secondary">Switch to classic themes</button>
+        </div>
+      </section>
+
+      <section id="security" class="settings-pane security-section">
+        <h2>Security</h2>
+        <div class="security-container">
+          <div class="security-option">
+            <div class="tile toggle-row">
+              <span>Use PIN instead of password</span>
+              <input id="usePin" class="toggle" type="checkbox" />
             </div>
           </div>
           
-          <div class="form-row">
-            <div class="tile">
-              <label for="secretInput" id="secretLabel">New Password</label>
-              <input id="secretInput" class="input" type="password" placeholder="Set new password or PIN" />
-              <p class="help-text">Password: at least 4 characters. PIN: 4–8 digits when enabled.</p>
+          <form id="passwordForm">
+            <div id="changePasswordSection" class="password-form">
+              <div class="form-row">
+                <div class="tile">
+                  <label for="currentSecret">Current Password</label>
+                  <input id="currentSecret" class="input" type="password" placeholder="Enter current password/PIN" />
+                </div>
+              </div>
+              
+              <div class="form-row">
+                <div class="tile">
+                  <label for="secretInput" id="secretLabel">New Password</label>
+                  <input id="secretInput" class="input" type="password" placeholder="Set new password or PIN" />
+                  <p class="help-text">Password: at least 4 characters. PIN: 4–8 digits when enabled.</p>
+                </div>
+                
+                <div class="tile">
+                  <label for="secretConfirm">Confirm New Password</label>
+                  <input id="secretConfirm" class="input" type="password" placeholder="Confirm new password/PIN" />
+                </div>
+              </div>
             </div>
-            
+          </form>
+          
+          <div class="forgot-password-container">
             <div class="tile">
-              <label for="secretConfirm">Confirm New Password</label>
-              <input id="secretConfirm" class="input" type="password" placeholder="Confirm new password/PIN" />
-            </div>
-          </div>
-        </div>
-        
-        <div class="forgot-password-container">
-          <div class="tile">
-            <p class="muted">This credential protects any documents or galleries you lock.</p>
-            <div class="forgot-password">
-              <a href="#" id="forgotPassword">Forgot your password?</a>
-              <div id="passwordHint" class="hidden">
-                <p class="hint-text">Password hint: <span id="passwordHintText"></span></p>
-                <button id="resetPassword" class="btn secondary small">Reset Password (will delete locked content)</button>
+              <p class="muted">This credential protects any documents or galleries you lock.</p>
+              <div class="forgot-password">
+                <a href="#" id="forgotPassword">Forgot your password?</a>
+                <div id="passwordHint" class="hidden">
+                  <p class="hint-text">Password hint: <span id="passwordHintText"></span></p>
+                  <button id="resetPassword" class="btn secondary small">Reset Password (will delete locked content)</button>
+                </div>
               </div>
             </div>
           </div>
         </div>
-      </div>
-    </section>
+      </section>
 
-    <section>
-      <h2>Accessibility</h2>
-      <div class="row">
-        <label class="tile">
-          <span>High contrast</span>
-          <input id="highContrast" class="toggle" type="checkbox" />
-        </label>
-        <label class="tile">
-          <span>Reduce motion</span>
-          <input id="reduceMotion" class="toggle" type="checkbox" />
-        </label>
-      </div>
-    </section>
-
-    <section class="profile-section">
-      <h2>Profile</h2>
-      <div class="row">
-        <label class="tile profile-picture-tile">
-          <span>Profile Picture</span>
-          <div class="profile-upload">
-            <div id="profilePreview" class="avatar large"></div>
-            <input type="file" id="profilePicture" accept="image/*" />
-            <button id="removeProfilePic" class="btn secondary" type="button">Remove</button>
-          </div>
-        </label>
-      </div>
-      <div class="row">
-        <label class="tile">
-          <span>Display name</span>
-          <input id="displayName" class="input" type="text" placeholder="Your name" />
-        </label>
-        <label class="tile">
-          <span>Initials</span>
-          <input id="initials" class="input" type="text" placeholder="AB" maxlength="3" />
-        </label>
-      </div>
-    </section>
-
-    <!-- AI Settings -->
-    <section>
-      <h2>AI</h2>
-      <div class="row">
-        <label class="tile">
-          <span>Enable AI features</span>
-          <input id="aiEnabled" class="toggle" type="checkbox" />
-        </label>
-        <label class="tile">
-          <span>Provider</span>
-          <select id="aiProvider" class="input">
-            <option value="ollama">Ollama</option>
-            <option value="lmstudio">LM Studio</option>
-          </select>
-        </label>
-      </div>
-      
-      <!-- AI Welcome Message Settings -->
-      <div id="aiWelcomeSettings" class="nested-section" style="display: none;">
+      <section id="profile" class="settings-pane profile-section">
+        <h2>Profile</h2>
+        <div class="row">
+          <label class="tile profile-picture-tile">
+            <span>Profile Picture</span>
+            <div class="profile-upload">
+              <div id="profilePreview" class="avatar large"></div>
+              <input type="file" id="profilePicture" accept="image/*" />
+              <button id="removeProfilePic" class="btn secondary" type="button">Remove</button>
+            </div>
+          </label>
+        </div>
         <div class="row">
           <label class="tile">
-            <span>Enable AI Welcome Message</span>
-            <input id="aiWelcomeEnabled" class="toggle" type="checkbox" />
+            <span>Display name</span>
+            <input id="displayName" class="input" type="text" placeholder="Your name" />
           </label>
           <label class="tile">
-            <span>Message Tone</span>
-            <select id="aiWelcomeTone" class="input">
-              <option value="serious">Serious</option>
-              <option value="informative">Informative</option>
-              <option value="casual" selected>Casual</option>
-              <option value="polite">Polite</option>
-              <option value="aggressive">Aggressive</option>
-              <option value="maniac">Maniac</option>
-              <option value="custom">Custom...</option>
+            <span>Initials</span>
+            <input id="initials" class="input" type="text" placeholder="AB" maxlength="3" />
+          </label>
+        </div>
+      </section>
+
+      <section id="ai" class="settings-pane">
+        <h2>AI</h2>
+        <div class="row">
+          <label class="tile">
+            <span>Enable AI features</span>
+            <input id="aiEnabled" class="toggle" type="checkbox" />
+          </label>
+          <label class="tile">
+            <span>Provider</span>
+            <select id="aiProvider" class="input">
+              <option value="ollama">Ollama</option>
+              <option value="lmstudio">LM Studio</option>
             </select>
           </label>
         </div>
-        <div id="customToneContainer" class="row" style="display: none;">
+        
+        <div id="aiWelcomeSettings" class="nested-section" style="display: none;">
+          <div class="row">
+            <label class="tile">
+              <span>Enable AI Welcome Message</span>
+              <input id="aiWelcomeEnabled" class="toggle" type="checkbox" />
+            </label>
+            <label class="tile">
+              <span>Message Tone</span>
+              <select id="aiWelcomeTone" class="input">
+                <option value="friendly" selected>Friendly</option>
+                <option value="professional">Professional</option>
+                <option value="motivational">Motivational</option>
+                <option value="minimalist">Minimalist</option>
+                <option value="aggressive">Aggressive</option>
+                <option value="maniac">Maniac</option>
+                <option value="custom">Custom...</option>
+              </select>
+            </label>
+          </div>
+          <div id="customToneContainer" class="row" style="display: none;">
+            <label class="tile">
+              <span>Custom Tone</span>
+              <input id="aiWelcomeCustomTone" class="input" type="text" placeholder="e.g., Whimsical, Professional, etc." />
+            </label>
+          </div>
+        </div>
+        <div class="row">
           <label class="tile">
-            <span>Custom Tone</span>
-            <input id="aiWelcomeCustomTone" class="input" type="text" placeholder="e.g., Whimsical, Professional, etc." />
+            <span>Model</span>
+            <input id="aiModel" class="input" type="text" placeholder="e.g. llama3.1, mistral, qwen, ..." />
+          </label>
+          <label class="tile">
+            <span>Base URL</span>
+            <input id="aiBaseUrl" class="input" type="text" placeholder="http://localhost:11434" />
           </label>
         </div>
-      </div>
-      <div class="row">
-        <label class="tile">
-          <span>Model</span>
-          <input id="aiModel" class="input" type="text" placeholder="e.g. llama3.1, mistral, qwen, ..." />
-        </label>
-        <label class="tile">
-          <span>Base URL</span>
-          <input id="aiBaseUrl" class="input" type="text" placeholder="http://localhost:11434" />
-        </label>
-      </div>
-      <div class="row">
-        <label class="tile">
-          <span>Train Smart Compose on own documents (local)</span>
-          <input id="smartComposeTrainDocs" class="toggle" type="checkbox" />
-        </label>
-      </div>
-      <div class="row">
-        <div class="tile" style="flex:1">
-          <h3 style="margin-top:0">Smart Compose (Advanced)</h3>
-          <div class="row">
-            <label class="tile">
-              <span>Confidence threshold (0-1)</span>
-              <input id="smartComposeConfThresh" class="input" type="number" min="0" max="1" step="0.01" placeholder="0.88" />
-            </label>
-            <label class="tile">
-              <span>Min context words</span>
-              <input id="smartComposeMinContext" class="input" type="number" min="1" max="5" step="1" placeholder="2" />
-            </label>
-          </div>
-          <div class="row">
-            <label class="tile">
-              <span>Max continuation words</span>
-              <input id="smartComposeMaxCont" class="input" type="number" min="0" max="3" step="1" placeholder="2" />
-            </label>
-            <label class="tile">
-              <span>Require seen proper names</span>
-              <input id="smartComposeRequireSeenNames" class="toggle" type="checkbox" />
-            </label>
+        <div class="row">
+          <label class="tile">
+            <span>Train Smart Compose on own documents (local)</span>
+            <input id="smartComposeTrainDocs" class="toggle" type="checkbox" />
+          </label>
+        </div>
+        <div class="row">
+          <div class="tile" style="flex:1">
+            <h3 style="margin-top:0">Smart Compose (Advanced)</h3>
+            <div class="row">
+              <label class="tile">
+                <span>Confidence threshold (0-1)</span>
+                <input id="smartComposeConfThresh" class="input" type="number" min="0" max="1" step="0.01" placeholder="0.88" />
+              </label>
+              <label class="tile">
+                <span>Min context words</span>
+                <input id="smartComposeMinContext" class="input" type="number" min="1" max="5" step="1" placeholder="2" />
+              </label>
+            </div>
+            <div class="row">
+              <label class="tile">
+                <span>Max continuation words</span>
+                <input id="smartComposeMaxCont" class="input" type="number" min="0" max="3" step="1" placeholder="2" />
+              </label>
+              <label class="tile">
+                <span>Require seen proper names</span>
+                <input id="smartComposeRequireSeenNames" class="toggle" type="checkbox" />
+              </label>
+            </div>
           </div>
         </div>
-      </div>
-    </section>
-
-    <div class="save-bar">
-      <button id="saveSettings" class="btn primary">Save</button>
+      </section>
     </div>
   </main>
+
+  <div class="save-bar">
+    <button id="saveSettings" class="btn primary">Save</button>
+  </div>
 
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>

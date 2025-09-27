@@ -116,38 +116,64 @@ export async function generateWelcomeMessage(context) {
     const { name, time, date, recentDocuments = [], upcomingDeadlines = [], passedDeadlines = [] } = context;
     const tone = context.tone || 'friendly';
     
+    // Base context for AI to understand its role
+    const baseContext = 'You are a helpful assistant in a document editor. The user creates and manages their own documents. Focus on their work, goals, and current context.';
+    
     // Tone-specific instructions
     let toneInstructions = '';
-    if (tone.toLowerCase() === 'maniac') {
-      toneInstructions = 'Be extremely energetic, chaotic, and slightly unhinged. Use all caps, exclamation points, and dramatic language. Be overwhelming in a negative way, like a hyperactive salesperson or a malfunctioning AI. Never use "darling" or other endearments.';
-    } else if (tone.toLowerCase() === 'aggressive') {
-      toneInstructions = 'Be blunt, direct, and confrontational. Use short, sharp sentences. Don\'t hold back criticism. Be rude. Don\'t start the sentence with "Here is a response based on your settings" or something like that. And don\'t have text with "Don\'t waste my time." ';
-    } else {
-      toneInstructions = `Be ${tone} in tone.`;
+    switch (tone.toLowerCase()) {
+      case 'maniac':
+        toneInstructions = 'Be extremely energetic and chaotic, but focused on the user\'s work. Use exclamation points and dramatic language about their documents and deadlines.';
+        break;
+      case 'aggressive':
+        toneInstructions = 'Be direct and no-nonsense. Focus on efficiency and results. Point out missed deadlines if any exist. No small talk.';
+        break;
+      case 'professional':
+        toneInstructions = 'Be formal and business-like. Focus on productivity and task management. Use proper business language.';
+        break;
+      case 'motivational':
+        toneInstructions = 'Be encouraging and inspiring. Highlight user achievements and progress. Use positive, action-oriented language.';
+        break;
+      case 'minimalist':
+        toneInstructions = 'Be concise and straightforward. Keep greetings brief and factual. Focus only on essential information.';
+        break;
+      default:
+        toneInstructions = `Be ${tone} and supportive, focusing on the user's work and goals.`;
     }
+    
+    // Build context about current time and date
+    const now = new Date(date);
+    const season = ['Winter', 'Winter', 'Spring', 'Spring', 'Spring', 'Summer', 'Summer', 'Summer', 'Fall', 'Fall', 'Fall', 'Winter'][now.getMonth()];
+    const dayType = now.getDay() === 0 || now.getDay() === 6 ? 'weekend' : 'weekday';
     
     // Generate greeting (max 5 words)
-    const greetingPrompt = `Generate a short greeting (max 5 words) in a ${tone} tone for ${name} at ${time} on ${date}. ${toneInstructions} Do not use emojis.`;
+    const greetingPrompt = `${baseContext}\n\nGenerate a short greeting (max 5 words) for ${name}. Consider it's ${time} on a ${dayType} in ${season}. ${toneInstructions} Focus on their work context, avoid mentioning galleries or AI features. Do not use emojis.`;
     
     // Generate subtext (max 12 words) - be direct, no intros
-    let subtextPrompt = `Write a single, concise message (max 12 words). ${toneInstructions} `;
+    let subtextPrompt = `${baseContext}\n\nWrite a single, concise message (max 12 words) relevant to the user's current context. ${toneInstructions} `;
     
-    // Add context without assuming ownership
+    // Add detailed user context
     let contextInfo = [];
+    
+    // Document context
     if (recentDocuments.length > 0) {
-      contextInfo.push(`Recent documents the user has created (not you, the AI): ${recentDocuments.slice(0, 3).join(', ')}`);
+      contextInfo.push(`The user has worked on these documents recently: ${recentDocuments.slice(0, 3).join(', ')}`);
     }
     
-    if (upcomingDeadlines.length > 0) {
-      contextInfo.push(`${upcomingDeadlines.length} upcoming deadlines`);
+    // Deadline context with urgency levels
+    const urgentDeadlines = upcomingDeadlines.filter(d => new Date(d.date) - now < 86400000); // Within 24 hours
+    if (urgentDeadlines.length > 0) {
+      contextInfo.push(`${urgentDeadlines.length} urgent deadline(s) within 24 hours`);
+    } else if (upcomingDeadlines.length > 0) {
+      contextInfo.push(`${upcomingDeadlines.length} upcoming deadline(s)`);
     }
     
     if (passedDeadlines.length > 0) {
-      contextInfo.push(`${passedDeadlines.length} passed deadlines`);
+      contextInfo.push(`${passedDeadlines.length} deadline(s) have passed`);
     }
     
     if (contextInfo.length > 0) {
-      subtextPrompt += `Context (use naturally, don't list): ${contextInfo.join('; ')}. `;
+      subtextPrompt += `Current user context: ${contextInfo.join('; ')}. `;
     }
     
     // Final instruction to ensure natural, non-repetitive output
@@ -159,8 +185,8 @@ export async function generateWelcomeMessage(context) {
     ]);
     
     return {
-      greeting: greeting.trim().replace(/"/g, '').substring(0, 50), // Limit length and remove quotes
-      sub: subtext.trim().replace(/"/g, '').substring(0, 100) // Limit length and remove quotes
+      greeting: greeting.trim().replace(/"/g, '').substring(0, 50),
+      sub: subtext.trim().replace(/"/g, '').substring(0, 100)
     };
   } catch (error) {
     console.error('Error generating welcome message:', error);
