@@ -1,5 +1,6 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES } from './idb.js';
 import { applyDynamicTheme, applyClassicTheme } from './theme.js';
+import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -34,10 +35,15 @@ async function loadSettings() {
     const mode = await getSetting('dynamicThemeMode', 'light');
     const scheme = await getSetting('dynamicThemeScheme', 'normal');
 
-    document.getElementById('hueSlider').value = hue;
-    document.querySelector(`#themeMode button[data-value="${mode}"]`).classList.add('active');
-    document.querySelector(`#themeMode button:not([data-value="${mode}"])`).classList.remove('active');
-    document.getElementById('colorScheme').value = scheme;
+    const hueSlider = document.getElementById('hueSlider');
+    const themeModeActiveBtn = document.querySelector(`#themeMode button[data-value="${mode}"]`);
+    const themeModeInactiveBtn = document.querySelector(`#themeMode button:not([data-value="${mode}"])`);
+    const colorSchemeSelect = document.getElementById('colorScheme');
+    
+    if (hueSlider) hueSlider.value = hue;
+    if (themeModeActiveBtn) themeModeActiveBtn.classList.add('active');
+    if (themeModeInactiveBtn) themeModeInactiveBtn.classList.remove('active');
+    if (colorSchemeSelect) colorSchemeSelect.value = scheme;
 
   } else {
     classicThemeSection.style.display = 'block';
@@ -67,6 +73,11 @@ async function loadSettings() {
   const scMaxCont = await getSetting('smartComposeMaxCont', 2);
   const scRequireNames = await getSetting('smartComposeRequireSeenNames', true);
   
+  // Integrations
+  const musicPlayerEnabled = await getSetting('musicPlayerEnabled', false);
+  const musicFilterType = await getSetting('musicFilterType', 'all');
+  const musicFilterValue = await getSetting('musicFilterValue', '');
+
   // AI Welcome Message Settings
   const aiWelcomeEnabled = await getSetting('aiWelcomeEnabled', false);
   const aiWelcomeTone = await getSetting('aiWelcomeTone', 'casual');
@@ -296,6 +307,10 @@ async function saveSettings() {
     ? (document.getElementById('aiWelcomeCustomTone')?.value || '').trim() 
     : '';
 
+  const musicPlayerEnabled = document.getElementById('musicPlayerEnabled').checked;
+  const musicFilterType = document.getElementById('musicFilterType').value;
+  const musicFilterValue = document.getElementById('musicFilterValue').value;
+
   await Promise.all([
     setSetting('displayName', displayName),
     setSetting('initials', initials),
@@ -313,6 +328,9 @@ async function saveSettings() {
     setSetting('aiWelcomeTone', aiWelcomeTone),
     setSetting('aiWelcomeCustomTone', aiWelcomeCustomTone),
     setSetting('usePin', usePin),
+    setSetting('musicPlayerEnabled', musicPlayerEnabled),
+    setSetting('musicFilterType', musicFilterType),
+    setSetting('musicFilterValue', musicFilterValue),
   ]);
 
   // Save secret if provided and matches
@@ -432,6 +450,89 @@ function handleTabSwitching() {
   });
 }
 
+// Music player settings
+async function getAllSongs() {
+    const songs = [];
+    try {
+        const musicDB = await openDB('BuddyMusicDB', 1);
+        const favs = await musicDB.getAll('favorites');
+        songs.push(...favs);
+    } catch (e) {
+        console.warn("Could not open BuddyMusicDB. Favorites will not be available.");
+    }
+
+    try {
+        const songsDB = await openDB('BuddyMusicSongsDB', 1);
+        const allSongs = await songsDB.getAll('songs');
+        songs.push(...allSongs);
+    } catch (e) {
+        console.warn("Could not open BuddyMusicSongsDB. Songs will not be available.");
+    }
+    
+    // Remove duplicates
+    const uniqueSongs = [];
+    const seenIds = new Set();
+    for (const song of songs) {
+        if (!seenIds.has(song.id)) {
+            uniqueSongs.push(song);
+            seenIds.add(song.id);
+        }
+    }
+
+    return uniqueSongs;
+}
+
+async function populateMusicFilterValues() {
+    const filterType = document.getElementById('musicFilterType').value;
+    const filterValueContainer = document.getElementById('musicFilterValueContainer');
+    const filterValueSelect = document.getElementById('musicFilterValue');
+    const filterValueLabel = document.getElementById('musicFilterValueLabel');
+
+    if (filterType === 'all') {
+        filterValueContainer.style.display = 'none';
+        return;
+    }
+
+    filterValueContainer.style.display = 'block';
+    filterValueSelect.innerHTML = '';
+    filterValueLabel.textContent = `Select ${filterType.charAt(0).toUpperCase() + filterType.slice(1)}`;
+
+    const songs = await getAllSongs();
+    let options = new Set();
+
+    switch (filterType) {
+        case 'genre':
+            songs.forEach(song => song.metadata.genre && options.add(song.metadata.genre));
+            break;
+        case 'artist':
+            songs.forEach(song => song.metadata.artist && options.add(song.metadata.artist));
+            break;
+        case 'album':
+            songs.forEach(song => song.metadata.album && options.add(song.metadata.album));
+            break;
+        case 'song':
+            songs.forEach(song => options.add(JSON.stringify({id: song.id, title: song.metadata.title || 'Unknown Title'})));
+            break;
+    }
+
+    options.forEach(option => {
+        const el = document.createElement('option');
+        if (filterType === 'song') {
+            const songData = JSON.parse(option);
+            el.value = songData.id;
+            el.textContent = songData.title;
+        } else {
+            el.value = option;
+            el.textContent = option;
+        }
+        filterValueSelect.appendChild(el);
+    });
+
+    const savedValue = await getSetting('musicFilterValue', '');
+    filterValueSelect.value = savedValue;
+}
+
+
 // Initialize the app
 loadSettings().then(() => {
   handleTabSwitching();
@@ -451,6 +552,23 @@ loadSettings().then(() => {
   }
   document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
   document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+
+  document.getElementById('musicPlayerEnabled').checked = musicPlayerEnabled;
+  document.getElementById('musicFilterType').value = musicFilterType;
+
+  if (musicPlayerEnabled) {
+    document.getElementById('musicFilters').style.display = 'block';
+    populateMusicFilterValues();
+  }
+
+  document.getElementById('musicPlayerEnabled').addEventListener('change', (e) => {
+      document.getElementById('musicFilters').style.display = e.target.checked ? 'block' : 'none';
+      if(e.target.checked) {
+          populateMusicFilterValues();
+      }
+  });
+
+  document.getElementById('musicFilterType').addEventListener('change', populateMusicFilterValues);
   
   // Theme switching buttons
   document.getElementById('switchToDynamic').addEventListener('click', () => {
@@ -467,15 +585,30 @@ loadSettings().then(() => {
   });
 
   // Dynamic theme live preview
-  document.getElementById('hueSlider').addEventListener('input', livePreviewDynamicTheme);
-  document.getElementById('colorScheme').addEventListener('change', livePreviewDynamicTheme);
-  document.querySelectorAll('#themeMode button').forEach(btn => {
-    btn.addEventListener('click', () => {
-      document.querySelector('#themeMode button.active').classList.remove('active');
-      btn.classList.add('active');
-      livePreviewDynamicTheme();
+  const hueSlider = document.getElementById('hueSlider');
+  const colorScheme = document.getElementById('colorScheme');
+  const themeModeButtons = document.querySelectorAll('#themeMode button');
+  
+  if (hueSlider) {
+    hueSlider.addEventListener('input', livePreviewDynamicTheme);
+  }
+  
+  if (colorScheme) {
+    colorScheme.addEventListener('change', livePreviewDynamicTheme);
+  }
+  
+  if (themeModeButtons.length > 0) {
+    themeModeButtons.forEach(btn => {
+      btn.addEventListener('click', () => {
+        const activeButton = document.querySelector('#themeMode button.active');
+        if (activeButton) {
+          activeButton.classList.remove('active');
+        }
+        btn.classList.add('active');
+        livePreviewDynamicTheme();
+      });
     });
-  });
+  }
 
   // Forgot password functionality
   const forgotPasswordLink = document.getElementById('forgotPassword');

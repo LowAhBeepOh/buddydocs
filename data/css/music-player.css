@@ -1,0 +1,26 @@
+.music-player {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+}
+
+.music-player .song-info {
+  font-size: 12px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.music-player .controls {
+  display: flex;
+  align-items: center;
+}
+
+.music-player .icon-btn {
+  font-size: 20px;
+}
+
+.music-player .icon-btn.active {
+  color: var(--primary);
+}

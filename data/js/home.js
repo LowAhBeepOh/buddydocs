@@ -673,9 +673,10 @@ async function renderGreeting(){
     const aiWelcomeTone = await getSetting('aiWelcomeTone', 'casual');
     const aiWelcomeCustomTone = await getSetting('aiWelcomeCustomTone', '');
     
+    let aiWelcomeFailed = false;
     try {
-      // Generate AI welcome message
-      greetingData = await generateWelcomeMessage({
+      // Generate AI welcome message with a timeout
+      const aiWelcomePromise = generateWelcomeMessage({
         name: displayName,
         time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
         date: now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
@@ -684,9 +685,21 @@ async function renderGreeting(){
         passedDeadlines: passedDeadlines,
         tone: aiWelcomeCustomTone || aiWelcomeTone
       });
+      
+      // Set a 2-second timeout for the AI welcome message
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('AI welcome message timeout')), 2000)
+      );
+      
+      // Race between the AI welcome message and the timeout
+      greetingData = await Promise.race([aiWelcomePromise, timeoutPromise]);
     } catch (error) {
-      console.error('Error generating AI welcome message:', error);
-      // Fall back to default greeting if AI fails
+      // Silently fall back to default greeting if AI fails or times out
+      aiWelcomeFailed = true;
+    }
+    
+    // If AI welcome failed or timed out, use the default greeting
+    if (aiWelcomeFailed) {
       greetingData = await getDynamicGreeting(new Date(), docs);
     }
   } else {

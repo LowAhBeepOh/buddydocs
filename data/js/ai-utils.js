@@ -60,15 +60,12 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
       if (!response.ok) {
         throw new Error(`AI API error: ${response.status} ${response.statusText}`);
       }
-
-      const data = await response.json();
       return data.choices?.[0]?.message?.content || '';
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
     }
   } catch (error) {
-    console.error('Error generating AI response:', error);
-    // Return a dynamic fallback response based on time of day
+    // Silently handle the error and return a fallback greeting
     const now = new Date();
     const h = now.getHours();
     let timeCategory;
@@ -99,7 +96,7 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
       ]
     };
     
-    const timeGreetings = greetings[timeCategory];
+    const timeGreetings = greetings[timeCategory] || greetings['morning'];
     const randomGreeting = timeGreetings[Math.floor(Math.random() * timeGreetings.length)];
     
     return randomGreeting.greeting;
@@ -107,7 +104,7 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
 }
 
 /**
- * Generates an AI welcome message based on user context
+{{ ... }}
  * @param {Object} context - User context including name, time, recent docs, etc.
  * @returns {Promise<{greeting: string, sub: string}>} The generated greeting and subtext
  */

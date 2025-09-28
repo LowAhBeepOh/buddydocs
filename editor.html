@@ -17,6 +17,7 @@
 
   <link rel="stylesheet" href="data/css/base.css" />
   <link rel="stylesheet" href="data/css/editor.css" />
+  <link rel="stylesheet" href="data/css/music-player.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <title>Editor • Buddy Docs</title>
 </head>
@@ -218,6 +219,18 @@
       <span style="margin-left: 8px; color:var(--muted); font-size:12px;">Goal:</span>
       <input id="wordGoalInput" type="number" min="0" step="50" class="word-goal-input" value="0" title="Set word goal"/>
     </div>
+    <div id="musicPlayerWidget" class="music-player" style="display: none;">
+      <div class="song-info">
+        <span id="songTitle"></span> - <span id="songArtist"></span>
+      </div>
+      <div class="controls">
+        <button id="prevBtn" class="icon-btn"><span class="material-symbols-outlined">skip_previous</span></button>
+        <button id="playPauseBtn" class="icon-btn"><span class="material-symbols-outlined">play_arrow</span></button>
+        <button id="nextBtn" class="icon-btn"><span class="material-symbols-outlined">skip_next</span></button>
+        <button id="loopBtn" class="icon-btn"><span class="material-symbols-outlined">repeat</span></button>
+        <button id="shuffleBtn" class="icon-btn"><span class="material-symbols-outlined">shuffle</span></button>
+      </div>
+    </div>
     <div class="status-right">
       <button id="hideMenusBtn" class="icon-btn" title="Hide menus (Ctrl+Shift+F)">
         <span class="material-symbols-outlined">fullscreen</span>
@@ -257,6 +270,7 @@
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/editor.js" type="module"></script>
+  <script src="data/js/music-player.js" type="module"></script>
   <script src="data/js/ai.js" type="module"></script>
   <script type="module">
     import { setSetting, getSetting } from './data/js/idb.js';

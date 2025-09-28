@@ -2,6 +2,7 @@ import { getDocument, saveDocument, deleteDocument, setSetting, getSetting } fro
 import { applyEditorPrefs } from './theme.js';
 import { TEMPLATES } from './templates.js';
 import { SmartCompose } from './smart-compose.js';
+import { initMusicPlayer } from './music-player.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -1202,6 +1203,13 @@ function showSmartComposeHelp() {
   }, 8000);
 }
 
+async function initMusic() {
+  const musicPlayerEnabled = await getSetting('musicPlayerEnabled', false);
+  if (musicPlayerEnabled) {
+    initMusicPlayer();
+  }
+}
+
 bindToolbar();
 bindMeta();
 autosave();
@@ -1210,6 +1218,7 @@ keyboardShortcuts();
 loadOrCreate();
 applyEditorPrefs();
 setupToolsMenu();
+initMusic();
 
 // Initialize Smart Compose
 async function initSmartCompose() {
