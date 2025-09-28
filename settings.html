@@ -189,6 +189,7 @@
             <select id="aiProvider" class="input">
               <option value="ollama">Ollama</option>
               <option value="lmstudio">LM Studio</option>
+              <option value="openai">OpenAI</option>
             </select>
           </label>
         </div>
@@ -220,13 +221,17 @@
           </div>
         </div>
         <div class="row">
-          <label class="tile">
+          <label class="tile" id="aiModelLabel">
             <span>Model</span>
             <input id="aiModel" class="input" type="text" placeholder="e.g. llama3.1, mistral, qwen, ..." />
           </label>
-          <label class="tile">
+          <label class="tile" id="aiBaseUrlLabel">
             <span>Base URL</span>
             <input id="aiBaseUrl" class="input" type="text" placeholder="http://localhost:11434" />
+          </label>
+          <label class="tile" id="aiApiKeyLabel" style="display: none;">
+            <span>API Key</span>
+            <input id="aiApiKey" class="input" type="password" placeholder="sk-..." />
           </label>
         </div>
         <div class="row">

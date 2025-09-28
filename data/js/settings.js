@@ -67,6 +67,7 @@ async function loadSettings() {
   const aiProvider = await getSetting('aiProvider', 'ollama');
   const aiModel = await getSetting('aiModel', '');
   const aiBaseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
+  const aiApiKey = await getSetting('aiApiKey', '');
   const smartComposeTrainFromDocs = await getSetting('smartComposeTrainFromDocs', false);
   const scConf = await getSetting('smartComposeConfThresh', 0.88);
   const scMinCtx = await getSetting('smartComposeMinContext', 2);
@@ -137,6 +138,17 @@ async function loadSettings() {
   document.getElementById('aiProvider').value = aiProvider;
   document.getElementById('aiModel').value = aiModel;
   document.getElementById('aiBaseUrl').value = aiBaseUrl;
+
+  const aiApiKeyInput = document.getElementById('aiApiKey');
+  if (aiApiKey) {
+    aiApiKeyInput.placeholder = "••••••••••••••••••••";
+  } else {
+    aiApiKeyInput.placeholder = "sk-...";
+  }
+  aiApiKeyInput.value = '';
+
+  toggleAiProviderSettings();
+
   const scTrain = document.getElementById('smartComposeTrainDocs');
   if (scTrain) scTrain.checked = !!smartComposeTrainFromDocs;
   const confEl = document.getElementById('smartComposeConfThresh');
@@ -292,8 +304,9 @@ async function saveSettings() {
   // Get AI settings
   const aiEnabled = document.getElementById('aiEnabled').checked;
   const aiProvider = document.getElementById('aiProvider').value;
-  const aiModel = document.getElementById('aiModel').value.trim();
-  const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim() || 'http://localhost:11434';
+  let aiModel = document.getElementById('aiModel').value.trim();
+  const aiBaseUrl = document.getElementById('aiBaseUrl').value.trim();
+  const newAiApiKey = document.getElementById('aiApiKey').value.trim();
   const smartComposeTrainFromDocs = document.getElementById('smartComposeTrainDocs')?.checked || false;
   const scConf = Number(document.getElementById('smartComposeConfThresh')?.value || 0.88);
   const scMinCtx = Number(document.getElementById('smartComposeMinContext')?.value || 2);
@@ -311,14 +324,12 @@ async function saveSettings() {
   const musicFilterType = document.getElementById('musicFilterType').value;
   const musicFilterValue = document.getElementById('musicFilterValue').value;
 
-  await Promise.all([
+  const settingsToSave = [
     setSetting('displayName', displayName),
     setSetting('initials', initials),
     setSetting('profilePicture', profilePicDataUrl),
     setSetting('aiEnabled', aiEnabled),
     setSetting('aiProvider', aiProvider),
-    setSetting('aiModel', aiModel),
-    setSetting('aiBaseUrl', aiBaseUrl),
     setSetting('smartComposeTrainFromDocs', smartComposeTrainFromDocs),
     setSetting('smartComposeConfThresh', scConf),
     setSetting('smartComposeMinContext', scMinCtx),
@@ -331,7 +342,26 @@ async function saveSettings() {
     setSetting('musicPlayerEnabled', musicPlayerEnabled),
     setSetting('musicFilterType', musicFilterType),
     setSetting('musicFilterValue', musicFilterValue),
-  ]);
+  ];
+
+  if (aiProvider === 'openai') {
+    if (!aiModel) {
+      aiModel = 'GPT 5 Nano';
+    }
+    settingsToSave.push(setSetting('aiModel', aiModel));
+    if (newAiApiKey) {
+      settingsToSave.push(setSetting('aiApiKey', newAiApiKey));
+    }
+    // Do not save base URL for OpenAI
+    settingsToSave.push(setSetting('aiBaseUrl', ''));
+  } else { // ollama or lmstudio
+    settingsToSave.push(setSetting('aiModel', aiModel));
+    settingsToSave.push(setSetting('aiBaseUrl', aiBaseUrl || 'http://localhost:11434'));
+    // Do not save API key for other providers
+    settingsToSave.push(setSetting('aiApiKey', ''));
+  }
+
+  await Promise.all(settingsToSave);
 
   // Save secret if provided and matches
   if (newSecret || secretConfirm) {
@@ -375,6 +405,7 @@ async function saveSettings() {
   }
 
   alert('Settings saved');
+  loadSettings();
 }
 
 function handleProfilePicture(e) {
@@ -424,6 +455,24 @@ function toggleCustomToneInput() {
     } else {
       customToneContainer.style.display = 'none';
     }
+  }
+}
+
+// Toggle AI provider specific settings
+function toggleAiProviderSettings() {
+  const provider = document.getElementById('aiProvider').value;
+  const modelLabel = document.getElementById('aiModelLabel');
+  const baseUrlLabel = document.getElementById('aiBaseUrlLabel');
+  const apiKeyLabel = document.getElementById('aiApiKeyLabel');
+
+  if (provider === 'openai') {
+    modelLabel.style.display = 'block';
+    baseUrlLabel.style.display = 'none';
+    apiKeyLabel.style.display = 'block';
+  } else { // ollama, lmstudio
+    modelLabel.style.display = 'block';
+    baseUrlLabel.style.display = 'block';
+    apiKeyLabel.style.display = 'none';
   }
 }
 
@@ -649,6 +698,10 @@ loadSettings().then(() => {
 
   // Handle tab switching
   handleTabSwitching();
+  const aiProviderSelect = document.getElementById('aiProvider');
+  if (aiProviderSelect) {
+    aiProviderSelect.addEventListener('change', toggleAiProviderSettings);
+  }
 });
 
 // Dynamic theme live preview function
