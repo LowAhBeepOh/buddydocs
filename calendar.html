@@ -55,6 +55,25 @@
         <ul id="calendarDeadlines" class="deadline-list"></ul>
       </aside>
     </div>
+
+    <div id="noteModal" class="modal" hidden style="display: none">
+      <div class="modal-content">
+        <span id="closeModalBtn" class="close-btn">&times;</span>
+        <h3>Note</h3>
+        <input type="hidden" id="noteDate" />
+        <textarea id="noteText" placeholder="Write your note..."></textarea>
+        <div class="note-colors">
+          <span class="color-option active" data-color="default"></span>
+          <span class="color-option" data-color="red"></span>
+          <span class="color-option" data-color="blue"></span>
+          <span class="color-option" data-color="green"></span>
+          <span class="color-option" data-color="yellow"></span>
+        </div>
+        <div class="modal-buttons">
+          <button id="saveNoteBtn">Save</button>
+        </div>
+      </div>
+    </div>
   </main>
 
   <script src="data/js/idb.js" type="module"></script>

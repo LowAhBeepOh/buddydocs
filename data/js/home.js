@@ -138,19 +138,21 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   const h = date.getHours();
   const displayName = await getSetting('displayName', 'Buddy');
   
-  // Random chance for >_< (1/300 chance)
+  // Random chance for a fun emoji (1/300 chance)
   if (Math.random() < 0.0033) {
-    return { greeting: '>_<', sub: 'Keep your docs organized and on track.' };
+    const funEmojis = ['📚', '✏️', '📝', '📖', '🔍', '📋', '📓'];
+    const randomEmoji = funEmojis[Math.floor(Math.random() * funEmojis.length)];
+    return { greeting: randomEmoji, sub: 'Keep your study materials organized' };
   }
   
   // Late night/early morning messages (1 AM to 5 AM)
   if (h >= 1 && h < 5) {
     const sleepMessages = [
-      { greeting: `Time for rest, ${displayName}`, sub: 'A fresh start awaits in the morning.' },
-      { greeting: `Late night thoughts?`, sub: 'Capture them now, refine them tomorrow.' },
-      { greeting: `Still writing, ${displayName}?`, sub: 'Your dedication is inspiring.' },
-      { greeting: `The world sleeps`, sub: 'But great ideas never rest.' },
-      { greeting: `Night owl hours`, sub: 'When creativity meets tranquility.' }
+      { greeting: `Late night study session, ${displayName}?`, sub: 'Remember to get enough rest for tomorrow.' },
+      { greeting: `Early morning review`, sub: 'Good time to review notes before class.' },
+      { greeting: `Late night thoughts?`, sub: 'Jot them down for tomorrow.' },
+      { greeting: `Early bird`, sub: 'Perfect time for focused study before the day begins.' },
+      { greeting: `Study break`, sub: 'Consider taking a short break to stay fresh.' }
     ];
     return sleepMessages[Math.floor(Math.random() * sleepMessages.length)];
   }
@@ -346,28 +348,16 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
         sub: 'Make it count, ' + displayName 
       },
       { 
-        greeting: `Monday motivation`, 
-        sub: 'Set the tone for an amazing week' 
+        greeting: `It's Monday`, 
+        sub: 'Set the tone for a good week' 
       },
       { 
         greeting: `Fresh start`, 
         sub: 'A whole week of potential ahead' 
       },
       { 
-        greeting: `Week ahead`, 
-        sub: 'Plan your priorities and crush your goals' 
-      },
-      { 
-        greeting: `Hello Monday`, 
-        sub: 'Your chance to make this week better than the last' 
-      },
-      { 
-        greeting: `Monday mindset`, 
-        sub: 'Approach today with purpose and energy' 
-      },
-      { 
-        greeting: `Let's do this`, 
-        sub: 'Kick off the week with focus and determination' 
+        greeting: `Good Morning, ${displayName}`, 
+        sub: 'Back to school' 
       }
     ];
     return mondayGreetings[Math.floor(Math.random() * mondayGreetings.length)];
@@ -463,92 +453,92 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   const greetings = {
     morning: [
       { 
-        greeting: 'Good morning', 
-        sub: 'A new day to create something great' 
+        greeting: 'Good morning, ' + displayName, 
+        sub: 'Check today\'s schedule and assignments' 
       },
       { 
-        greeting: 'Morning, ' + displayName, 
-        sub: 'What will you accomplish today?' 
+        greeting: 'Morning study session', 
+        sub: 'Great time to review notes before class' 
       },
       { 
-        greeting: 'New day, new possibilities', 
-        sub: 'Make it count' 
+        greeting: 'Ready for the day?', 
+        sub: 'Review your to-do list and priorities' 
       },
       { 
-        greeting: 'Rise and shine', 
-        sub: 'Your documents are ready when you are' 
+        greeting: 'Early start', 
+        sub: 'Perfect time for focused studying' 
       },
       { 
-        greeting: 'Hello there', 
-        sub: 'Perfect time for focused work' 
+        greeting: 'Morning prep', 
+        sub: 'Gather materials for today\'s classes' 
       },
       { 
-        greeting: 'Morning productivity', 
-        sub: 'Set the tone for a successful day' 
+        greeting: 'Breakfast and books', 
+        sub: 'Start your day with some light review' 
       },
       { 
-        greeting: 'Fresh start', 
-        sub: 'Organize your thoughts and ideas' 
+        greeting: 'Day planner', 
+        sub: 'Organize your study schedule' 
       }
     ],
     afternoon: [
       { 
         greeting: 'Good afternoon', 
-        sub: 'How\'s your day going?' 
+        sub: 'How are your classes going today?' 
       },
       { 
-        greeting: 'Afternoon check-in', 
-        sub: 'Making progress on your goals?' 
+        greeting: 'Afternoon study break', 
+        sub: 'Time to review your notes' 
       },
       { 
-        greeting: 'Afternoon energy', 
-        sub: 'Perfect time to tackle challenging tasks' 
+        greeting: 'Lunch break', 
+        sub: 'Great time to organize your notes' 
       },
       { 
-        greeting: 'Midday momentum', 
-        sub: 'Keep the productivity going' 
+        greeting: 'Midday check-in', 
+        sub: 'Update your assignment tracker' 
       },
       { 
-        greeting: 'Hello again', 
-        sub: 'What\'s next on your list?' 
+        greeting: 'Afternoon session', 
+        sub: 'Work on homework and projects' 
       },
       { 
-        greeting: 'Afternoon focus', 
-        sub: 'Time to make things happen' 
+        greeting: 'Study time', 
+        sub: 'Focus on one subject at a time' 
       },
       { 
-        greeting: 'Productive afternoon', 
-        sub: 'Your future self will thank you' 
+        greeting: 'Class notes', 
+        sub: 'Review and organize today\'s materials' 
       }
     ],
     evening: [
       { 
-        greeting: 'Good evening', 
-        sub: 'Time to reflect on today\'s progress' 
+        greeting: 'Good evening, ' + displayName, 
+        sub: 'Time to review today\'s lessons' 
       },
       { 
-        greeting: 'Evening hours', 
-        sub: 'Perfect for wrapping up loose ends' 
+        greeting: 'Evening study', 
+        sub: 'Work on assignments and projects' 
       },
       { 
-        greeting: 'Day\'s end', 
-        sub: 'Review and plan for tomorrow' 
+        greeting: 'Homework time', 
+        sub: 'Focus on completing your tasks' 
       },
       { 
-        greeting: 'Evening thoughts', 
-        sub: 'Capture them before they fade' 
+        greeting: 'Nightly review', 
+        sub: 'Go over what you learned today' 
       },
       { 
-        greeting: 'Sunset session', 
-        sub: 'A peaceful time to create' 
+        greeting: 'Study session', 
+        sub: 'Find a quiet place to concentrate' 
+      },
+      { 
+        greeting: 'Evening prep', 
+        sub: 'Get ready for tomorrow\'s classes' 
       },
       { 
         greeting: 'End of day', 
-        sub: 'Finish strong' 
-      },
-      { 
-        greeting: 'Evening reflection', 
-        sub: 'What went well today?' 
+        sub: 'Update your planner for tomorrow' 
       }
     ]
   };
@@ -674,27 +664,39 @@ async function renderGreeting(){
     const aiWelcomeCustomTone = await getSetting('aiWelcomeCustomTone', '');
     
     let aiWelcomeFailed = false;
-    try {
-      // Generate AI welcome message with a timeout
-      const aiWelcomePromise = generateWelcomeMessage({
-        name: displayName,
-        time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-        date: now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
-        recentDocuments: recentDocs,
-        upcomingDeadlines: upcomingDeadlines,
-        passedDeadlines: passedDeadlines,
-        tone: aiWelcomeCustomTone || aiWelcomeTone
-      });
-      
-      // Set a 2-second timeout for the AI welcome message
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('AI welcome message timeout')), 2000)
-      );
-      
-      // Race between the AI welcome message and the timeout
-      greetingData = await Promise.race([aiWelcomePromise, timeoutPromise]);
-    } catch (error) {
-      // Silently fall back to default greeting if AI fails or times out
+    
+    // Verify AI provider is properly configured
+    const aiProvider = await getSetting('aiProvider', 'ollama');
+    const aiModel = await getSetting('aiModel', 'llama3');
+    const aiBaseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
+    
+    // Only proceed if we have a valid provider and model
+    if (aiProvider && aiModel) {
+      try {
+        // Generate AI welcome message with a more reasonable timeout
+        const aiWelcomePromise = generateWelcomeMessage({
+          name: displayName,
+          time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+          date: now.toLocaleDateString(undefined, { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' }),
+          recentDocuments: recentDocs,
+          upcomingDeadlines: upcomingDeadlines,
+          passedDeadlines: passedDeadlines,
+          tone: aiWelcomeCustomTone || aiWelcomeTone
+        });
+        
+        // Set a 10-second timeout for the AI welcome message
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('AI welcome message timeout')), 10000)
+        );
+        
+        // Race between the AI welcome message and the timeout
+        greetingData = await Promise.race([aiWelcomePromise, timeoutPromise]);
+      } catch (error) {
+        console.warn('AI welcome message generation failed:', error);
+        aiWelcomeFailed = true;
+      }
+    } else {
+      console.warn('AI provider not properly configured');
       aiWelcomeFailed = true;
     }
     

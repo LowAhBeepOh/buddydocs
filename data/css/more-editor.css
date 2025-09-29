@@ -1,0 +1,40 @@
+/* Make header sticky */
+.editor-header {
+    position: fixed !important;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000 !important;
+    background: var(--bg) !important;
+    border-bottom: 1px solid var(--border) !important;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+}
+
+/* Adjust formatbar position */
+.formatbar {
+    position: fixed !important;
+    top: 76px !important;
+    left: 0;
+    right: 0;
+    z-index: 999 !important;
+}
+
+/* Add margin to editor content */
+.editor-wrap {
+    margin-top: 120px !important;
+    min-height: calc(100vh - 120px) !important;
+}
+
+/* Adjust outline sidebar position */
+.outline-sidebar {
+    position: sticky !important;
+    top: 140px !important; /* Header + formatbar + some spacing */
+    max-height: calc(100vh - 160px) !important; /* Prevent overflow */
+    overflow-y: auto !important;
+    align-self: flex-start !important;
+}
+
+/* Ensure profile menu appears above formatbar */
+#profileMenu {
+    z-index: 1001 !important; /* Higher than formatbar's z-index of 999 */
+}

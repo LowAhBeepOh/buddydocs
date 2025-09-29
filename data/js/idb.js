@@ -2,17 +2,18 @@
 // Stores: settings, documents
 
 const DB_NAME = 'buddy-docs-db';
-const DB_VERSION = 5;
+const DB_VERSION = 6;
 
 export const STORES = {
   settings: 'settings',
-  documents: 'documents'
+  documents: 'documents',
+  calendar_notes: 'calendar_notes'
 };
 
 function openDB() {
   return new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
-    req.onupgradeneeded = () => {
+    req.onupgradeneeded = (e) => {
       const db = req.result;
       if (!db.objectStoreNames.contains(STORES.settings)) {
         db.createObjectStore(STORES.settings, { keyPath: 'key' });
@@ -22,6 +23,10 @@ function openDB() {
         store.createIndex('by_dueDate', 'dueDate');
         store.createIndex('by_updatedAt', 'updatedAt');
         store.createIndex('by_title', 'title');
+      }
+      if (e.oldVersion < 6 && !db.objectStoreNames.contains(STORES.calendar_notes)) {
+        const store = db.createObjectStore(STORES.calendar_notes, { keyPath: 'id' });
+        store.createIndex('by_date', 'date');
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -118,4 +123,37 @@ export async function listDeadlinesForMonth(year, month) {
   const end = new Date(year, month + 1, 0, 23, 59, 59);
   return all.filter(d => d.dueDate && new Date(d.dueDate) >= start && new Date(d.dueDate) <= end)
             .sort((a,b)=> new Date(a.dueDate) - new Date(b.dueDate));
+}
+
+// Calendar Notes API
+export async function saveNote(note) {
+  if (!note.id) note.id = crypto.randomUUID();
+  const store = await tx(STORES.calendar_notes, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const r = store.put(note);
+    r.onsuccess = () => resolve(note);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function getNotesForMonth(year, month) {
+  const store = await tx(STORES.calendar_notes, 'readonly');
+  const start = `${year}-${(month + 1).toString().padStart(2, '0')}-01`;
+  const end = `${year}-${(month + 1).toString().padStart(2, '0')}-31`;
+  const range = IDBKeyRange.bound(start, end);
+  
+  return new Promise((resolve, reject) => {
+    const r = store.index('by_date').getAll(range);
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function deleteNote(id) {
+  const store = await tx(STORES.calendar_notes, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const r = store.delete(id);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  });
 }

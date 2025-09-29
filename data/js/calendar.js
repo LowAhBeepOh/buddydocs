@@ -1,8 +1,18 @@
-import { listDeadlinesForMonth, listDocuments } from './idb.js';
+import { listDeadlinesForMonth, listDocuments, saveNote, getNotesForMonth, deleteNote } from './idb.js';
 
 const monthLabel = document.getElementById('monthLabel');
 const grid = document.getElementById('calendarGrid');
 const list = document.getElementById('calendarDeadlines');
+
+// Note Modal elements
+const noteModal = document.getElementById('noteModal');
+const closeModalBtn = document.getElementById('closeModalBtn');
+const noteDateInput = document.getElementById('noteDate');
+const noteTextInput = document.getElementById('noteText');
+const noteColors = document.querySelector('.note-colors');
+const noteModalContent = noteModal.querySelector('.modal-content');
+const saveNoteBtn = document.getElementById('saveNoteBtn');
+let currentNote = null;
 
 let cur = new Date();
 
@@ -34,7 +44,7 @@ function buildGrid(){
   for(let d=1; d<=days; d++){
     const el = document.createElement('div');
     el.className = 'day';
-    el.innerHTML = `<div class="date">${d}</div><div class="items"></div>`;
+    el.innerHTML = `<div class="date">${d}</div><div class="items"></div><div class="notes"></div>`;
     el.dataset.date = new Date(year, month, d).toISOString().slice(0,10);
     
     // Check if this is today's date
@@ -46,6 +56,36 @@ function buildGrid(){
     
     grid.appendChild(el);
   }
+}
+
+async function renderNotes() {
+  const notes = await getNotesForMonth(cur.getFullYear(), cur.getMonth());
+  const notesByDate = new Map();
+  for (const note of notes) {
+    const arr = notesByDate.get(note.date) || [];
+    arr.push(note);
+    notesByDate.set(note.date, arr);
+  }
+
+  document.querySelectorAll('.calendar-grid .day .notes').forEach(notesContainer => {
+    notesContainer.innerHTML = '';
+    const dayEl = notesContainer.closest('.day');
+    const date = dayEl.dataset.date;
+    if (notesByDate.has(date)) {
+      for (const note of notesByDate.get(date)) {
+        const noteEl = document.createElement('div');
+        noteEl.className = 'note';
+        noteEl.textContent = note.text;
+        noteEl.dataset.noteId = note.id;
+        noteEl.dataset.color = note.color;
+        noteEl.addEventListener('click', (e) => {
+          e.stopPropagation();
+          openNoteModal(date, note);
+        });
+        notesContainer.appendChild(noteEl);
+      }
+    }
+  });
 }
 
 function badgeClass(diff){
@@ -114,6 +154,80 @@ async function renderDeadlines(){
         itemsWrap.appendChild(row);
       }
     }
+  });
+}
+
+function openNoteModal(date, note = null) {
+  currentNote = note;
+  noteDateInput.value = date;
+  noteTextInput.value = note ? note.text : '';
+  
+  const color = note ? note.color : 'default';
+  noteColors.querySelector('.active')?.classList.remove('active');
+  const colorOption = noteColors.querySelector(`[data-color="${color}"]`);
+  if (colorOption) {
+    colorOption.classList.add('active');
+  }
+  noteModalContent.dataset.color = color;
+
+  requestAnimationFrame(() => {
+    noteModal.hidden = false;
+    noteModal.style.display = 'flex';
+    noteTextInput.focus();
+  });
+}
+
+function closeNoteModal() {
+  noteModal.hidden = true;
+  noteModal.style.display = 'none';
+  currentNote = null;
+  noteModalContent.dataset.color = 'default';
+}
+
+function bindNoteModalEvents() {
+  closeModalBtn.addEventListener('click', closeNoteModal);
+  noteModal.addEventListener('click', (e) => {
+    if (e.target === noteModal) {
+      closeNoteModal();
+    }
+  });
+
+  grid.addEventListener('click', (e) => {
+    const dayEl = e.target.closest('.day');
+    if (dayEl && dayEl.dataset.date) {
+      if (e.target.closest('.item') || e.target.closest('.note')) return;
+      openNoteModal(dayEl.dataset.date);
+    }
+  });
+
+  noteColors.addEventListener('click', (e) => {
+    const colorOption = e.target.closest('.color-option');
+    if (colorOption) {
+      noteColors.querySelector('.active')?.classList.remove('active');
+      colorOption.classList.add('active');
+      noteModalContent.dataset.color = colorOption.dataset.color;
+    }
+  });
+
+  saveNoteBtn.addEventListener('click', async () => {
+    const date = noteDateInput.value;
+    const text = noteTextInput.value.trim();
+    const color = noteColors.querySelector('.active').dataset.color;
+
+    if (currentNote && !text) {
+      await deleteNote(currentNote.id);
+    } else if (text) {
+      const note = {
+        id: currentNote ? currentNote.id : crypto.randomUUID(),
+        date,
+        text,
+        color,
+      };
+      await saveNote(note);
+    }
+    
+    closeNoteModal();
+    render();
   });
 }
 
@@ -287,8 +401,14 @@ function render(){
   renderMonthLabel();
   buildGrid();
   renderDeadlines();
+  renderNotes();
 }
+
+// Ensure modal is hidden initially
+noteModal.hidden = true;
+noteModal.style.display = 'none';
 
 bindNav();
 bindExport();
+bindNoteModalEvents();
 render();

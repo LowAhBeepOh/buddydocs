@@ -69,8 +69,19 @@
   box-shadow: 0 0 8px 2px var(--primary);
 }
 
-.calendar-grid .day.today .date {
+.calendar-grid .day.today .date,
+.calendar-grid .day.today .item,
+.calendar-grid .day.today .note {
   color: white;
+}
+
+.calendar-grid .day.today .note {
+  background-color: rgba(255, 255, 255, 0.2);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.calendar-grid .day.today .item:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 .calendar-grid .day .date {
@@ -199,4 +210,143 @@
   text-align: center;
   font-weight: 600;
   opacity: 0.8;
+}
+
+/* Note styles */
+.calendar-grid .day .notes {
+  display: grid;
+  gap: 4px;
+  margin-top: 4px;
+}
+
+.note {
+  padding: 4px 6px;
+  border-radius: 4px;
+  font-size: 12px;
+  cursor: pointer;
+  background-color: var(--note-default-bg);
+  border: 1px solid var(--note-default-border);
+  color: var(--text-primary);
+}
+
+.note[data-color="red"] {
+  background-color: var(--note-red-bg);
+  border-color: var(--note-red-border);
+}
+.note[data-color="blue"] {
+  background-color: var(--note-blue-bg);
+  border-color: var(--note-blue-border);
+}
+.note[data-color="green"] {
+  background-color: var(--note-green-bg);
+  border-color: var(--note-green-border);
+}
+.note[data-color="yellow"] {
+  background-color: var(--note-yellow-bg);
+  border-color: var(--note-yellow-border);
+}
+
+
+/* Modal for notes */
+.modal {
+  position: fixed;
+  z-index: 100;
+  left: 0;
+  top: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0,0,0,0.5);
+  display: none;
+  align-items: center;
+  justify-content: center;
+}
+
+.modal:not([hidden]) {
+  display: flex;
+}
+
+.modal-content {
+  background: var(--surface);
+  padding: 24px;
+  border-radius: 12px;
+  width: 90%;
+  max-width: 500px;
+  position: relative;
+  display: grid;
+  gap: 16px;
+  transition: background-color 0.3s ease;
+}
+
+.modal-content[data-color="red"] { background-color: color-mix(in hsl, var(--note-red-bg) 50%, var(--surface)); }
+.modal-content[data-color="blue"] { background-color: color-mix(in hsl, var(--note-blue-bg) 50%, var(--surface)); }
+.modal-content[data-color="green"] { background-color: color-mix(in hsl, var(--note-green-bg) 50%, var(--surface)); }
+.modal-content[data-color="yellow"] { background-color: color-mix(in hsl, var(--note-yellow-bg) 50%, var(--surface)); }
+
+.close-btn {
+  position: absolute;
+  top: 12px;
+  right: 16px;
+  font-size: 24px;
+  cursor: pointer;
+  color: var(--text-secondary);
+}
+
+.modal-content h3 {
+  margin: 0;
+}
+
+#noteText {
+  width: 100%;
+  min-height: 120px;
+  resize: vertical;
+  padding: 8px;
+  border-radius: 8px;
+  border: 1px solid var(--border);
+  background: var(--background);
+  color: var(--text-primary);
+  font-family: inherit;
+}
+
+.note-colors {
+  display: flex;
+  gap: 8px;
+}
+
+.color-option {
+  width: 24px;
+  height: 24px;
+  border-radius: 50%;
+  cursor: pointer;
+  border: 2px solid transparent;
+  transition: border-color 0.2s;
+}
+
+.color-option.active {
+  border-color: var(--primary);
+}
+
+.color-option[data-color="default"] { background-color: var(--note-default-bg); }
+.color-option[data-color="red"] { background-color: var(--note-red-bg); }
+.color-option[data-color="blue"] { background-color: var(--note-blue-bg); }
+.color-option[data-color="green"] { background-color: var(--note-green-bg); }
+.color-option[data-color="yellow"] { background-color: var(--note-yellow-bg); }
+
+.modal-buttons {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.modal-buttons button {
+  padding: 8px 16px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  font-family: var(--bd-font-family);
+  font-weight: 600;
+}
+
+#saveNoteBtn {
+  background: var(--primary);
+  color: white;
 }

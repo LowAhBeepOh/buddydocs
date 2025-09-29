@@ -89,7 +89,7 @@
       -khtml-user-drag: none;
       -moz-user-drag: none;
       -o-user-drag: none;
-      user-drag: none;
+      pointer-events: none; /* prevent drag cursor */
     }
 
     .gallery-item img {
@@ -714,14 +714,20 @@
         const isLocked = item.dataset.locked === 'true';
         
         if (!isLocked) {
-          const ok = await requireAuth();
-          if (!ok) { closeContextMenu(); return; }
-          gallerySessionUnlocked = true;
+          // No auth needed to lock
           item.dataset.locked = 'true';
           item.classList.add('locked');
           const ov = item.querySelector('.overlay');
-          if (ov) ov.classList.remove('hidden');
+          if (ov) {
+            ov.classList.remove('hidden');
+            // Make sure overlay shows lock icon
+            ov.innerHTML = '<span class="material-symbols-outlined" style="pointer-events: none;">lock</span>';
+          }
         } else {
+          // Auth needed to unlock
+          const ok = await requireAuth();
+          if (!ok) { closeContextMenu(); return; }
+          gallerySessionUnlocked = true; // Session is now unlocked
           item.dataset.locked = 'false';
           item.classList.remove('locked');
           const ov = item.querySelector('.overlay');

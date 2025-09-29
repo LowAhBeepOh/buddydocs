@@ -16,13 +16,56 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
     }
 
     const provider = await getSetting('aiProvider', 'ollama');
-    const model = await getSetting('aiModel', 'llama3');
-    const baseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
+    let model = await getSetting('aiModel', '');
+    let baseUrl = await getSetting('aiBaseUrl', '');
+    const apiKey = await getSetting('aiApiKey', '');
+
+    // Set default values based on provider if not set
+    if (!model) {
+      switch(provider) {
+        case 'ollama':
+          model = 'llama3';
+          break;
+        case 'lmstudio':
+          model = 'local-model'; // LM Studio's default local model name
+          break;
+        case 'openai':
+          model = 'gpt-3.5-turbo';
+          break;
+      }
+    }
+
+    // Set default base URL if not set
+    if (!baseUrl) {
+      switch(provider) {
+        case 'ollama':
+          baseUrl = 'http://localhost:11434';
+          break;
+        case 'lmstudio':
+          baseUrl = 'http://localhost:1234/v1'; // LM Studio's default API endpoint
+          break;
+        case 'openai':
+          baseUrl = 'https://api.openai.com';
+          break;
+      }
+    }
+
+    // Common headers for all providers
+    const headers = { 'Content-Type': 'application/json' };
+    
+    // Add API key for OpenAI
+    if (provider === 'openai') {
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required');
+      }
+      headers['Authorization'] = `Bearer ${apiKey}`;
+    }
 
     if (provider === 'ollama') {
+      // Handle Ollama's API
       const response = await fetch(`${baseUrl}/api/generate`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
           model,
           prompt,
@@ -35,17 +78,50 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
       });
 
       if (!response.ok) {
-        throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Ollama API error:', errorText);
+        throw new Error(`Ollama API error: ${response.status} ${response.statusText}`);
       }
 
       const data = await response.json();
       return data.response || '';
+      
     } else if (provider === 'lmstudio') {
-      const response = await fetch(`${baseUrl}/v1/chat/completions`, {
+      // For LM Studio, we need to use the model name exactly as it appears in LM Studio
+      // Let's try to get the list of available models first
+      let lmModel = model;
+      let models = [];
+      
+      try {
+        // First, try to get the list of available models
+        const modelsResponse = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/models`);
+        if (modelsResponse.ok) {
+          const modelsData = await modelsResponse.json();
+          if (modelsData.data && modelsData.data.length > 0) {
+            models = modelsData.data.map(m => m.id);
+            console.log('Available LM Studio models:', models);
+            
+            // If no specific model is set or the set model isn't available, use the first one
+            if (!lmModel || !models.includes(lmModel)) {
+              lmModel = models[0];
+              console.log('Using LM Studio model:', lmModel);
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Could not fetch LM Studio models:', e);
+      }
+
+      if (!lmModel) {
+        throw new Error('No models found in LM Studio. Please load a model in LM Studio first.');
+      }
+
+      // Handle LM Studio's OpenAI-compatible API
+      const response = await fetch(`${baseUrl.replace(/\/$/, '')}/v1/chat/completions`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers,
         body: JSON.stringify({
-          model,
+          model: lmModel,
           messages: [
             {
               role: 'user',
@@ -58,8 +134,44 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
       });
 
       if (!response.ok) {
-        throw new Error(`AI API error: ${response.status} ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('LM Studio API error:', errorText);
+        throw new Error(`LM Studio API error: ${response.status} ${response.statusText}`);
       }
+      
+      const data = await response.json();
+      return data.choices?.[0]?.message?.content || '';
+      
+    } else if (provider === 'openai') {
+      // Handle OpenAI's API
+      if (!apiKey) {
+        throw new Error('OpenAI API key is required');
+      }
+      
+      const openaiUrl = baseUrl || 'https://api.openai.com';
+      const response = await fetch(`${openaiUrl}/v1/chat/completions`, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify({
+          model: model || 'gpt-3.5-turbo',
+          messages: [
+            {
+              role: 'user',
+              content: prompt,
+            },
+          ],
+          temperature,
+          max_tokens,
+        }),
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('OpenAI API error:', errorText);
+        throw new Error(`OpenAI API error: ${response.status} ${response.statusText}`);
+      }
+      
+      const data = await response.json();
       return data.choices?.[0]?.message?.content || '';
     } else {
       throw new Error(`Unsupported AI provider: ${provider}`);
@@ -187,43 +299,23 @@ export async function generateWelcomeMessage(context) {
     };
   } catch (error) {
     console.error('Error generating welcome message:', error);
-    // Fallback to dynamic greeting based on time of day
-    const now = new Date();
-    const h = now.getHours();
-    let timeCategory;
-    
-    if (h < 12) timeCategory = 'morning';
-    else if (h < 17) timeCategory = 'afternoon';
-    else timeCategory = 'evening';
-    
-    const greetings = {
-      morning: [
-        { greeting: 'Good morning', sub: 'A new day to create something great' },
-        { greeting: 'Morning', sub: 'What will you accomplish today?' },
-        { greeting: 'New day, new possibilities', sub: 'Make it count' },
-        { greeting: 'Rise and shine', sub: 'Your documents are ready when you are' },
-        { greeting: 'Hello there', sub: 'Perfect time for focused work' }
-      ],
-      afternoon: [
-        { greeting: 'Good afternoon', sub: 'How\'s your day going?' },
-        { greeting: 'Afternoon check-in', sub: 'Making progress on your goals?' },
-        { greeting: 'Afternoon energy', sub: 'Perfect time to tackle challenging tasks' },
-        { greeting: 'Hello again', sub: 'What\'s next on your list?' }
-      ],
-      evening: [
-        { greeting: 'Good evening', sub: 'Time to reflect on today\'s progress' },
-        { greeting: 'Evening hours', sub: 'Perfect for wrapping up loose ends' },
-        { greeting: 'Day\'s end', sub: 'Review and plan for tomorrow' },
-        { greeting: 'Evening thoughts', sub: 'Capture them before they fade' }
-      ]
-    };
-    
-    const timeGreetings = greetings[timeCategory];
-    const randomGreeting = timeGreetings[Math.floor(Math.random() * timeGreetings.length)];
-    
-    return {
-      greeting: randomGreeting.greeting,
-      sub: randomGreeting.sub
-    };
+    // Import the getDynamicGreeting function from home.js
+    try {
+      const { getDynamicGreeting } = await import('./home.js');
+      return await getDynamicGreeting(new Date(), context.upcomingDeadlines || []);
+    } catch (importError) {
+      console.error('Failed to import getDynamicGreeting:', importError);
+      // Fallback to a simple time-based greeting if import fails
+      const h = new Date().getHours();
+      let timeGreeting = 'Hello';
+      if (h < 12) timeGreeting = 'Good morning';
+      else if (h < 17) timeGreeting = 'Good afternoon';
+      else timeGreeting = 'Good evening';
+      
+      return {
+        greeting: timeGreeting,
+        sub: 'Welcome to your documents'
+      };
+    }
   }
 }
