@@ -831,9 +831,14 @@ function createDocCard(doc){
   const link = node.querySelector('.doc-link');
   
   // Route handler with lock protection
-  const targetHref = doc.type === 'gallery'
-    ? `gallery.html?id=${encodeURIComponent(doc.id)}`
-    : `editor.html?id=${encodeURIComponent(doc.id)}`;
+  let targetHref;
+  if (doc.type === 'gallery') {
+    targetHref = `gallery.html?id=${encodeURIComponent(doc.id)}`;
+  } else if (doc.type === 'presentation') {
+    targetHref = `slides.html?id=${encodeURIComponent(doc.id)}`;
+  } else {
+    targetHref = `editor.html?id=${encodeURIComponent(doc.id)}`;
+  }
   link.href = '#';
   link.addEventListener('click', async (e)=>{
     e.preventDefault();
@@ -859,6 +864,13 @@ function createDocCard(doc){
     if (chosen){
       thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
     }
+    thumb.style.padding = '0';
+  } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
+    // For presentations, show a preview of the first slide
+    const firstSlide = doc.slides[0];
+    thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${firstSlide.background || '#fff'}; font-size: 11px; color: var(--muted);">
+      <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
+    </div>`;
     thumb.style.padding = '0';
   } else if (doc.content) {
     thumb.innerHTML = doc.content.slice(0, 200) + (doc.content.length > 200 ? '...' : '');

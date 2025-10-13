@@ -3,6 +3,9 @@ import { applyEditorPrefs } from './theme.js';
 import { TEMPLATES } from './templates.js';
 import { SmartCompose } from './smart-compose.js';
 import { initMusicPlayer } from './music-player.js';
+import { showVersionHistoryModal, saveVersion } from './version-history.js';
+import { showSummaryModal } from './summary-tool.js';
+import { showGrammarCheckModal, enableAutoCorrect } from './grammar-check.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -10,8 +13,10 @@ const typeEl = document.getElementById('docType');
 const dueEl = document.getElementById('dueDate');
 const tagsEl = document.getElementById('tags');
 
-let currentDoc = { id:null, title:'Untitled', type:'document', content:'', dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
+let currentDoc = { id:null, title:'Untitled', type:'document', content:'', dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now(), pages: [] };
 let smartCompose = null;
+let currentPageIndex = 0;
+let autoCorrectEnabled = false;
 
 function getParam(name){
   const u = new URL(location.href);
@@ -199,16 +204,37 @@ function bindMeta(){
 
 function autosave(){
   let t;
+  let lastSavedContent = '';
+  let versionSaveCounter = 0;
+  
   function queue(){
     clearTimeout(t);
     // immediately show unsaved state
     const iconPending = document.getElementById('syncIcon');
     if (iconPending){ iconPending.textContent = 'sync'; iconPending.classList.remove('spin'); }
     t = setTimeout(async () => {
-      currentDoc.content = editor.innerHTML;
+      // Save current page content
+      if (currentDoc.pages && currentDoc.pages[currentPageIndex]) {
+        currentDoc.pages[currentPageIndex].content = editor.innerHTML;
+      } else {
+        currentDoc.content = editor.innerHTML;
+      }
+      
       const icon = document.getElementById('syncIcon');
       if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
       await saveDocument(currentDoc);
+      
+      // Save version every 10 saves (approximately every minute of active editing)
+      versionSaveCounter++;
+      if (versionSaveCounter >= 10 && currentDoc.id) {
+        const currentContent = editor.innerHTML;
+        if (currentContent !== lastSavedContent) {
+          await saveVersion(currentDoc.id, currentContent, currentDoc.title);
+          lastSavedContent = currentContent;
+          versionSaveCounter = 0;
+        }
+      }
+      
       if (icon){ icon.textContent = 'check'; icon.classList.remove('spin'); }
     }, 600);
   }
@@ -227,6 +253,15 @@ async function loadOrCreate(){
     const d = await getDocument(id);
     if (d){
       currentDoc = d;
+      // Initialize pages if not present
+      if (!currentDoc.pages || currentDoc.pages.length === 0) {
+        currentDoc.pages = [{
+          id: crypto.randomUUID(),
+          title: 'Page 1',
+          content: currentDoc.content || '',
+          createdAt: Date.now()
+        }];
+      }
     }
   } else if (templateKey && TEMPLATES[templateKey]){
     const tpl = TEMPLATES[templateKey];
@@ -237,26 +272,47 @@ async function loadOrCreate(){
       content: tpl.content || '',
       dueDate: null,
       tags: [],
+      pages: [{
+        id: crypto.randomUUID(),
+        title: 'Page 1',
+        content: tpl.content || '',
+        createdAt: Date.now()
+      }],
       template: { key: tpl.key, meta: tpl.meta || null },
       createdAt: Date.now(),
       updatedAt: Date.now()
     };
   } else if (type){
     currentDoc.type = type;
+    currentDoc.pages = [{
+      id: crypto.randomUUID(),
+      title: 'Page 1',
+      content: '',
+      createdAt: Date.now()
+    }];
   }
+  
   titleEl.textContent = currentDoc.title || 'Untitled';
   typeEl.value = currentDoc.type || 'document';
   if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
   if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
-  editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
+  
+  // Load first page content
+  if (currentDoc.pages && currentDoc.pages.length > 0) {
+    editor.innerHTML = currentDoc.pages[0].content || placeholderForType(currentDoc.type);
+    currentPageIndex = 0;
+  } else {
+    editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
+  }
   
   // Update toolbar for current document type
   updateToolbarForType(currentDoc.type);
   
-  // Update status bar and outline after loading content
+  // Update status bar, outline, and pages list
   setTimeout(() => {
     updateStatusCounts();
     buildOutline();
+    buildPagesList();
   }, 0);
 
   // If created from template, immediately save to get an ID and update URL
@@ -1219,6 +1275,7 @@ loadOrCreate();
 applyEditorPrefs();
 setupToolsMenu();
 initMusic();
+initOutlineTabs();
 
 // Initialize Smart Compose
 async function initSmartCompose() {
@@ -1280,6 +1337,140 @@ document.addEventListener('keydown', (e)=>{
   }
 });
 
+// Pages Management Functions
+function buildPagesList() {
+  const pagesContainer = document.getElementById('pagesContainer');
+  if (!pagesContainer) return;
+  
+  if (!currentDoc.pages || currentDoc.pages.length === 0) {
+    currentDoc.pages = [{
+      id: crypto.randomUUID(),
+      title: 'Page 1',
+      content: editor.innerHTML,
+      createdAt: Date.now()
+    }];
+  }
+  
+  pagesContainer.innerHTML = '';
+  
+  currentDoc.pages.forEach((page, index) => {
+    const pageItem = document.createElement('div');
+    pageItem.className = `page-item ${index === currentPageIndex ? 'active' : ''}`;
+    pageItem.innerHTML = `
+      <span class="material-symbols-outlined page-item-icon">description</span>
+      <span class="page-item-title">${page.title}</span>
+      ${currentDoc.pages.length > 1 ? `<button class="page-item-delete" data-page-index="${index}"><span class="material-symbols-outlined">delete</span></button>` : ''}
+    `;
+    
+    // Click to switch page
+    pageItem.addEventListener('click', (e) => {
+      if (!e.target.closest('.page-item-delete')) {
+        switchToPage(index);
+      }
+    });
+    
+    // Delete page
+    const deleteBtn = pageItem.querySelector('.page-item-delete');
+    if (deleteBtn) {
+      deleteBtn.addEventListener('click', (e) => {
+        e.stopPropagation();
+        deletePage(index);
+      });
+    }
+    
+    pagesContainer.appendChild(pageItem);
+  });
+}
+
+function switchToPage(index) {
+  if (index < 0 || index >= currentDoc.pages.length) return;
+  
+  // Save current page content
+  if (currentDoc.pages[currentPageIndex]) {
+    currentDoc.pages[currentPageIndex].content = editor.innerHTML;
+  }
+  
+  // Switch to new page
+  currentPageIndex = index;
+  editor.innerHTML = currentDoc.pages[index].content || '';
+  
+  // Update UI
+  buildPagesList();
+  buildOutline();
+  updateStatusCounts();
+  
+  // Scroll to top
+  editor.scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function addNewPage() {
+  const newPage = {
+    id: crypto.randomUUID(),
+    title: `Page ${currentDoc.pages.length + 1}`,
+    content: '',
+    createdAt: Date.now()
+  };
+  
+  currentDoc.pages.push(newPage);
+  switchToPage(currentDoc.pages.length - 1);
+  saveNow();
+}
+
+function deletePage(index) {
+  if (currentDoc.pages.length <= 1) {
+    alert('Cannot delete the last page.');
+    return;
+  }
+  
+  if (!confirm(`Delete "${currentDoc.pages[index].title}"?`)) {
+    return;
+  }
+  
+  currentDoc.pages.splice(index, 1);
+  
+  // Adjust current page index if needed
+  if (currentPageIndex >= currentDoc.pages.length) {
+    currentPageIndex = currentDoc.pages.length - 1;
+  }
+  
+  // Load the current page
+  editor.innerHTML = currentDoc.pages[currentPageIndex].content || '';
+  
+  buildPagesList();
+  saveNow();
+}
+
+// Outline/Pages tab switching
+function initOutlineTabs() {
+  const outlineTabBtn = document.getElementById('outlineTabBtn');
+  const pagesTabBtn = document.getElementById('pagesTabBtn');
+  const outlineList = document.getElementById('outlineList');
+  const pagesList = document.getElementById('pagesList');
+  
+  if (!outlineTabBtn || !pagesTabBtn) return;
+  
+  outlineTabBtn.addEventListener('click', () => {
+    outlineTabBtn.classList.add('active');
+    pagesTabBtn.classList.remove('active');
+    outlineList.removeAttribute('hidden');
+    pagesList.setAttribute('hidden', '');
+  });
+  
+  pagesTabBtn.addEventListener('click', () => {
+    pagesTabBtn.classList.add('active');
+    outlineTabBtn.classList.remove('active');
+    pagesList.removeAttribute('hidden');
+    outlineList.setAttribute('hidden', '');
+    buildPagesList();
+  });
+  
+  // Add page button
+  const addPageBtn = document.getElementById('addPageBtn');
+  if (addPageBtn) {
+    addPageBtn.addEventListener('click', addNewPage);
+  }
+}
+
 // Setup Tools menu items
 async function setupToolsMenu(){
   const { getSetting } = await import('./idb.js');
@@ -1313,6 +1504,58 @@ async function setupToolsMenu(){
     openWordCount.addEventListener('click', ()=>{
       toggleToolsMenu();
       showWordCountPopup();
+    });
+  }
+  
+  // Version History
+  const openVersionHistory = document.getElementById('openVersionHistory');
+  if (openVersionHistory){
+    openVersionHistory.addEventListener('click', ()=>{
+      toggleToolsMenu();
+      if (!currentDoc.id) {
+        alert('Please save the document first to view version history.');
+        return;
+      }
+      showVersionHistoryModal(currentDoc.id, (restored) => {
+        // Reload the restored document
+        currentDoc = restored;
+        titleEl.textContent = restored.title;
+        if (restored.pages && restored.pages.length > 0) {
+          editor.innerHTML = restored.pages[currentPageIndex].content;
+        } else {
+          editor.innerHTML = restored.content;
+        }
+        buildOutline();
+        updateStatusCounts();
+      });
+    });
+  }
+  
+  // Summary Tool
+  const openSummaryTool = document.getElementById('openSummaryTool');
+  if (openSummaryTool){
+    openSummaryTool.addEventListener('click', ()=>{
+      toggleToolsMenu();
+      const content = editor.innerHTML;
+      if (!content.trim()) {
+        alert('Please add some content to summarize.');
+        return;
+      }
+      showSummaryModal(content);
+    });
+  }
+  
+  // Grammar Check
+  const openGrammarCheck = document.getElementById('openGrammarCheck');
+  if (openGrammarCheck){
+    openGrammarCheck.addEventListener('click', ()=>{
+      toggleToolsMenu();
+      const content = editor.innerHTML;
+      if (!content.trim()) {
+        alert('Please add some content to check.');
+        return;
+      }
+      showGrammarCheckModal(content, editor);
     });
   }
   const toggleSmartCompose = document.getElementById('toggleSmartCompose');

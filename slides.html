@@ -1,0 +1,288 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/editor.css" />
+  <link rel="stylesheet" href="data/css/slides.css" />
+  <title>Presentation • Buddy Docs</title>
+</head>
+<body>
+  <header class="editor-header">
+    <div class="menubar">
+      <div class="left">
+        <a href="./" class="logo-link" title="Home">
+          <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs"/>
+        </a>
+        <div class="title-stack">
+          <h1 id="presentationTitle" contenteditable="true" spellcheck="false">Untitled Presentation</h1>
+          <nav class="menu-row" aria-label="Application menu">
+            <button id="fileMenuBtn" class="menu-btn" data-menu="file">File</button>
+            <button class="menu-btn" data-menu="edit">Edit</button>
+            <button class="menu-btn" data-menu="insert">Insert</button>
+            <button class="menu-btn" data-menu="format">Format</button>
+            <button class="menu-btn" data-menu="arrange">Arrange</button>
+            <button class="menu-btn" data-menu="view">View</button>
+          </nav>
+        </div>
+      </div>
+      <div class="right">
+        <button id="presentBtn" class="icon-btn" style="background: var(--primary); color: white; padding: 8px 12px; gap: 4px;" title="Start presentation (F5)">
+          <span class="material-symbols-outlined" style="font-size: 18px;">play_arrow</span>
+        </button>
+        <button id="syncIndicator" class="icon-btn" title="Saved" disabled>
+          <span id="syncIcon" class="material-symbols-outlined">check</span>
+        </button>
+        <button id="profileBtn" class="avatar" title="Profile">BD</button>
+        <div id="profileMenu" class="menu" hidden>
+          <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+          <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+          <button class="menu-item" data-action="theme-toggle"><span class="material-symbols-outlined">dark_mode</span> Toggle Theme</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- File dropdown -->
+    <div id="fileDropdown" class="dropdown-menu wide" hidden>
+      <a class="menu-item" href="./"><span class="material-symbols-outlined">home</span> Home</a>
+      <a class="menu-item" href="slides.html"><span class="material-symbols-outlined">add</span> New Presentation</a>
+      <div class="menu-divider"></div>
+      <button id="archiveBtn" class="menu-item"><span class="material-symbols-outlined">inventory_2</span> Archive</button>
+      <button id="deleteBtn" class="menu-item delete"><span class="material-symbols-outlined">delete</span> Delete</button>
+      <div class="menu-divider"></div>
+      <button id="exportPdfBtn" class="menu-item"><span class="material-symbols-outlined">picture_as_pdf</span> Export as PDF</button>
+      <button id="exportBdoxBtn" class="menu-item"><span class="material-symbols-outlined">download</span> Export (.bdox)</button>
+    </div>
+
+    <div class="formatbar">
+      <button id="addSlideBtn" class="icon-btn" title="New slide (Ctrl+M)">
+        <span class="material-symbols-outlined">add_box</span>
+      </button>
+      <button id="duplicateSlideBtn" class="icon-btn" title="Duplicate slide (Ctrl+D)">
+        <span class="material-symbols-outlined">content_copy</span>
+      </button>
+      <span class="sep"></span>
+      <button data-tool="select" class="tool-btn active" title="Select (V)">
+        <span class="material-symbols-outlined">near_me</span>
+      </button>
+      <button data-tool="text" class="tool-btn" title="Text box (T)">
+        <span class="material-symbols-outlined">title</span>
+      </button>
+      <button data-tool="image" class="tool-btn" title="Image (I)">
+        <span class="material-symbols-outlined">image</span>
+      </button>
+      <button data-tool="shape" class="tool-btn" title="Shape (S)">
+        <span class="material-symbols-outlined">square</span>
+      </button>
+      <button id="layoutBtn" class="icon-btn" title="Layout">
+        <span class="material-symbols-outlined">dashboard</span>
+      </button>
+      <input id="imageInput" type="file" accept="image/*" hidden />
+      <span class="sep"></span>
+      <button data-cmd="bold" class="icon-btn" title="Bold (Ctrl+B)"><span class="material-symbols-outlined">format_bold</span></button>
+      <button data-cmd="italic" class="icon-btn" title="Italic (Ctrl+I)"><span class="material-symbols-outlined">format_italic</span></button>
+      <button data-cmd="underline" class="icon-btn" title="Underline (Ctrl+U)"><span class="material-symbols-outlined">format_underlined</span></button>
+      <span class="sep"></span>
+      <button data-align="left" class="icon-btn" title="Align left"><span class="material-symbols-outlined">format_align_left</span></button>
+      <button data-align="center" class="icon-btn" title="Align center"><span class="material-symbols-outlined">format_align_center</span></button>
+      <button data-align="right" class="icon-btn" title="Align right"><span class="material-symbols-outlined">format_align_right</span></button>
+      <span class="sep"></span>
+      <select id="fontSizeSelect" class="input" title="Font size" style="width: 80px; padding: 6px 8px;">
+        <option value="12">12</option>
+        <option value="14">14</option>
+        <option value="18">18</option>
+        <option value="24" selected>24</option>
+        <option value="32">32</option>
+        <option value="48">48</option>
+        <option value="64">64</option>
+      </select>
+      <span class="sep"></span>
+      <input type="color" id="textColorPicker" value="#110F17" title="Text color" class="color-picker"/>
+      <input type="color" id="bgColorPicker" value="#FFFFFF" title="Slide background" class="color-picker"/>
+      <span class="sep"></span>
+      <button id="bringForwardBtn" class="icon-btn" title="Bring forward">
+        <span class="material-symbols-outlined">flip_to_front</span>
+      </button>
+      <button id="sendBackwardBtn" class="icon-btn" title="Send backward">
+        <span class="material-symbols-outlined">flip_to_back</span>
+      </button>
+      <span class="sep"></span>
+      <button id="deleteElementBtn" class="icon-btn" title="Delete (Delete)">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="slides-container">
+    <!-- Slide thumbnails sidebar -->
+    <aside class="slides-sidebar">
+      <div class="slides-list" id="slidesList">
+        <!-- Slide thumbnails will be inserted here -->
+      </div>
+    </aside>
+
+    <!-- Main canvas area -->
+    <section class="canvas-area">
+      <div class="canvas-wrapper">
+        <div id="slideCanvas" class="slide-canvas">
+          <!-- Slide content will be rendered here -->
+        </div>
+      </div>
+      <div class="canvas-info">
+        <span id="slideCounter">Slide 1 of 1</span>
+      </div>
+    </section>
+  </main>
+
+  <!-- Presentation Mode Overlay -->
+  <div id="presentationMode" class="presentation-overlay" hidden>
+    <div class="presentation-controls">
+      <button id="prevSlideBtn" class="icon-btn"><span class="material-symbols-outlined">chevron_left</span></button>
+      <span id="presentSlideCounter">1 / 1</span>
+      <button id="nextSlideBtn" class="icon-btn"><span class="material-symbols-outlined">chevron_right</span></button>
+      <button id="exitPresentBtn" class="icon-btn" title="Exit presentation"><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="presentCanvas" class="present-canvas">
+      <!-- Current slide displayed here in presentation mode -->
+    </div>
+  </div>
+
+  <!-- Layout picker modal -->
+  <div id="layoutModal" class="modal-backdrop" hidden>
+    <div class="modal-card small">
+      <div class="modal-head">
+        <h3>Choose Layout</h3>
+        <button id="closeLayoutModal" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="layout-grid">
+          <button class="layout-option" data-layout="blank">
+            <div class="layout-preview blank"></div>
+            <span>Blank</span>
+          </button>
+          <button class="layout-option" data-layout="title">
+            <div class="layout-preview title">
+              <div class="title-bar"></div>
+              <div class="subtitle-bar"></div>
+            </div>
+            <span>Title</span>
+          </button>
+          <button class="layout-option" data-layout="title-content">
+            <div class="layout-preview title-content">
+              <div class="title-bar-small"></div>
+              <div class="content-area"></div>
+            </div>
+            <span>Title + Content</span>
+          </button>
+          <button class="layout-option" data-layout="two-column">
+            <div class="layout-preview two-column">
+              <div class="title-bar-small"></div>
+              <div class="columns">
+                <div class="col"></div>
+                <div class="col"></div>
+              </div>
+            </div>
+            <span>Two Columns</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Shape picker modal -->
+  <div id="shapeModal" class="modal-backdrop" hidden>
+    <div class="modal-card small">
+      <div class="modal-head">
+        <h3>Insert Shape</h3>
+        <button id="closeShapeModal" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div class="shape-grid">
+          <button class="shape-option" data-shape="rectangle">
+            <div class="shape-preview rectangle"></div>
+            <span>Rectangle</span>
+          </button>
+          <button class="shape-option" data-shape="circle">
+            <div class="shape-preview circle"></div>
+            <span>Circle</span>
+          </button>
+          <button class="shape-option" data-shape="triangle">
+            <div class="shape-preview triangle"></div>
+            <span>Triangle</span>
+          </button>
+          <button class="shape-option" data-shape="line">
+            <div class="shape-preview line"></div>
+            <span>Line</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/slides.js" type="module"></script>
+  <script type="module">
+    import { setSetting, getSetting } from './data/js/idb.js';
+    
+    // Profile avatar handling
+    (async () => {
+      const profilePicture = await getSetting('profilePicture', null);
+      const initials = await getSetting('initials', 'BD');
+      const btn = document.getElementById('profileBtn');
+      
+      if (btn) {
+        if (profilePicture) {
+          btn.style.backgroundImage = `url(${profilePicture})`;
+          btn.textContent = '';
+        } else {
+          btn.style.backgroundImage = '';
+          btn.textContent = (initials || 'BD').slice(0,2).toUpperCase();
+        }
+      }
+    })();
+
+    const btn = document.getElementById('profileBtn');
+    const menu = document.getElementById('profileMenu');
+    function closeMenu(){
+      if (menu?.classList.contains('open')){
+        menu.classList.remove('open');
+        document.removeEventListener('click', onDocClick);
+        window.removeEventListener('resize', closeMenu);
+        window.removeEventListener('scroll', closeMenu, true);
+      }
+    }
+    function onDocClick(e){ if (!menu.contains(e.target) && e.target !== btn) closeMenu(); }
+    btn?.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('open');
+      if (isOpen){
+        document.addEventListener('click', onDocClick);
+        window.addEventListener('resize', closeMenu);
+        window.addEventListener('scroll', closeMenu, true);
+      } else closeMenu();
+    });
+    menu?.addEventListener('click', async (e)=>{
+      const target = e.target.closest('.menu-item');
+      if (!target) return;
+      if (target.dataset.action === 'theme-toggle'){
+        const cur = document.documentElement.getAttribute('data-theme') || 'light';
+        const next = cur === 'light' ? 'dark' : 'light';
+        document.documentElement.setAttribute('data-theme', next);
+        await setSetting('theme', next);
+        closeMenu();
+      }
+    });
+  </script>
+</body>
+</html>

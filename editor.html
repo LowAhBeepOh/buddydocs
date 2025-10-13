@@ -19,6 +19,8 @@
   <link rel="stylesheet" href="data/css/editor.css" />
   <link rel="stylesheet" href="data/css/music-player.css" />
   <link rel="stylesheet" href="data/css/more-editor.css" />
+  <link rel="stylesheet" href="data/css/ai-enhanced.css" />
+  <link rel="stylesheet" href="data/css/new-features.css" />
   <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
   <title>Editor • Buddy Docs</title>
 </head>
@@ -91,6 +93,19 @@
       <button id="openWordCount" class="tools-menu-item">
         <span class="material-symbols-outlined">analytics</span>
         <span>Word Count</span>
+      </button>
+      <div class="menu-divider"></div>
+      <button id="openVersionHistory" class="tools-menu-item">
+        <span class="material-symbols-outlined">history</span>
+        <span>Version History</span>
+      </button>
+      <button id="openSummaryTool" class="tools-menu-item">
+        <span class="material-symbols-outlined">summarize</span>
+        <span>Summary</span>
+      </button>
+      <button id="openGrammarCheck" class="tools-menu-item">
+        <span class="material-symbols-outlined">spellcheck</span>
+        <span>Check Grammar</span>
       </button>
       <div class="menu-divider"></div>
       <button id="toggleSmartCompose" class="tools-menu-item">
@@ -194,12 +209,23 @@
         <div class="outline-title">
           <span>Outline</span>
         </div>
+        <div class="outline-tabs">
+          <button id="outlineTabBtn" class="outline-tab active" data-tab="outline">Outline</button>
+          <button id="pagesTabBtn" class="outline-tab" data-tab="pages">Pages</button>
+        </div>
       </div>
       <div class="outline-content">
         <div id="outlineList" class="outline-list">
           <div class="outline-empty">
             Headings you add to the document will appear here.
           </div>
+        </div>
+        <div id="pagesList" class="pages-list" hidden>
+          <button id="addPageBtn" class="add-page-btn">
+            <span class="material-symbols-outlined">add</span>
+            <span>Add Page</span>
+          </button>
+          <div id="pagesContainer" class="pages-container"></div>
         </div>
       </div>
     </aside>
@@ -271,6 +297,9 @@
 
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/version-history.js" type="module"></script>
+  <script src="data/js/summary-tool.js" type="module"></script>
+  <script src="data/js/grammar-check.js" type="module"></script>
   <script src="data/js/editor.js" type="module"></script>
   <script src="data/js/music-player.js" type="module"></script>
   <script src="data/js/ai.js" type="module"></script>

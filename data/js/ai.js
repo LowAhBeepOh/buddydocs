@@ -1,5 +1,42 @@
 import { getSetting, setSetting } from './idb.js';
 
+// CompactB Personality System
+const PERSONALITY = {
+  greetings: [
+    "Hey there! What can I help you with today? ✨",
+    "Hi! Ready to make your document awesome? 🚀",
+    "Hello! I'm here to help you write better! 📝",
+    "Hey! Let's make something great together! 💫"
+  ],
+  thinking: [
+    "Hmm, let me think about that...",
+    "Analyzing your document...",
+    "Processing your request...",
+    "Working on it...",
+    "Reading through your content...",
+    "Cooking up something good...",
+    "On it! Just a sec..."
+  ],
+  success: [
+    "Done! Here's what I came up with:",
+    "All set! Check this out:",
+    "Perfect! Here you go:",
+    "Got it! Take a look:",
+    "Ready! Here's what I suggest:"
+  ],
+  encouragement: [
+    "Great work so far!",
+    "This is shaping up nicely!",
+    "Looking good!",
+    "You're doing awesome!",
+    "Nice document you've got here!"
+  ]
+};
+
+function getRandomItem(array) {
+  return array[Math.floor(Math.random() * array.length)];
+}
+
 export async function isAiEnabled() {
   return await getSetting('aiEnabled', false);
 }
@@ -233,10 +270,10 @@ export async function sendChatMessage(message, mode) {
   const context = getDocumentContext(mode || config.mode);
   
   // Build the full prompt with appropriate system instructions
-  let systemPrompt = 'You are a helpful AI assistant for document editing and writing.';
+  let systemPrompt = `You are CompactB, a friendly and enthusiastic AI writing assistant in Buddy Docs! You're helpful, encouraging, and love to make writing easier. Keep your responses warm and conversational while staying professional. Add a touch of personality without being overly casual.`;
   
   if (mode === 'edit' && context) {
-    systemPrompt = `You are an AI document editor. You can read and modify the current document without overwriting existing content unless explicitly asked.
+    systemPrompt = `You are CompactB, a friendly AI document editor in Buddy Docs! You help users improve their writing with enthusiasm and care. You can read and modify the current document without overwriting existing content unless explicitly asked.
 
 IMPORTANT: When in edit mode, you MUST respond with valid JSON ONLY in this exact format:
 {
@@ -398,14 +435,41 @@ export function createChatbotUI() {
     </div>
     <div class="ai-chatbot-mode">
       <select id="aiModeSelect">
-        <option value="ask-without-context">Ask (without context)</option>
-        <option value="ask">Ask (with context)</option>
-        <option value="edit">Edit document</option>
+        <option value="ask-without-context">💬 Ask (no context)</option>
+        <option value="ask">📖 Ask (with context)</option>
+        <option value="edit">✏️ Edit document</option>
       </select>
     </div>
-    <div class="ai-chatbot-messages" id="aiMessages"></div>
+    <div class="ai-quick-actions">
+      <button class="quick-action-btn" data-action="improve" title="Improve writing">
+        <span class="material-symbols-outlined">auto_fix_high</span>
+        <span>Improve</span>
+      </button>
+      <button class="quick-action-btn" data-action="summarize" title="Summarize content">
+        <span class="material-symbols-outlined">summarize</span>
+        <span>Summarize</span>
+      </button>
+      <button class="quick-action-btn" data-action="expand" title="Expand content">
+        <span class="material-symbols-outlined">unfold_more</span>
+        <span>Expand</span>
+      </button>
+      <button class="quick-action-btn" data-action="grammar" title="Fix grammar">
+        <span class="material-symbols-outlined">spellcheck</span>
+        <span>Grammar</span>
+      </button>
+    </div>
+    <div class="ai-chatbot-messages" id="aiMessages">
+      <div class="ai-greeting">
+        <span class="material-symbols-outlined sparkle-icon">auto_awesome</span>
+        <p>${getRandomItem(PERSONALITY.greetings)}</p>
+        <div class="greeting-tip">💡 <strong>Tip:</strong> Select text in your document for context-aware suggestions!</div>
+      </div>
+    </div>
     <div class="ai-chatbot-input">
-      <input type="text" id="aiInput" placeholder="Ask CompactB..." />
+      <input type="text" id="aiInput" placeholder="Ask me anything... (Press Enter to send)" />
+      <button id="aiSendBtn" class="send-btn-new" title="Send message">
+        <span class="material-symbols-outlined">send</span>
+      </button>
     </div>
     <div class="ai-chatbot-resize-handle"></div>
   `;
@@ -457,8 +521,10 @@ function makeResizable(chatbot) {
 
 async function bindChatbotEvents() {
   const input = document.getElementById('aiInput');
+  const sendBtn = document.getElementById('aiSendBtn');
   const modeSelect = document.getElementById('aiModeSelect');
   const messagesContainer = document.getElementById('aiMessages');
+  const quickActionBtns = document.querySelectorAll('.quick-action-btn');
 
   // Load and set current mode
   const currentMode = await getSetting('aiMode', 'ask-without-context');
@@ -467,13 +533,108 @@ async function bindChatbotEvents() {
   // Save mode when changed
   modeSelect.addEventListener('change', async () => {
     await setSetting('aiMode', modeSelect.value);
+    // Add a friendly note about mode change
+    const modeNames = {
+      'ask-without-context': 'general questions mode',
+      'ask': 'context-aware mode',
+      'edit': 'document editing mode'
+    };
+    addSystemMessage(`Switched to ${modeNames[modeSelect.value]}! ${getRandomItem(PERSONALITY.encouragement)}`);
   });
+
+  // Quick action handlers
+  quickActionBtns.forEach(btn => {
+    btn.addEventListener('click', async () => {
+      const action = btn.dataset.action;
+      const selectedText = getSelectedText();
+      
+      let prompt = '';
+      switch(action) {
+        case 'improve':
+          prompt = selectedText 
+            ? `Improve this text: "${selectedText}"` 
+            : 'Analyze my document and suggest improvements to make it more engaging and clear.';
+          break;
+        case 'summarize':
+          prompt = selectedText 
+            ? `Summarize this: "${selectedText}"` 
+            : 'Create a concise summary of my document.';
+          break;
+        case 'expand':
+          prompt = selectedText 
+            ? `Expand on this text with more details: "${selectedText}"` 
+            : 'Help me expand the content in my document with more details and examples.';
+          break;
+        case 'grammar':
+          prompt = selectedText 
+            ? `Fix any grammar and spelling issues in this text: "${selectedText}"` 
+            : 'Check my document for grammar and spelling issues.';
+          break;
+      }
+      
+      if (prompt) {
+        input.value = prompt;
+        sendMessage();
+      }
+    });
+  });
+
+  // Helper to get selected text from editor
+  function getSelectedText() {
+    const selection = window.getSelection();
+    if (!selection || selection.rangeCount === 0) return '';
+    const selectedText = selection.toString().trim();
+    const editorEl = document.getElementById('editor');
+    // Check if selection is within editor
+    if (editorEl && editorEl.contains(selection.anchorNode)) {
+      return selectedText;
+    }
+    return '';
+  }
+
+  // Format message content with basic markdown-like support
+  function formatMessageContent(content) {
+    if (!content) return '';
+    
+    // Escape HTML first
+    let formatted = String(content)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;');
+    
+    // Support basic markdown-style formatting
+    formatted = formatted
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>') // **bold**
+      .replace(/\*(.*?)\*/g, '<em>$1</em>') // *italic*
+      .replace(/`(.*?)`/g, '<code>$1</code>') // `code`
+      .replace(/\n/g, '<br>'); // line breaks
+    
+    return formatted;
+  }
+
+  // Add system message (for mode changes, etc.)
+  function addSystemMessage(content) {
+    const messageEl = document.createElement('div');
+    messageEl.className = 'message system';
+    messageEl.innerHTML = `
+      <div class="message-content system-message">
+        <span class="material-symbols-outlined">info</span>
+        ${content}
+      </div>
+    `;
+    messagesContainer.appendChild(messageEl);
+    messagesContainer.scrollTop = messagesContainer.scrollHeight;
+  }
 
   function addMessage(role, content, isError = false) {
     const messageId = `msg-${Date.now()}-${Math.random()}`;
     const messageEl = document.createElement('div');
     messageEl.id = messageId;
     messageEl.className = `message ${role} ${isError ? 'error' : ''}`;
+    
+    // Format content with markdown-like support
+    const formattedContent = formatMessageContent(content);
+    
     messageEl.innerHTML = `
       <div class="message-avatar">
         ${role === 'user' ? 
@@ -481,10 +642,18 @@ async function bindChatbotEvents() {
           '<span class="material-symbols-outlined sparkle-icon">auto_awesome</span>'
         }
       </div>
-      <div class="message-content">${content}</div>
+      <div class="message-content">${formattedContent}</div>
     `;
 
     messagesContainer.appendChild(messageEl);
+    // Smooth scroll with animation
+    messageEl.style.opacity = '0';
+    messageEl.style.transform = 'translateY(10px)';
+    setTimeout(() => {
+      messageEl.style.transition = 'all 0.3s ease';
+      messageEl.style.opacity = '1';
+      messageEl.style.transform = 'translateY(0)';
+    }, 10);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
     return messageId;
   }
@@ -719,17 +888,20 @@ async function bindChatbotEvents() {
     const hasTitleChange = (newTitle !== curTitle);
     const hasContentChange = (newContentText !== curContentText);
 
-    const opsHtml = hasOps ? `<div class="ops-list">${ops.map(op=>{
+    // Enhanced operation display with more detail
+    const opsHtml = hasOps ? `<div class="ops-list"><div class="ops-header"><strong>📝 Proposed Changes:</strong></div>${ops.map((op, idx)=>{
       const t = op.type;
-      if (t==='append') return `<div class="op-item"><span class="op-badge">append</span> Add at end</div>`;
-      if (t==='prepend') return `<div class="op-item"><span class="op-badge">prepend</span> Add at start</div>`;
-      if (t==='insertAfter') return `<div class="op-item"><span class="op-badge">insertAfter</span> After "${escapeHtml(op.target||'')}"</div>`;
-      if (t==='insertBefore') return `<div class="op-item"><span class="op-badge">insertBefore</span> Before "${escapeHtml(op.target||'')}"</div>`;
-      if (t==='replace') return `<div class="op-item"><span class="op-badge">replace</span> Replace "${escapeHtml(op.target||'')}" with HTML</div>`;
-      if (t==='wrap') return `<div class="op-item"><span class="op-badge">wrap</span> Wrap "${escapeHtml(op.target||'')}" in <code>${escapeHtml(op.tag||'')}</code></div>`;
-      if (t==='formatBlock') return `<div class="op-item"><span class="op-badge">formatBlock</span> Change "${escapeHtml(op.target||'')}" to <code>${escapeHtml(op.tag||'')}</code></div>`;
-      if (t==='insertList') return `<div class="op-item"><span class="op-badge">insertList</span> Make "${escapeHtml(op.target||'')}" into ${op.listType||'ul'} list</div>`;
-      return `<div class="op-item"><span class="op-badge">${escapeHtml(t||'op')}</span></div>`;
+      const preview = op.html ? `<div class="op-preview">${escapeHtml(stripHtml(op.html).slice(0, 100))}${stripHtml(op.html).length > 100 ? '...' : ''}</div>` : '';
+      
+      if (t==='append') return `<div class="op-item"><span class="op-badge append">➕ append</span> Add new content at the end of document${preview}</div>`;
+      if (t==='prepend') return `<div class="op-item"><span class="op-badge prepend">⬆️ prepend</span> Add new content at the beginning${preview}</div>`;
+      if (t==='insertAfter') return `<div class="op-item"><span class="op-badge insert">📍 insertAfter</span> Insert after <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code>${preview}</div>`;
+      if (t==='insertBefore') return `<div class="op-item"><span class="op-badge insert">📍 insertBefore</span> Insert before <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code>${preview}</div>`;
+      if (t==='replace') return `<div class="op-item"><span class="op-badge replace">🔄 replace</span> Replace <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code> with new content${preview}</div>`;
+      if (t==='wrap') return `<div class="op-item"><span class="op-badge format">✨ format</span> Wrap <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code> in <strong>&lt;${escapeHtml(op.tag||'')}&gt;</strong> tag</div>`;
+      if (t==='formatBlock') return `<div class="op-item"><span class="op-badge format">🎨 formatBlock</span> Change <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code> to <strong>&lt;${escapeHtml(op.tag||'')}&gt;</strong></div>`;
+      if (t==='insertList') return `<div class="op-item"><span class="op-badge format">📋 list</span> Convert <code>"${escapeHtml((op.target||'').slice(0, 40))}"</code> to ${op.listType==='ol'?'numbered':'bulleted'} list</div>`;
+      return `<div class="op-item"><span class="op-badge">${escapeHtml(t||'op')}</span> ${preview}</div>`;
     }).join('')}</div>` : '';
 
     messageEl.innerHTML = `
@@ -737,21 +909,41 @@ async function bindChatbotEvents() {
         <span class="material-symbols-outlined sparkle-icon">auto_awesome</span>
       </div>
       <div class="message-content">
-        <div class="edit-explanation">${escapeHtml(explanation || 'Proposed changes')}</div>
+        <div class="edit-explanation">
+          <span class="explanation-icon">💡</span>
+          <strong>What I'll do:</strong> ${escapeHtml(explanation || 'Apply changes to your document')}
+        </div>
         <div class="edit-preview">
           ${hasOps ? opsHtml : ''}
-          ${!hasOps ? (hasTitleChange ? `<div class="diff-section"><strong>Title:</strong><div class="diff-container">${titleDiff.html}</div></div>` : '<div class="diff-section"><strong>Title:</strong> <em>No change</em></div>') : ''}
-          ${!hasOps ? (hasContentChange ? `<details class="diff-section"><summary><strong>Content:</strong> ${contentDiff.adds} insertions, ${contentDiff.dels} deletions (click to expand)</summary><div class="diff-container">${contentDiff.html}</div></details>` : '<div class="diff-section"><strong>Content:</strong> <em>No change</em></div>') : ''}
+          ${!hasOps ? (hasTitleChange ? `<div class="diff-section"><strong>📄 Title Change:</strong><div class="diff-container">${titleDiff.html}</div></div>` : '') : ''}
+          ${!hasOps ? (hasContentChange ? `<details class="diff-section"><summary><strong>📝 Content Changes:</strong> <span class="change-stats">+${contentDiff.adds} additions, -${contentDiff.dels} deletions</span> (click to expand)</summary><div class="diff-container">${contentDiff.html}</div></details>` : '') : ''}
         </div>
         <div class="edit-actions">
-          <button class="edit-btn preview-btn">Preview</button>
-          <button class="edit-btn accept-btn">Accept</button>
-          <button class="edit-btn deny-btn">Deny</button>
+          <button class="edit-btn preview-btn">
+            <span class="material-symbols-outlined">visibility</span>
+            Preview
+          </button>
+          <button class="edit-btn accept-btn">
+            <span class="material-symbols-outlined">check_circle</span>
+            Accept
+          </button>
+          <button class="edit-btn deny-btn">
+            <span class="material-symbols-outlined">cancel</span>
+            Deny
+          </button>
         </div>
       </div>
     `;
 
     messagesContainer.appendChild(messageEl);
+    // Add animation
+    messageEl.style.opacity = '0';
+    messageEl.style.transform = 'scale(0.95)';
+    setTimeout(() => {
+      messageEl.style.transition = 'all 0.3s ease';
+      messageEl.style.opacity = '1';
+      messageEl.style.transform = 'scale(1)';
+    }, 10);
     messagesContainer.scrollTop = messagesContainer.scrollHeight;
 
     // Bind action buttons
@@ -808,11 +1000,13 @@ async function bindChatbotEvents() {
     addMessage('user', message);
     input.value = '';
     input.disabled = true;
+    sendBtn.disabled = true;
     
     let thinkingId;
     try {
-      // Add thinking message
-      thinkingId = addMessage('assistant', 'Thinking...');
+      // Add thinking message with personality
+      const thinkingText = getRandomItem(PERSONALITY.thinking);
+      thinkingId = addMessage('assistant', `<div class="thinking-message"><span class="thinking-dots"></span> ${thinkingText}</div>`);
       
       // Get AI response
       const response = await sendChatMessage(message, mode);
@@ -825,23 +1019,28 @@ async function bindChatbotEvents() {
       
       // Handle edit proposals
       if (response && typeof response === 'object' && response.isEdit) {
+        // Add success message with personality
+        const successMsg = getRandomItem(PERSONALITY.success);
+        const encouragement = Math.random() > 0.5 ? ` ${getRandomItem(PERSONALITY.encouragement)}` : '';
+        addMessage('assistant', `${successMsg}${encouragement}`);
         addEditProposal(response.explanation, response.changes, response.originalResponse);
       } else {
         // Regular message
-        addMessage('assistant', response || 'No response');
+        addMessage('assistant', response || 'Hmm, I couldn\'t come up with a response. Could you try rephrasing that?');
       }
       
     } catch (error) {
       // Replace thinking message with error
       const thinkingEl = thinkingId ? document.getElementById(thinkingId) : null;
       if (thinkingEl) {
-        thinkingEl.querySelector('.message-content').textContent = `Error: ${error.message}`;
+        thinkingEl.querySelector('.message-content').innerHTML = `<span class="error-icon">⚠️</span> Oops! I ran into an issue: ${error.message}<br><br><em>Tip: Make sure your AI model is configured in Settings and running.</em>`;
         thinkingEl.classList.add('error');
       } else {
-        addMessage('assistant', `Error: ${error.message}`, true);
+        addMessage('assistant', `<span class="error-icon">⚠️</span> Oops! ${error.message}`, true);
       }
     } finally {
       input.disabled = false;
+      sendBtn.disabled = false;
       input.focus();
     }
   }
@@ -852,6 +1051,11 @@ async function bindChatbotEvents() {
       e.preventDefault();
       sendMessage();
     }
+  });
+
+  // Send button click handler
+  sendBtn.addEventListener('click', () => {
+    sendMessage();
   });
 }
 
