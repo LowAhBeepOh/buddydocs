@@ -103,9 +103,9 @@
         <span class="material-symbols-outlined">summarize</span>
         <span>Summary</span>
       </button>
-      <button id="openGrammarCheck" class="tools-menu-item">
+      <button id="openReview" class="tools-menu-item">
         <span class="material-symbols-outlined">spellcheck</span>
-        <span>Check Grammar</span>
+        <span>Review</span>
       </button>
       <div class="menu-divider"></div>
       <button id="toggleSmartCompose" class="tools-menu-item">
@@ -233,6 +233,19 @@
     <section class="page">
       <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
     </section>
+
+    <!-- Review Sidebar (right) -->
+    <aside id="reviewSidebar" class="outline-sidebar" hidden>
+      <div class="outline-header">
+        <div class="outline-title">
+          <span>Review</span>
+        </div>
+      </div>
+      <div class="outline-content">
+        <div id="reviewStats"></div>
+        <div id="reviewList" class="outline-list"></div>
+      </div>
+    </aside>
 
     <div class="spacer"></div>
   </main>

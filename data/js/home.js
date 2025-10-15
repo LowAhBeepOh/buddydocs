@@ -1,7 +1,10 @@
-import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
+import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, listFolders, saveFolder, deleteFolder, getFolder } from './idb.js';
 import { initAiCommandBar } from './ai-command.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
+
+// Current folder navigation
+let currentFolderId = null;
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
@@ -788,6 +791,9 @@ function closeAllMenus(except) {
 
 async function handleDocAction(doc, action) {
   switch(action) {
+    case 'move-to-folder':
+      await showMoveToFolderModal(doc);
+      break;
     case 'toggle-lock': {
       const secretSet = await getSetting('secretSet', false);
       if (!secretSet){
@@ -872,8 +878,12 @@ function createDocCard(doc){
       <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
     </div>`;
     thumb.style.padding = '0';
-  } else if (doc.content) {
-    thumb.innerHTML = doc.content.slice(0, 200) + (doc.content.length > 200 ? '...' : '');
+  } else {
+    // For documents, check both content field and pages array
+    const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
+    if (content) {
+      thumb.innerHTML = content.slice(0, 200) + (content.length > 200 ? '...' : '');
+    }
   }
 
   // Lock UI overlay
@@ -926,18 +936,165 @@ function createDocCard(doc){
   return node;
 }
 
+// Folder colors
+const FOLDER_COLORS = {
+  blue: '#0550FF',
+  purple: '#8B5CF6',
+  pink: '#EC4899',
+  red: '#EF4444',
+  orange: '#F97316',
+  yellow: '#EAB308',
+  green: '#10B981',
+  teal: '#14B8A6',
+  gray: '#6B7280'
+};
+
+function createFolderCard(folder) {
+  const card = document.createElement('div');
+  card.className = 'doc-card folder-card';
+  card.style.setProperty('--folder-color', FOLDER_COLORS[folder.color] || FOLDER_COLORS.blue);
+  
+  const link = document.createElement('a');
+  link.className = 'doc-link';
+  link.href = '#';
+  link.addEventListener('click', async (e) => {
+    e.preventDefault();
+    currentFolderId = folder.id;
+    await renderDocs();
+  });
+  
+  const thumb = document.createElement('div');
+  thumb.className = 'thumb folder-thumb';
+  thumb.innerHTML = `<span class="folder-emoji">${folder.emoji || '📁'}</span>`;
+  
+  const meta = document.createElement('div');
+  meta.className = 'meta';
+  meta.innerHTML = `
+    <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+    <span class="type">Folder</span>
+  `;
+  
+  link.appendChild(thumb);
+  link.appendChild(meta);
+  card.appendChild(link);
+  
+  // Menu container
+  const menuContainer = document.createElement('div');
+  menuContainer.className = 'menu-container';
+  
+  const moreBtn = document.createElement('button');
+  moreBtn.className = 'more icon-btn';
+  moreBtn.title = 'More';
+  moreBtn.innerHTML = '<span class="material-symbols-outlined">more_horiz</span>';
+  
+  const menu = document.createElement('div');
+  menu.className = 'dropdown-menu';
+  menu.hidden = true;
+  menu.innerHTML = `
+    <button class="menu-item" data-action="edit-folder">
+      <span class="material-symbols-outlined">edit</span>
+      Edit Folder
+    </button>
+    <button class="menu-item delete" data-action="delete-folder">
+      <span class="material-symbols-outlined">delete</span>
+      Delete Folder
+    </button>
+  `;
+  
+  menuContainer.appendChild(moreBtn);
+  menuContainer.appendChild(menu);
+  card.appendChild(menuContainer);
+  
+  // Menu handlers
+  function open() {
+    closeAllMenus(menu);
+    menu.hidden = false;
+    positionMenuNearButton(menu, moreBtn);
+    window.addEventListener('resize', onWindowChange);
+    window.addEventListener('scroll', onWindowChange, true);
+  }
+  function close() {
+    menu.hidden = true;
+    window.removeEventListener('resize', onWindowChange);
+    window.removeEventListener('scroll', onWindowChange, true);
+  }
+  function onWindowChange() {
+    if (!menu.hidden) positionMenuNearButton(menu, moreBtn);
+  }
+  
+  moreBtn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menu.hidden) open(); else close();
+  });
+  
+  menu.addEventListener('click', async (e) => {
+    e.stopPropagation();
+    const menuItem = e.target.closest('.menu-item');
+    if (!menuItem) return;
+    const action = menuItem.dataset.action;
+    
+    if (action === 'edit-folder') {
+      showEditFolderModal(folder);
+    } else if (action === 'delete-folder') {
+      if (confirm(`Delete "${folder.name}" and all its contents?`)) {
+        await deleteFolder(folder.id);
+        await renderDocs();
+      }
+    }
+    close();
+  });
+  
+  document.addEventListener('click', () => {
+    if (!menu.hidden) close();
+  });
+  
+  return card;
+}
+
 async function renderDocs(){
   const grid = document.getElementById('docGrid');
   const term = document.getElementById('search').value;
-  const docs = await listDocuments({ search: term });
+  
+  // Get folders and documents
+  const folders = await listFolders({ parentId: currentFolderId });
+  const allDocs = await listDocuments({ search: term });
+  const docs = allDocs.filter(d => (d.folderId || null) === currentFolderId);
+  
   grid.innerHTML = '';
 
   const sectionHead = document.querySelector('.documents .section-head');
   const documentsSection = document.querySelector('.documents');
-  // cleanup old welcome if any
   const existingWelcome = documentsSection.querySelector('.welcome-container');
+  
+  // Update section title based on current folder
+  const sectionTitle = sectionHead?.querySelector('h3');
+  if (sectionTitle) {
+    if (currentFolderId) {
+      const currentFolder = await getFolder(currentFolderId);
+      sectionTitle.textContent = currentFolder ? currentFolder.name : 'Your Documents';
+      
+      // Add back button
+      let backBtn = sectionHead.querySelector('.back-btn');
+      if (!backBtn) {
+        backBtn = document.createElement('button');
+        backBtn.className = 'icon-btn back-btn';
+        backBtn.title = 'Back';
+        backBtn.innerHTML = '<span class="material-symbols-outlined">arrow_back</span>';
+        backBtn.addEventListener('click', async () => {
+          const folder = await getFolder(currentFolderId);
+          currentFolderId = folder?.parentId || null;
+          await renderDocs();
+        });
+        sectionTitle.parentElement.insertBefore(backBtn, sectionTitle);
+      }
+    } else {
+      sectionTitle.textContent = 'Your Documents';
+      const backBtn = sectionHead.querySelector('.back-btn');
+      if (backBtn) backBtn.remove();
+    }
+  }
 
-  if (docs.length === 0 && !term) {
+  if (folders.length === 0 && docs.length === 0 && !term && !currentFolderId) {
       if (sectionHead) sectionHead.style.display = 'none';
       grid.hidden = true;
       if (!existingWelcome) createWelcomeScreen(grid);
@@ -945,6 +1102,13 @@ async function renderDocs(){
       if (sectionHead) sectionHead.style.display = 'flex';
       grid.hidden = false;
       if (existingWelcome) existingWelcome.remove();
+      
+      // Render folders first
+      for(const f of folders){
+          grid.appendChild(createFolderCard(f));
+      }
+      
+      // Then render documents
       for(const d of docs){
           grid.appendChild(createDocCard(d));
       }
@@ -1131,6 +1295,159 @@ function bindSearch() {
   });
 }
 
+// Move to folder modal functions
+async function showMoveToFolderModal(doc) {
+  const modal = document.getElementById('moveToFolderModal');
+  const folderSelect = document.getElementById('folderSelect');
+  const moveBtn = document.getElementById('moveToFolderBtn');
+  
+  if (!modal) return;
+  
+  // Populate folder select with all folders
+  const allFolders = await getAllFoldersFlat();
+  folderSelect.innerHTML = '<option value="">Root (No Folder)</option>';
+  
+  for (const folder of allFolders) {
+    const option = document.createElement('option');
+    option.value = folder.id;
+    option.textContent = folder.name;
+    if (doc.folderId === folder.id) {
+      option.selected = true;
+    }
+    folderSelect.appendChild(option);
+  }
+  
+  modal.removeAttribute('hidden');
+  
+  // Handle move
+  const handleMove = async () => {
+    const selectedFolderId = folderSelect.value || null;
+    doc.folderId = selectedFolderId;
+    await saveDocument(doc);
+    closeMoveToFolderModal();
+    await renderDocs();
+  };
+  
+  moveBtn.onclick = handleMove;
+}
+
+function closeMoveToFolderModal() {
+  const modal = document.getElementById('moveToFolderModal');
+  if (modal) modal.setAttribute('hidden', '');
+}
+
+async function getAllFoldersFlat() {
+  // Get all folders recursively
+  const result = [];
+  
+  async function collectFolders(parentId = null, prefix = '') {
+    const folders = await listFolders({ parentId });
+    for (const folder of folders) {
+      result.push({ ...folder, name: prefix + folder.name });
+      await collectFolders(folder.id, prefix + '  ');
+    }
+  }
+  
+  await collectFolders();
+  return result;
+}
+
+function setupMoveToFolderModal() {
+  const modal = document.getElementById('moveToFolderModal');
+  const closeBtn = document.getElementById('closeMoveToFolderModal');
+  
+  if (!modal) return;
+  
+  closeBtn?.addEventListener('click', closeMoveToFolderModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeMoveToFolderModal();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!modal?.hasAttribute('hidden') && e.key === 'Escape') closeMoveToFolderModal();
+  });
+}
+
+// Folder modal functions
+function showEditFolderModal(folder = null) {
+  const isNew = !folder;
+  const modal = document.getElementById('folderModal');
+  const modalTitle = document.getElementById('folderModalTitle');
+  const nameInput = document.getElementById('folderNameInput');
+  const emojiInput = document.getElementById('folderEmojiInput');
+  const colorPicker = document.getElementById('folderColorPicker');
+  const saveBtn = document.getElementById('saveFolderBtn');
+  
+  if (!modal) return;
+  
+  modalTitle.textContent = isNew ? 'New Folder' : 'Edit Folder';
+  nameInput.value = folder?.name || '';
+  emojiInput.value = folder?.emoji || '📁';
+  
+  // Set active color
+  const colorButtons = colorPicker.querySelectorAll('.color-option');
+  colorButtons.forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.color === (folder?.color || 'blue'));
+  });
+  
+  modal.removeAttribute('hidden');
+  nameInput.focus();
+  
+  // Handle save
+  const handleSave = async () => {
+    const name = nameInput.value.trim() || 'Untitled Folder';
+    const emoji = emojiInput.value.trim() || '📁';
+    const activeColor = colorPicker.querySelector('.color-option.active');
+    const color = activeColor?.dataset.color || 'blue';
+    
+    const folderData = {
+      ...(folder || {}),
+      name,
+      emoji,
+      color,
+      parentId: currentFolderId
+    };
+    
+    await saveFolder(folderData);
+    closeFolderModal();
+    await renderDocs();
+  };
+  
+  saveBtn.onclick = handleSave;
+  nameInput.onkeydown = (e) => {
+    if (e.key === 'Enter') handleSave();
+  };
+}
+
+function closeFolderModal() {
+  const modal = document.getElementById('folderModal');
+  if (modal) modal.setAttribute('hidden', '');
+}
+
+function setupFolderModal() {
+  const modal = document.getElementById('folderModal');
+  const closeBtn = document.getElementById('closeFolderModal');
+  const colorPicker = document.getElementById('folderColorPicker');
+  
+  if (!modal) return;
+  
+  closeBtn?.addEventListener('click', closeFolderModal);
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeFolderModal();
+  });
+  window.addEventListener('keydown', (e) => {
+    if (!modal?.hasAttribute('hidden') && e.key === 'Escape') closeFolderModal();
+  });
+  
+  // Color picker
+  colorPicker?.addEventListener('click', (e) => {
+    const colorBtn = e.target.closest('.color-option');
+    if (colorBtn) {
+      colorPicker.querySelectorAll('.color-option').forEach(btn => btn.classList.remove('active'));
+      colorBtn.classList.add('active');
+    }
+  });
+}
+
 // Initialize everything when DOM is ready
 async function initialize() {
   await renderGreeting();
@@ -1141,6 +1458,26 @@ async function initialize() {
   await setupDeadlinesToggle();
   await initAiCommandBar();
   setupTemplatesModal();
+  setupFolderModal();
+  setupMoveToFolderModal();
+  
+  // Setup new folder button
+  const newFolderBtn = document.getElementById('newFolderBtn');
+  if (newFolderBtn) {
+    newFolderBtn.addEventListener('click', () => showEditFolderModal());
+  }
+  
+  // Setup quick action links to include folderId
+  document.querySelectorAll('.quick-action-link').forEach(link => {
+    link.addEventListener('click', (e) => {
+      if (currentFolderId) {
+        e.preventDefault();
+        const baseHref = link.getAttribute('href');
+        const separator = baseHref.includes('?') ? '&' : '?';
+        window.location.href = `${baseHref}${separator}folderId=${encodeURIComponent(currentFolderId)}`;
+      }
+    });
+  });
 }
 
 // Wait for DOM to be ready

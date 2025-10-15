@@ -60,28 +60,28 @@
     <section class="quick-actions">
       <h3>New</h3>
       <div class="card-row">
-        <a class="card new" href="editor.html?type=document">
+        <a class="card new quick-action-link" href="editor.html?type=document" data-type="document">
           <span class="material-symbols-outlined">description</span>
           <div>
             <strong>Blank Document</strong>
             <p>Start writing</p>
           </div>
         </a>
-        <a class="card new" href="slides.html">
+        <a class="card new quick-action-link" href="slides.html" data-type="presentation">
           <span class="material-symbols-outlined">slideshow</span>
           <div>
             <strong>Presentation (BETA)</strong>
             <p>Create slides</p>
           </div>
         </a>
-        <a class="card new" href="editor.html?type=list">
+        <a class="card new quick-action-link" href="editor.html?type=list" data-type="list">
           <span class="material-symbols-outlined">checklist</span>
           <div>
             <strong>List</strong>
             <p>To-dos and bullets</p>
           </div>
         </a>
-        <a class="card new" href="editor.html?type=gallery">
+        <a class="card new quick-action-link" href="editor.html?type=gallery" data-type="gallery">
           <span class="material-symbols-outlined">photo_library</span>
           <div>
             <strong>Gallery</strong>
@@ -138,8 +138,13 @@
 
     <section class="documents">
       <div class="section-head">
-        <h3>Your Documents</h3>
+        <div class="section-title">
+          <h3>Your Documents</h3>
+        </div>
         <div class="filters">
+          <button id="newFolderBtn" class="icon-btn" title="New Folder">
+            <span class="material-symbols-outlined">create_new_folder</span>
+          </button>
           <input id="search" class="input" type="search" placeholder="Search documents" />
         </div>
       </div>
@@ -160,6 +165,10 @@
       <div class="menu-container">
         <button class="more icon-btn" title="More"><span class="material-symbols-outlined">more_horiz</span></button>
         <div class="dropdown-menu" hidden>
+          <button class="menu-item" data-action="move-to-folder">
+            <span class="material-symbols-outlined">drive_file_move</span>
+            Move to Folder
+          </button>
           <button class="menu-item" data-action="toggle-lock">
             <span class="material-symbols-outlined">lock</span>
             Lock/Unlock
@@ -181,12 +190,74 @@
     </div>
   </template>
 
+  <!-- Move to Folder Modal -->
+  <div id="moveToFolderModal" class="modal-backdrop" hidden>
+    <div class="modal-card folder-modal">
+      <div class="modal-head">
+        <h3>Move to Folder</h3>
+        <button id="closeMoveToFolderModal" class="icon-btn" title="Close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label>Select Folder</label>
+          <select id="folderSelect" class="input">
+            <option value="">Root (No Folder)</option>
+          </select>
+        </div>
+        <div class="modal-actions">
+          <button id="moveToFolderBtn" class="btn btn-primary">Move</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Folder Modal -->
+  <div id="folderModal" class="modal-backdrop" hidden>
+    <div class="modal-card folder-modal">
+      <div class="modal-head">
+        <h3 id="folderModalTitle">New Folder</h3>
+        <button id="closeFolderModal" class="icon-btn" title="Close">
+          <span class="material-symbols-outlined">close</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="form-group">
+          <label for="folderNameInput">Folder Name</label>
+          <input id="folderNameInput" type="text" class="input" placeholder="My Folder" />
+        </div>
+        <div class="form-group">
+          <label for="folderEmojiInput">Emoji (optional)</label>
+          <input id="folderEmojiInput" type="text" class="input emoji-input" placeholder="📁" maxlength="2" />
+        </div>
+        <div class="form-group">
+          <label>Folder Color</label>
+          <div id="folderColorPicker" class="color-picker">
+            <button class="color-option active" data-color="blue" style="background: #0550FF;" title="Blue"></button>
+            <button class="color-option" data-color="purple" style="background: #8B5CF6;" title="Purple"></button>
+            <button class="color-option" data-color="pink" style="background: #EC4899;" title="Pink"></button>
+            <button class="color-option" data-color="red" style="background: #EF4444;" title="Red"></button>
+            <button class="color-option" data-color="orange" style="background: #F97316;" title="Orange"></button>
+            <button class="color-option" data-color="yellow" style="background: #EAB308;" title="Yellow"></button>
+            <button class="color-option" data-color="green" style="background: #10B981;" title="Green"></button>
+            <button class="color-option" data-color="teal" style="background: #14B8A6;" title="Teal"></button>
+            <button class="color-option" data-color="gray" style="background: #6B7280;" title="Gray"></button>
+          </div>
+        </div>
+        <div class="modal-actions">
+          <button id="saveFolderBtn" class="btn btn-primary">Save Folder</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/home.js" type="module"></script>
   <script src="data/js/ai-command.js" type="module"></script>
   <style>
-    .thumb.locked { filter: blur(6px); }
+    .thumb.locked { filter: blur(60px); }
     .thumb .lock-overlay{
       position:absolute; inset:0; display:flex; align-items:center; justify-content:center;
       pointer-events:none;

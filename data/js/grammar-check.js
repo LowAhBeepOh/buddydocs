@@ -1,4 +1,5 @@
-// Grammar Check Tool for Buddy Docs
+// Intelligent Review System for Buddy Docs
+// Provides context-aware writing suggestions with actionable improvements
 
 // Extract plain text from HTML
 function extractText(html) {
@@ -7,365 +8,238 @@ function extractText(html) {
   return temp.textContent || temp.innerText || '';
 }
 
-// Advanced grammar rules and patterns
-const grammarRules = [
-  // Capitalization
-  {
-    pattern: /(?:^|\.\s+|\!\s+|\?\s+)([a-z])/g,
-    type: 'error',
-    category: 'Capitalization',
-    message: 'Sentence should start with a capital letter',
-    fix: (match) => match.toUpperCase()
-  },
-  // Double spaces
-  {
-    pattern: /\s{2,}/g,
-    type: 'warning',
-    category: 'Spacing',
-    message: 'Multiple spaces detected',
-    fix: () => ' '
-  },
-  // Missing space after punctuation
-  {
-    pattern: /([.!?,;:])([A-Za-z])/g,
-    type: 'warning',
-    category: 'Spacing',
-    message: 'Missing space after punctuation',
-    fix: (match, p1, p2) => `${p1} ${p2}`
-  },
-  // Space before punctuation
-  {
-    pattern: /\s+([.!?,;:])/g,
-    type: 'warning',
-    category: 'Spacing',
-    message: 'Unnecessary space before punctuation',
-    fix: (match, p1) => p1
-  },
-  // Common misspellings (expanded list)
+// Sentence tokenizer
+function getSentences(text) {
+  // Split on sentence boundaries while preserving the text
+  const sentences = [];
+  const regex = /[^.!?]+[.!?]+/g;
+  let match;
+  let lastIndex = 0;
+  
+  while ((match = regex.exec(text)) !== null) {
+    sentences.push({
+      text: match[0].trim(),
+      start: match.index,
+      end: regex.lastIndex
+    });
+    lastIndex = regex.lastIndex;
+  }
+  
+  // Catch any remaining text
+  if (lastIndex < text.length) {
+    const remaining = text.slice(lastIndex).trim();
+    if (remaining) {
+      sentences.push({
+        text: remaining,
+        start: lastIndex,
+        end: text.length
+      });
+    }
+  }
+  
+  return sentences;
+}
+
+// Word tokenizer
+function getWords(text) {
+  return text.match(/\b[a-z]+\b/gi) || [];
+}
+
+// Intelligent analysis rules
+const analysisRules = [
+  // Critical spelling errors only (very common typos)
   {
     pattern: /\b(teh)\b/gi,
     type: 'error',
     category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'the'
+    message: 'Typo detected',
+    suggestion: 'the',
+    explanation: 'Common keyboard slip'
   },
   {
     pattern: /\b(recieve)\b/gi,
     type: 'error',
     category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'receive'
+    message: 'Incorrect spelling',
+    suggestion: 'receive',
+    explanation: '"I before E except after C"'
   },
   {
     pattern: /\b(occured)\b/gi,
     type: 'error',
     category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'occurred'
+    message: 'Missing double consonant',
+    suggestion: 'occurred',
+    explanation: 'Double the R before adding -ed'
   },
   {
     pattern: /\b(seperate)\b/gi,
     type: 'error',
     category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'separate'
+    message: 'Incorrect spelling',
+    suggestion: 'separate',
+    explanation: 'Remember: there\'s "a rat" in separate'
   },
   {
     pattern: /\b(definately)\b/gi,
     type: 'error',
     category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'definitely'
+    message: 'Incorrect spelling',
+    suggestion: 'definitely',
+    explanation: 'Ends with -itely, not -ately'
   },
-  {
-    pattern: /\b(wierd)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'weird'
-  },
-  {
-    pattern: /\b(untill)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'until'
-  },
-  {
-    pattern: /\b(alot)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'a lot'
-  },
-  {
-    pattern: /\b(accomodate)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'accommodate'
-  },
-  {
-    pattern: /\b(occassion)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'occasion'
-  },
-  {
-    pattern: /\b(embarass)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'embarrass'
-  },
-  {
-    pattern: /\b(goverment)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'government'
-  },
-  {
-    pattern: /\b(enviroment)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'environment'
-  },
-  {
-    pattern: /\b(begining)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'beginning'
-  },
-  {
-    pattern: /\b(arguement)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'argument'
-  },
-  {
-    pattern: /\b(noticable)\b/gi,
-    type: 'error',
-    category: 'Spelling',
-    message: 'Common misspelling',
-    suggestion: 'noticeable'
-  },
-  // Repeated words
+  // Repeated words (actual duplicates)
   {
     pattern: /\b(\w+)\s+\1\b/gi,
-    type: 'warning',
-    category: 'Repetition',
-    message: 'Repeated word detected',
-    fix: (match, word) => word
-  },
-  // Its vs It's
-  {
-    pattern: /\bits\s+(?:is|has|been|was|will|would|should|could)\b/gi,
-    type: 'suggestion',
-    category: 'Grammar',
-    message: 'Consider using "it\'s" (it is/it has)',
-    suggestion: 'it\'s'
-  },
-  // Your vs You're
-  {
-    pattern: /\byour\s+(?:is|are|were|was|going|being|will|would|should|could)\b/gi,
-    type: 'suggestion',
-    category: 'Grammar',
-    message: 'Consider using "you\'re" (you are)',
-    suggestion: 'you\'re'
-  },
-  // Their vs They're vs There
-  {
-    pattern: /\btheir\s+(?:is|are|were|was|going|being|will|would)\b/gi,
-    type: 'suggestion',
-    category: 'Grammar',
-    message: 'Consider using "they\'re" (they are) or "there"',
-    suggestion: 'they\'re'
-  },
-  {
-    pattern: /\bthey\'re\s+(?:house|car|dog|cat|book|idea|opinion|way|time|place)\b/gi,
-    type: 'suggestion',
-    category: 'Grammar',
-    message: 'Consider using "their" (possessive)',
-    suggestion: 'their'
-  },
-  // Then vs Than
-  {
-    pattern: /\bbetter\s+then\b/gi,
     type: 'error',
-    category: 'Grammar',
-    message: 'Use "than" for comparisons',
-    suggestion: 'better than'
+    category: 'Clarity',
+    message: 'Duplicate word',
+    fix: (match, word) => word,
+    explanation: 'Remove the repeated word'
   },
-  {
-    pattern: /\bmore\s+then\b/gi,
-    type: 'error',
-    category: 'Grammar',
-    message: 'Use "than" for comparisons',
-    suggestion: 'more than'
-  },
-  {
-    pattern: /\bless\s+then\b/gi,
-    type: 'error',
-    category: 'Grammar',
-    message: 'Use "than" for comparisons',
-    suggestion: 'less than'
-  },
-  // Affect vs Effect
-  {
-    pattern: /\bwill\s+affect\s+(?:the|a|an)\s+\w+\s+(?:on|in)\b/gi,
-    type: 'suggestion',
-    category: 'Grammar',
-    message: 'Consider using "effect" (noun) instead of "affect" (verb)',
-    suggestion: 'effect'
-  },
-  // Could of, should of, would of
+  // Could of/should of/would of (common error)
   {
     pattern: /\b(could|should|would)\s+of\b/gi,
     type: 'error',
     category: 'Grammar',
-    message: 'Use "have" instead of "of"',
-    fix: (match, modal) => `${modal} have`
+    message: 'Incorrect verb form',
+    fix: (match, modal) => `${modal} have`,
+    explanation: 'Use "have" not "of" after modal verbs'
   },
-  // A vs An
+  // Then vs Than in comparisons
   {
-    pattern: /\ba\s+([aeiou])/gi,
-    type: 'warning',
+    pattern: /\b(better|worse|more|less|greater|smaller)\s+then\b/gi,
+    type: 'error',
     category: 'Grammar',
-    message: 'Use "an" before vowel sounds',
-    fix: (match, vowel) => `an ${vowel}`
-  },
-  {
-    pattern: /\ban\s+([^aeiou])/gi,
-    type: 'warning',
-    category: 'Grammar',
-    message: 'Use "a" before consonant sounds',
-    fix: (match, consonant) => `a ${consonant}`
+    message: 'Wrong comparison word',
+    fix: (match, adj) => `${adj} than`,
+    explanation: 'Use "than" for comparisons, "then" for time'
   },
   // Subject-verb agreement
   {
     pattern: /\b(he|she|it)\s+(are|were)\b/gi,
     type: 'error',
     category: 'Grammar',
-    message: 'Subject-verb agreement error',
-    fix: (match, subject, verb) => `${subject} ${verb === 'are' ? 'is' : 'was'}`
+    message: 'Subject-verb disagreement',
+    fix: (match, subject, verb) => `${subject} ${verb === 'are' ? 'is' : 'was'}`,
+    explanation: 'Singular subjects need singular verbs'
   },
-  {
-    pattern: /\b(they|we|you)\s+(is|was)\b/gi,
-    type: 'error',
-    category: 'Grammar',
-    message: 'Subject-verb agreement error',
-    fix: (match, subject, verb) => `${subject} ${verb === 'is' ? 'are' : 'were'}`
-  },
-  // Passive voice detection (enhanced)
-  {
-    pattern: /\b(?:was|were|been|being)\s+\w+ed\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Passive voice detected - consider active voice for clarity',
-    suggestion: null
-  },
-  // Redundant phrases
-  {
-    pattern: /\b(very|really|quite|rather|somewhat)\s+(very|really|quite|rather|somewhat)\b/gi,
-    type: 'warning',
-    category: 'Style',
-    message: 'Redundant intensifiers',
-    fix: (match, word1) => word1
-  },
-  {
-    pattern: /\bfree\s+gift\b/gi,
-    type: 'warning',
-    category: 'Style',
-    message: 'Redundant phrase (gifts are free by definition)',
-    suggestion: 'gift'
-  },
-  {
-    pattern: /\bpast\s+history\b/gi,
-    type: 'warning',
-    category: 'Style',
-    message: 'Redundant phrase (history is always past)',
-    suggestion: 'history'
-  },
-  {
-    pattern: /\badvance\s+warning\b/gi,
-    type: 'warning',
-    category: 'Style',
-    message: 'Redundant phrase (warnings are always in advance)',
-    suggestion: 'warning'
-  },
-  // Clichés
-  {
-    pattern: /\bat\s+the\s+end\s+of\s+the\s+day\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Cliché phrase - consider more specific language',
-    suggestion: null
-  },
-  {
-    pattern: /\bthink\s+outside\s+the\s+box\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Cliché phrase - consider more specific language',
-    suggestion: null
-  },
-  // Sentence fragments (basic detection)
-  {
-    pattern: /(?:^|\.\s+)(?:Because|Although|Since|While|If|Unless|When|Where)\s+[^.!?]+\./gi,
-    type: 'warning',
-    category: 'Structure',
-    message: 'Possible sentence fragment - subordinate clause without main clause',
-    suggestion: null
-  },
-  // Run-on sentences (basic detection)
-  {
-    pattern: /\b(and|but|or|so)\s+[^.!?]{100,}\b/gi,
-    type: 'suggestion',
-    category: 'Structure',
-    message: 'Possible run-on sentence - consider breaking into shorter sentences',
-    suggestion: null
-  },
-  // Wordiness
+  // Wordy phrases with clear alternatives
   {
     pattern: /\bin\s+order\s+to\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Wordy phrase - consider using "to"',
-    suggestion: 'to'
+    type: 'clarity',
+    category: 'Clarity',
+    message: 'Wordy phrase',
+    suggestion: 'to',
+    explanation: 'Simplify: just use "to"'
   },
   {
     pattern: /\bdue\s+to\s+the\s+fact\s+that\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Wordy phrase - consider using "because"',
-    suggestion: 'because'
-  },
-  {
-    pattern: /\bin\s+spite\s+of\s+the\s+fact\s+that\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Wordy phrase - consider using "although"',
-    suggestion: 'although'
+    type: 'clarity',
+    category: 'Clarity',
+    message: 'Wordy phrase',
+    suggestion: 'because',
+    explanation: 'Simplify: use "because" instead'
   },
   {
     pattern: /\bat\s+this\s+point\s+in\s+time\b/gi,
-    type: 'suggestion',
-    category: 'Style',
-    message: 'Wordy phrase - consider using "now"',
-    suggestion: 'now'
+    type: 'clarity',
+    category: 'Clarity',
+    message: 'Wordy phrase',
+    suggestion: 'now',
+    explanation: 'Simplify: just say "now"'
   }
 ];
 
-// Check grammar and return issues
+// Advanced readability analysis
+function analyzeReadability(text) {
+  const sentences = getSentences(text);
+  const words = getWords(text);
+  const issues = [];
+  
+  if (sentences.length === 0 || words.length === 0) return issues;
+  
+  // Check for overly long sentences
+  sentences.forEach(sentence => {
+    const sentenceWords = getWords(sentence.text);
+    if (sentenceWords.length > 35) {
+      issues.push({
+        type: 'readability',
+        category: 'Readability',
+        message: 'Long sentence detected',
+        original: sentence.text.slice(0, 50) + '...',
+        suggestion: null,
+        explanation: `This sentence has ${sentenceWords.length} words. Consider breaking it into 2-3 shorter sentences for better clarity.`,
+        position: sentence.start,
+        length: sentence.text.length
+      });
+    }
+  });
+  
+  // Check for very short sentences in a row (choppy writing)
+  for (let i = 0; i < sentences.length - 2; i++) {
+    const s1 = getWords(sentences[i].text);
+    const s2 = getWords(sentences[i + 1].text);
+    const s3 = getWords(sentences[i + 2].text);
+    
+    if (s1.length <= 5 && s2.length <= 5 && s3.length <= 5) {
+      issues.push({
+        type: 'readability',
+        category: 'Readability',
+        message: 'Choppy writing detected',
+        original: sentences[i].text + ' ' + sentences[i + 1].text,
+        suggestion: null,
+        explanation: 'Three very short sentences in a row. Consider combining some for better flow.',
+        position: sentences[i].start,
+        length: sentences[i + 2].end - sentences[i].start
+      });
+      i += 2; // Skip ahead to avoid duplicate warnings
+    }
+  }
+  
+  return issues;
+}
+
+// Check for weak words and suggest stronger alternatives
+function analyzeWordChoice(text) {
+  const issues = [];
+  const weakWords = [
+    { word: /\bvery\s+(\w+)/gi, message: 'Weak intensifier', explanation: 'Instead of "very [word]", use a stronger single word. Example: "very big" → "huge", "very small" → "tiny"' },
+    { word: /\breally\s+(\w+)/gi, message: 'Weak intensifier', explanation: 'Instead of "really [word]", use a stronger single word or remove "really" entirely.' },
+    { word: /\bthing(s)?\b/gi, message: 'Vague noun', explanation: 'Replace "thing" with a specific noun. What exactly are you referring to?' },
+    { word: /\bstuff\b/gi, message: 'Vague noun', explanation: 'Replace "stuff" with specific nouns. What exactly are you referring to?' },
+    { word: /\ba\s+lot\s+of\b/gi, message: 'Informal phrase', explanation: 'In formal writing, use "many" (countable) or "much" (uncountable) instead of "a lot of".' },
+    { word: /\bgot\b/gi, message: 'Weak verb', explanation: 'Replace "got" with a more specific verb: "obtained", "received", "became", etc.' },
+    { word: /\bwent\b/gi, message: 'Weak verb', explanation: 'Replace "went" with a more specific verb: "traveled", "walked", "drove", "moved", etc.' }
+  ];
+  
+  weakWords.forEach(({ word, message, explanation }) => {
+    const regex = new RegExp(word.source, word.flags);
+    let match;
+    while ((match = regex.exec(text)) !== null) {
+      issues.push({
+        type: 'enhancement',
+        category: 'Word Choice',
+        message,
+        original: match[0],
+        suggestion: null,
+        explanation,
+        position: match.index,
+        length: match[0].length
+      });
+    }
+  });
+  
+  return issues;
+}
+
+// Main grammar check function
 export function checkGrammar(content) {
   const text = extractText(content);
   const issues = [];
 
-  grammarRules.forEach(rule => {
+  // Run pattern-based rules
+  analysisRules.forEach(rule => {
     let match;
     const regex = new RegExp(rule.pattern.source, rule.pattern.flags);
     
@@ -376,162 +250,183 @@ export function checkGrammar(content) {
         message: rule.message,
         original: match[0],
         suggestion: rule.suggestion || (rule.fix ? rule.fix(...match) : null),
+        explanation: rule.explanation || '',
         position: match.index,
         length: match[0].length
       });
     }
   });
+  
+  // Run advanced analysis
+  const readabilityIssues = analyzeReadability(text);
+  const wordChoiceIssues = analyzeWordChoice(text);
+  
+  issues.push(...readabilityIssues, ...wordChoiceIssues);
+
+  // Sort by position
+  issues.sort((a, b) => a.position - b.position);
 
   return issues;
 }
 
-// Auto-correct common issues
+// Auto-correct is intentionally conservative; return issues instead of mutating DOM
 export function autoCorrect(content) {
-  let text = extractText(content);
-  
-  grammarRules.forEach(rule => {
-    if (rule.fix) {
-      text = text.replace(rule.pattern, rule.fix);
-    } else if (rule.suggestion) {
-      text = text.replace(rule.pattern, rule.suggestion);
-    }
-  });
-
-  return text;
+  return checkGrammar(content).filter(i => i.type === 'error');
 }
 
-// Apply a specific fix to the editor
+// Apply a specific fix to the editor while preserving formatting by mapping
+// from plain-text index to DOM text nodes.
 export function applyFix(editor, issue) {
-  const content = editor.innerHTML;
-  const text = extractText(content);
-  
-  // Find the issue in the text
-  const before = text.substring(0, issue.position);
-  const after = text.substring(issue.position + issue.length);
-  
-  // Replace with suggestion
-  const newText = before + (issue.suggestion || '') + after;
-  
-  // Update editor (simplified - in production would need to preserve HTML structure)
-  const temp = document.createElement('div');
-  temp.textContent = newText;
-  editor.innerHTML = temp.innerHTML;
+  if (!issue || !issue.suggestion) return;
+  const targetStart = issue.position;
+  const targetEnd = issue.position + issue.length;
+
+  let cursor = 0;
+  const walker = document.createTreeWalker(editor, NodeFilter.SHOW_TEXT, {
+    acceptNode: (n) => n.nodeValue?.length ? NodeFilter.FILTER_ACCEPT : NodeFilter.FILTER_REJECT
+  });
+
+  const toEdit = [];
+  while (walker.nextNode()) {
+    const node = walker.currentNode;
+    const nodeStart = cursor;
+    const nodeEnd = cursor + node.nodeValue.length;
+
+    // overlap with [targetStart, targetEnd)
+    if (nodeEnd > targetStart && nodeStart < targetEnd) {
+      const startInNode = Math.max(0, targetStart - nodeStart);
+      const endInNode = Math.min(node.nodeValue.length, targetEnd - nodeStart);
+      toEdit.push({ node, startInNode, endInNode });
+    }
+    cursor = nodeEnd;
+    if (cursor >= targetEnd) break;
+  }
+
+  if (!toEdit.length) return;
+
+  // If single-node match, simple replacement
+  if (toEdit.length === 1) {
+    const { node, startInNode, endInNode } = toEdit[0];
+    node.nodeValue = node.nodeValue.slice(0, startInNode) + issue.suggestion + node.nodeValue.slice(endInNode);
+    return;
+  }
+
+  // Multi-node span: replace first segment, remove middle nodes, and tail in last node
+  const first = toEdit[0];
+  const last = toEdit[toEdit.length - 1];
+  first.node.nodeValue = first.node.nodeValue.slice(0, first.startInNode) + issue.suggestion;
+  for (let i = 1; i < toEdit.length - 1; i++) {
+    const mid = toEdit[i].node;
+    if (mid.parentNode) mid.parentNode.removeChild(mid);
+  }
+  last.node.nodeValue = last.node.nodeValue.slice(last.endInNode);
 }
 
-// Show grammar check modal
-export function showGrammarCheckModal(content, editor) {
+// Render Review side panel (right sidebar)
+export function renderReviewPanel(editor) {
+  const panel = document.getElementById('reviewSidebar');
+  if (!panel) return;
+
+  const content = editor.innerHTML;
   const issues = checkGrammar(content);
-  
-  const modal = document.createElement('div');
-  modal.className = 'grammar-modal';
-  modal.innerHTML = `
-    <div class="grammar-card">
-      <div class="grammar-header">
-        <h3>
-          <span class="material-symbols-outlined">spellcheck</span>
-          Grammar & Spelling Check
-        </h3>
-        <button class="icon-btn close-grammar">
-          <span class="material-symbols-outlined">close</span>
-        </button>
-      </div>
-      <div class="grammar-body">
-        <div class="grammar-stats">
-          <div class="grammar-stat">
-            <div class="grammar-stat-value">${issues.length}</div>
-            <div class="grammar-stat-label">Total Issues</div>
-          </div>
-          <div class="grammar-stat">
-            <div class="grammar-stat-value">${issues.filter(i => i.type === 'error').length}</div>
-            <div class="grammar-stat-label">Errors</div>
-          </div>
-          <div class="grammar-stat">
-            <div class="grammar-stat-value">${issues.filter(i => i.type === 'warning').length}</div>
-            <div class="grammar-stat-label">Warnings</div>
-          </div>
-          <div class="grammar-stat">
-            <div class="grammar-stat-value">${issues.filter(i => i.type === 'suggestion').length}</div>
-            <div class="grammar-stat-label">Suggestions</div>
-          </div>
-        </div>
-        <div class="grammar-issues" id="grammarIssues"></div>
-      </div>
-    </div>
-  `;
 
-  document.body.appendChild(modal);
+  // Categorize issues by type
+  const errors = issues.filter(i => i.type === 'error').length;
+  const clarity = issues.filter(i => i.type === 'clarity').length;
+  const readability = issues.filter(i => i.type === 'readability').length;
+  const enhancement = issues.filter(i => i.type === 'enhancement').length;
 
-  // Close button
-  modal.querySelector('.close-grammar').addEventListener('click', () => {
-    modal.remove();
-  });
-
-  // Close on backdrop click
-  modal.addEventListener('click', (e) => {
-    if (e.target === modal) {
-      modal.remove();
-    }
-  });
-
-  // Display issues
-  const issuesContainer = modal.querySelector('#grammarIssues');
-  
-  if (issues.length === 0) {
-    issuesContainer.innerHTML = `
-      <div class="grammar-no-issues">
-        <span class="material-symbols-outlined">check_circle</span>
-        <div style="font-weight: 600; margin-bottom: 4px;">No issues found!</div>
-        <div>Your document looks great.</div>
-      </div>
-    `;
-  } else {
-    issues.forEach((issue, index) => {
-      const issueEl = document.createElement('div');
-      issueEl.className = `grammar-issue ${issue.type}`;
-      issueEl.innerHTML = `
-        <div class="grammar-issue-header">
-          <span class="grammar-issue-type">${issue.category}</span>
-        </div>
-        <div class="grammar-issue-text">
-          ${issue.message}
-        </div>
-        <div style="margin: 8px 0;">
-          <span class="grammar-issue-original">${issue.original}</span>
-          ${issue.suggestion ? `<span style="margin: 0 8px;">→</span><span class="grammar-issue-suggestion">${issue.suggestion}</span>` : ''}
-        </div>
-        ${issue.suggestion ? `
-          <div class="grammar-issue-actions">
-            <button class="grammar-issue-btn primary apply-fix" data-index="${index}">Apply Fix</button>
-            <button class="grammar-issue-btn ignore-issue" data-index="${index}">Ignore</button>
-          </div>
-        ` : ''}
-      `;
-
-      // Apply fix button
-      const applyBtn = issueEl.querySelector('.apply-fix');
-      if (applyBtn) {
-        applyBtn.addEventListener('click', () => {
-          if (editor) {
-            applyFix(editor, issue);
-            modal.remove();
-            // Show success message
-            showToast('Fix applied successfully!');
-          }
-        });
-      }
-
-      // Ignore button
-      const ignoreBtn = issueEl.querySelector('.ignore-issue');
-      if (ignoreBtn) {
-        ignoreBtn.addEventListener('click', () => {
-          issueEl.style.opacity = '0.5';
-          issueEl.style.pointerEvents = 'none';
-        });
-      }
-
-      issuesContainer.appendChild(issueEl);
-    });
+  const list = panel.querySelector('#reviewList');
+  const stats = panel.querySelector('#reviewStats');
+  if (stats) {
+    stats.innerHTML = `
+      <div class="grammar-stats">
+        <div class="grammar-stat"><div class="grammar-stat-value">${issues.length}</div><div class="grammar-stat-label">Issues</div></div>
+        <div class="grammar-stat"><div class="grammar-stat-value">${errors}</div><div class="grammar-stat-label">Errors</div></div>
+        <div class="grammar-stat"><div class="grammar-stat-value">${clarity}</div><div class="grammar-stat-label">Clarity</div></div>
+        <div class="grammar-stat"><div class="grammar-stat-value">${enhancement}</div><div class="grammar-stat-label">Style</div></div>
+      </div>`;
   }
+
+  if (!list) return;
+  list.innerHTML = '';
+
+  if (issues.length === 0) {
+    const empty = document.createElement('div');
+    empty.className = 'grammar-no-issues';
+    empty.innerHTML = `<span class="material-symbols-outlined">check_circle</span><div style="font-weight:600;margin-bottom:4px;">Excellent!</div><div>Your writing is clear and error-free.</div>`;
+    list.appendChild(empty);
+    return;
+  }
+
+  issues.forEach((issue, index) => {
+    const item = document.createElement('div');
+    item.className = `grammar-issue ${issue.type}`;
+    
+    // Build the issue card with explanation
+    let html = `
+      <div class="grammar-issue-header">
+        <span class="grammar-issue-type">${issue.category}</span>
+      </div>
+      <div class="grammar-issue-text">${issue.message}</div>
+    `;
+    
+    // Show original text
+    if (issue.original) {
+      html += `<div style="margin:8px 0;">
+        <span class="grammar-issue-original">${escapeHtml(issue.original)}</span>`;
+      
+      // Show suggestion if available
+      if (issue.suggestion) {
+        html += `<span style="margin:0 8px;">→</span><span class="grammar-issue-suggestion">${escapeHtml(issue.suggestion)}</span>`;
+      }
+      html += `</div>`;
+    }
+    
+    // Show explanation
+    if (issue.explanation) {
+      html += `<div class="grammar-issue-explanation">${issue.explanation}</div>`;
+    }
+    
+    // Show action buttons
+    if (issue.suggestion) {
+      html += `<div class="grammar-issue-actions">
+        <button class="grammar-issue-btn primary apply-fix" data-index="${index}">Apply Fix</button>
+        <button class="grammar-issue-btn ignore-issue">Dismiss</button>
+      </div>`;
+    } else {
+      html += `<div class="grammar-issue-actions">
+        <button class="grammar-issue-btn ignore-issue">Dismiss</button>
+      </div>`;
+    }
+    
+    item.innerHTML = html;
+
+    const applyBtn = item.querySelector('.apply-fix');
+    if (applyBtn) {
+      applyBtn.addEventListener('click', () => {
+        applyFix(editor, issue);
+        renderReviewPanel(editor);
+        showToast('✓ Applied');
+      });
+    }
+    const ignoreBtn = item.querySelector('.ignore-issue');
+    if (ignoreBtn) {
+      ignoreBtn.addEventListener('click', () => {
+        item.style.opacity = '0.5';
+        item.style.pointerEvents = 'none';
+        setTimeout(() => item.remove(), 300);
+      });
+    }
+    list.appendChild(item);
+  });
+}
+
+// Helper to escape HTML
+function escapeHtml(text) {
+  const div = document.createElement('div');
+  div.textContent = text;
+  return div.innerHTML;
 }
 
 // Simple toast notification

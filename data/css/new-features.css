@@ -475,12 +475,16 @@
   border-left-color: #ef4444;
 }
 
-.grammar-issue.warning {
-  border-left-color: #f59e0b;
+.grammar-issue.clarity {
+  border-left-color: #3b82f6;
 }
 
-.grammar-issue.suggestion {
-  border-left-color: #3b82f6;
+.grammar-issue.readability {
+  border-left-color: #8b5cf6;
+}
+
+.grammar-issue.enhancement {
+  border-left-color: #10b981;
 }
 
 .grammar-issue-header {
@@ -501,12 +505,16 @@
   color: #ef4444;
 }
 
-.grammar-issue.warning .grammar-issue-type {
-  color: #f59e0b;
+.grammar-issue.clarity .grammar-issue-type {
+  color: #3b82f6;
 }
 
-.grammar-issue.suggestion .grammar-issue-type {
-  color: #3b82f6;
+.grammar-issue.readability .grammar-issue-type {
+  color: #8b5cf6;
+}
+
+.grammar-issue.enhancement .grammar-issue-type {
+  color: #10b981;
 }
 
 .grammar-issue-text {
@@ -528,6 +536,17 @@
   padding: 2px 6px;
   border-radius: 4px;
   font-weight: 600;
+}
+
+.grammar-issue-explanation {
+  font-size: 13px;
+  color: var(--muted);
+  line-height: 1.5;
+  margin-top: 8px;
+  padding: 8px;
+  background: color-mix(in hsl, var(--primary) 4%, var(--surface));
+  border-radius: 6px;
+  border-left: 2px solid var(--primary);
 }
 
 .grammar-issue-actions {

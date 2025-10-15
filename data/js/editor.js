@@ -5,7 +5,7 @@ import { SmartCompose } from './smart-compose.js';
 import { initMusicPlayer } from './music-player.js';
 import { showVersionHistoryModal, saveVersion } from './version-history.js';
 import { showSummaryModal } from './summary-tool.js';
-import { showGrammarCheckModal, enableAutoCorrect } from './grammar-check.js';
+import { renderReviewPanel, enableAutoCorrect } from './grammar-check.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -216,6 +216,8 @@ function autosave(){
       // Save current page content
       if (currentDoc.pages && currentDoc.pages[currentPageIndex]) {
         currentDoc.pages[currentPageIndex].content = editor.innerHTML;
+        // Also update the main content field with the first page for thumbnail compatibility
+        currentDoc.content = currentDoc.pages[0].content;
       } else {
         currentDoc.content = editor.innerHTML;
       }
@@ -249,6 +251,8 @@ async function loadOrCreate(){
   const id = getParam('id');
   const type = getParam('type');
   const templateKey = getParam('template');
+  const folderId = getParam('folderId');
+  
   if (id){
     const d = await getDocument(id);
     if (d){
@@ -272,6 +276,7 @@ async function loadOrCreate(){
       content: tpl.content || '',
       dueDate: null,
       tags: [],
+      folderId: folderId || null,
       pages: [{
         id: crypto.randomUUID(),
         title: 'Page 1',
@@ -284,6 +289,7 @@ async function loadOrCreate(){
     };
   } else if (type){
     currentDoc.type = type;
+    currentDoc.folderId = folderId || null;
     currentDoc.pages = [{
       id: crypto.randomUUID(),
       title: 'Page 1',
@@ -331,7 +337,15 @@ function placeholderForType(type){
 }
 
 async function saveNow(){
-  currentDoc.content = editor.innerHTML;
+  // Save current page content
+  if (currentDoc.pages && currentDoc.pages[currentPageIndex]) {
+    currentDoc.pages[currentPageIndex].content = editor.innerHTML;
+    // Also update the main content field with the first page for thumbnail compatibility
+    currentDoc.content = currentDoc.pages[0].content;
+  } else {
+    currentDoc.content = editor.innerHTML;
+  }
+  
   const icon = document.getElementById('syncIcon');
   if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
   const saved = await saveDocument(currentDoc);
@@ -401,6 +415,37 @@ function toggleToolsMenu(){
       document.removeEventListener('click', onDocClick);
     }
   }
+}
+
+// Tools menu item actions
+function bindToolsMenuActions(){
+  const menu = document.getElementById('toolsDropdown');
+  if (!menu) return;
+  menu.addEventListener('click', (e)=>{
+    const item = e.target.closest('.tools-menu-item, .menu-item');
+    if (!item) return;
+    // Close menu
+    menu.setAttribute('hidden','');
+    document.getElementById('toolsMenuBtn')?.setAttribute('aria-expanded','false');
+
+    if (item.id === 'openSummaryTool'){
+      showSummaryModal(editor?.innerHTML || '');
+      return;
+    }
+    if (item.id === 'openVersionHistory'){
+      if (currentDoc?.id) showVersionHistoryModal(currentDoc.id, currentDoc.title || 'Untitled');
+      return;
+    }
+    if (item.id === 'openReview'){
+      const panel = document.getElementById('reviewSidebar');
+      if (!panel) return;
+      panel.hidden = !panel.hidden;
+      if (!panel.hidden){
+        renderReviewPanel(editor);
+      }
+      return;
+    }
+  });
 }
 
 // Document Settings modal controls
@@ -1276,6 +1321,17 @@ applyEditorPrefs();
 setupToolsMenu();
 initMusic();
 initOutlineTabs();
+bindToolsMenuActions();
+
+// Live-refresh Review panel when visible
+if (editor){
+  editor.addEventListener('input', ()=>{
+    const panel = document.getElementById('reviewSidebar');
+    if (panel && !panel.hidden){
+      renderReviewPanel(editor);
+    }
+  });
+}
 
 // Initialize Smart Compose
 async function initSmartCompose() {

@@ -1,13 +1,15 @@
 // Simple IndexedDB wrapper for Buddy Docs
 // Stores: settings, documents
 
+// NEVER CHANGE DB_NAME OR DB_VERSION
 const DB_NAME = 'buddy-docs-db';
 const DB_VERSION = 6;
 
 export const STORES = {
   settings: 'settings',
   documents: 'documents',
-  calendar_notes: 'calendar_notes'
+  calendar_notes: 'calendar_notes',
+  folders: 'folders'
 };
 
 function openDB() {
@@ -27,6 +29,11 @@ function openDB() {
       if (e.oldVersion < 6 && !db.objectStoreNames.contains(STORES.calendar_notes)) {
         const store = db.createObjectStore(STORES.calendar_notes, { keyPath: 'id' });
         store.createIndex('by_date', 'date');
+      }
+      if (e.oldVersion < 7 && !db.objectStoreNames.contains(STORES.folders)) {
+        const store = db.createObjectStore(STORES.folders, { keyPath: 'id' });
+        store.createIndex('by_parentId', 'parentId');
+        store.createIndex('by_updatedAt', 'updatedAt');
       }
     };
     req.onsuccess = () => resolve(req.result);
@@ -154,6 +161,70 @@ export async function deleteNote(id) {
   return new Promise((resolve, reject) => {
     const r = store.delete(id);
     r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+// Folders API
+export async function saveFolder(folder) {
+  const now = Date.now();
+  folder.updatedAt = now;
+  if (!folder.id) folder.id = crypto.randomUUID();
+  if (!folder.name) folder.name = 'Untitled Folder';
+  if (!folder.color) folder.color = 'blue';
+  if (!folder.emoji) folder.emoji = '📁';
+  if (!folder.parentId) folder.parentId = null; // null means root level
+  
+  const store = await tx(STORES.folders, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const r = store.put(folder);
+    r.onsuccess = () => resolve(folder);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function getFolder(id) {
+  const store = await tx(STORES.folders, 'readonly');
+  return new Promise((resolve, reject) => {
+    const r = store.get(id);
+    r.onsuccess = () => resolve(r.result || null);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function deleteFolder(id) {
+  // Delete the folder and all its contents (subfolders and documents)
+  const subfolders = await listFolders({ parentId: id });
+  for (const subfolder of subfolders) {
+    await deleteFolder(subfolder.id); // Recursive delete
+  }
+  
+  // Delete all documents in this folder
+  const docs = await listDocuments();
+  const docsInFolder = docs.filter(d => d.folderId === id);
+  for (const doc of docsInFolder) {
+    await deleteDocument(doc.id);
+  }
+  
+  // Delete the folder itself
+  const store = await tx(STORES.folders, 'readwrite');
+  return new Promise((resolve, reject) => {
+    const r = store.delete(id);
+    r.onsuccess = () => resolve(true);
+    r.onerror = () => reject(r.error);
+  });
+}
+
+export async function listFolders({ parentId = null } = {}) {
+  const store = await tx(STORES.folders, 'readonly');
+  return new Promise((resolve, reject) => {
+    const r = store.getAll();
+    r.onsuccess = () => {
+      let items = r.result.sort((a, b) => b.updatedAt - a.updatedAt);
+      // Filter by parentId
+      items = items.filter(f => f.parentId === parentId);
+      resolve(items);
+    };
     r.onerror = () => reject(r.error);
   });
 }
