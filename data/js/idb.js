@@ -35,8 +35,16 @@ function openDB() {
           const store = db.createObjectStore(STORES.folders, { keyPath: 'id' });
           store.createIndex('by_parentId', 'parentId');
           store.createIndex('by_updatedAt', 'updatedAt');
+        } else {
+          // Update existing store if needed
+          const store = req.transaction.objectStore(STORES.folders);
+          try {
+            store.createIndex('by_updatedAt', 'updatedAt');
+          } catch (e) {
+            // Index might already exist
+            console.log('Index already exists or could not be created:', e);
+          }
         }
-        store.createIndex('by_updatedAt', 'updatedAt');
       }
     };
     req.onsuccess = () => resolve(req.result);
