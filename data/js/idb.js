@@ -3,7 +3,7 @@
 
 // NEVER CHANGE DB_NAME OR DB_VERSION
 const DB_NAME = 'buddy-docs-db';
-const DB_VERSION = 6;
+const DB_VERSION = 7;
 
 export const STORES = {
   settings: 'settings',
@@ -30,9 +30,12 @@ function openDB() {
         const store = db.createObjectStore(STORES.calendar_notes, { keyPath: 'id' });
         store.createIndex('by_date', 'date');
       }
-      if (e.oldVersion < 7 && !db.objectStoreNames.contains(STORES.folders)) {
-        const store = db.createObjectStore(STORES.folders, { keyPath: 'id' });
-        store.createIndex('by_parentId', 'parentId');
+      if (e.oldVersion < 7) {
+        if (!db.objectStoreNames.contains(STORES.folders)) {
+          const store = db.createObjectStore(STORES.folders, { keyPath: 'id' });
+          store.createIndex('by_parentId', 'parentId');
+          store.createIndex('by_updatedAt', 'updatedAt');
+        }
         store.createIndex('by_updatedAt', 'updatedAt');
       }
     };
