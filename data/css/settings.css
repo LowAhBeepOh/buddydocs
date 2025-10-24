@@ -455,6 +455,117 @@ input[type="range"]::-moz-range-thumb {
   background: color-mix(in hsl, var(--surface) 80%, black 20%);
 }
 
+/* About section */
+.about-section {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.about-logo {
+  text-align: center;
+  margin-bottom: 32px;
+}
+
+.about-logo h3 {
+  margin: 16px 0 8px;
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.about-logo .version {
+  color: var(--muted);
+  margin: 0;
+  font-size: 14px;
+}
+
+.about-content {
+  background: var(--surface);
+  border-radius: 12px;
+  padding: 24px;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+}
+
+.about-content h4 {
+  margin: 0 0 12px;
+  font-size: 18px;
+  color: var(--text);
+}
+
+.about-content p {
+  margin: 0 0 16px;
+  color: var(--text);
+  line-height: 1.6;
+}
+
+.about-content a {
+  color: var(--primary);
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.about-content a:hover {
+  text-decoration: underline;
+}
+
+.social-links {
+  display: flex;
+  gap: 16px;
+  margin-top: 16px;
+}
+
+.social-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: var(--surface-variant);
+  border-radius: 6px;
+  color: var(--text);
+  text-decoration: none;
+  transition: all 0.2s;
+}
+
+.social-link:hover {
+  background: var(--primary-container);
+  color: var(--on-primary-container);
+  text-decoration: none;
+  transform: translateY(-2px);
+}
+
+.social-icon {
+  width: 20px;
+  height: 20px;
+  color: var(--primary);
+  transition: color 0.2s ease, transform 0.2s ease;
+}
+
+/* Make TikTok icon slightly larger */
+.tiktok-icon {
+  width: 22px;
+  height: 22px;
+  margin: -1px 0; /* Adjust vertical alignment */
+}
+
+/* Hover effects */
+.social-link:hover .social-icon {
+  color: var(--primary-hover, var(--primary));
+  transform: scale(1.1);
+}
+
+/* Ensure proper alignment with text */
+.social-link {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Ensure SVG fills the container */
+.social-icon {
+  flex-shrink: 0;
+}
+
 .segmented-control button {
   flex: 1;
   padding: 8px 12px;
