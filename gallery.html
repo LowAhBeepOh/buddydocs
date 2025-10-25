@@ -236,8 +236,10 @@
     </div>
   </template>
 
-  <script src="data/js/idb.js" type="module"></script>
-  <script src="data/js/theme.js" type="module"></script>
+  <script type="module" src="data/js/theme.js"></script>
+  <script type="module" src="data/js/version-history.js"></script>
+  <script type="module" src="data/js/initSync.js"></script>
+</body> 
   <script type="module">
     import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
     import { setSetting, getSetting } from './data/js/idb.js';
