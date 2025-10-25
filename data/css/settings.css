@@ -456,6 +456,92 @@ input[type="range"]::-moz-range-thumb {
 }
 
 /* About section */
+/* Delete Data Section */
+.checkbox-group {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  margin: 16px 0 20px;
+}
+
+.checkbox-container {
+  display: flex;
+  align-items: center;
+  position: relative;
+  padding-left: 32px;
+  cursor: pointer;
+  user-select: none;
+}
+
+.checkbox-container .checkbox {
+  position: absolute;
+  opacity: 0;
+  cursor: pointer;
+  height: 0;
+  width: 0;
+}
+
+.checkmark {
+  position: absolute;
+  top: 0;
+  left: 0;
+  height: 20px;
+  width: 20px;
+  background-color: var(--surface);
+  border: 2px solid var(--border);
+  border-radius: 4px;
+  transition: all 0.2s ease;
+}
+
+.checkbox-container:hover .checkbox ~ .checkmark {
+  border-color: var(--primary);
+}
+
+.checkbox:checked ~ .checkmark {
+  background-color: var(--primary);
+  border-color: var(--primary);
+}
+
+.checkmark:after {
+  content: "";
+  position: absolute;
+  display: none;
+}
+
+.checkbox:checked ~ .checkmark:after {
+  display: block;
+}
+
+.checkbox-container .checkmark:after {
+  left: 6px;
+  top: 2px;
+  width: 5px;
+  height: 10px;
+  border: solid white;
+  border-width: 0 2px 2px 0;
+  transform: rotate(45deg);
+}
+
+.checkbox-label {
+  font-size: 14px;
+  color: var(--text);
+}
+
+.btn.danger {
+  background-color: #dc3545;
+  color: white;
+  border: none;
+}
+
+.btn.danger:hover {
+  background-color: #c82333;
+}
+
+.btn.danger:disabled {
+  background-color: #dc354550;
+  cursor: not-allowed;
+}
+
 .about-section {
   max-width: 800px;
   margin: 0 auto;
@@ -649,4 +735,12 @@ input[type="range"]::-moz-range-thumb {
     right: 12px;
     bottom: 12px;
   }
+}
+
+#data .btn {
+  margin-right: 10px;
+}
+
+#tipBox {
+  margin-top: 10px;
 }

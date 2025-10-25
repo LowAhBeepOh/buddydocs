@@ -46,6 +46,10 @@
         <span class="material-symbols-outlined">integration_instructions</span>
         <span>Integrations</span>
       </button>
+      <button class="nav-tab" data-tab="data">
+        <span class="material-symbols-outlined">database</span>
+        <span>Data</span>
+      </button>
       <button class="nav-tab" data-tab="about">
         <span class="material-symbols-outlined">info</span>
         <span>About</span>
@@ -329,7 +333,17 @@
               <h4>Updates</h4>
               <div class="updates-container">
                 <div class="update-entry">
-                  <span class="update-version"><b>v0.9.2 (Wiremap)</b></span>
+                  <span class="update-version"><b>v0.9.3</b></span>
+                  <span class="update-date">Oct 25, 2025</span>
+                  <ul class="update-changes">
+                    <li>New Data tab in settings</li>
+                    <li>Export/Import data as either .zip or .bluecore</li>
+                    <li>Delete Data (with Settings, Documents, Folders, and Locked Data & Password as options)</li>
+                    <li>Working on Google Drive API for cloud saving, the next couple hours / days, we recommend you AVOID the Cloud tab if it's marked as "undone"</li>
+                  </ul>
+                </div>
+                <div class="update-entry">
+                  <span class="update-version">v0.9.2 (Wiremap)</span>
                   <span class="update-date">Oct 24, 2025</span>
                   <ul class="update-changes">
                     <li>Added this about page (hi)</li>
@@ -374,6 +388,56 @@
         </div>
       </section>
 
+      <section id="data" class="settings-pane">
+        <h2>Data Management</h2>
+        <div class="row">
+          <div class="tile">
+            <h3>Export Data</h3>
+            <p class="help-text">Export all your data, including documents, settings, and more.</p>
+            <button id="exportZip" class="btn secondary">Export as .zip</button>
+            <button id="exportBluecore" class="btn secondary">Export as .bluecore</button>
+          </div>
+        </div>
+        <div class="row">
+          <div class="tile">
+            <h3>Import Data</h3>
+            <p class="help-text">Import data from a .zip or .bluecore file. Hold 'Alt' for more options.</p>
+            <input type="file" id="importFile" accept=".zip,.bluecore" style="display: none;" />
+            <button id="importButton" class="btn primary">Add</button>
+            <p id="tipBox" class="help-text" style="display: none;">Hold down the Alt key to turn the "Add" button into "Overwrite".</p>
+          </div>
+        </div>
+        <div class="row">
+          <div class="tile">
+            <h3>Delete Data</h3>
+            <p class="help-text">Select the types of data you want to delete. This action cannot be undone.</p>
+            <div class="checkbox-group">
+              <label class="checkbox-container">
+                <input type="checkbox" id="deleteSettings" class="checkbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-label">Settings</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="deleteDocuments" class="checkbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-label">Documents</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="deleteFolders" class="checkbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-label">Folders</span>
+              </label>
+              <label class="checkbox-container">
+                <input type="checkbox" id="deleteLockedData" class="checkbox">
+                <span class="checkmark"></span>
+                <span class="checkbox-label">Locked Data & Password</span>
+              </label>
+            </div>
+            <button id="deleteDataBtn" class="btn danger" disabled>Delete Selected Data</button>
+          </div>
+        </div>
+      </section>
+
   </main>
 
   <div class="save-bar">
@@ -381,6 +445,8 @@
   </div>
 
   <script src="data/js/idb.js" type="module"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/settings.js" type="module"></script>
 </body>

@@ -696,13 +696,467 @@ loadSettings().then(() => {
     });
   }
 
+  // Handle delete data checkboxes
+  const deleteSettingsCheckbox = document.getElementById('deleteSettings');
+  const deleteDocumentsCheckbox = document.getElementById('deleteDocuments');
+  const deleteDataBtn = document.getElementById('deleteDataBtn');
+  
+  if (deleteSettingsCheckbox && deleteDocumentsCheckbox && deleteDataBtn) {
+    // Enable/disable delete button based on checkbox selection
+    function updateDeleteButtonState() {
+      const deleteFolders = document.getElementById('deleteFolders').checked;
+      const deleteLockedData = document.getElementById('deleteLockedData').checked;
+      
+      deleteDataBtn.disabled = !(deleteSettingsCheckbox.checked || 
+                               deleteDocumentsCheckbox.checked || 
+                               deleteFolders || 
+                               deleteLockedData);
+    }
+    
+    // Add event listeners to all checkboxes
+    deleteSettingsCheckbox.addEventListener('change', updateDeleteButtonState);
+    deleteDocumentsCheckbox.addEventListener('change', updateDeleteButtonState);
+    document.getElementById('deleteFolders').addEventListener('change', updateDeleteButtonState);
+    document.getElementById('deleteLockedData').addEventListener('change', updateDeleteButtonState);
+    
+    // Handle delete button click
+    deleteDataBtn.addEventListener('click', async () => {
+      const deleteSettings = deleteSettingsCheckbox.checked;
+      const deleteDocuments = deleteDocumentsCheckbox.checked;
+      const deleteFolders = document.getElementById('deleteFolders').checked;
+      const deleteLockedData = document.getElementById('deleteLockedData').checked;
+      
+      if (!deleteSettings && !deleteDocuments && !deleteFolders && !deleteLockedData) return;
+      
+      // Build confirmation message
+      let message = 'Are you sure you want to delete ';
+      const itemsToDelete = [];
+      
+      if (deleteSettings) itemsToDelete.push('settings');
+      if (deleteDocuments) itemsToDelete.push('documents');
+      if (deleteFolders) itemsToDelete.push('folders');
+      if (deleteLockedData) itemsToDelete.push('locked data and password');
+      
+      message += itemsToDelete.join(' and ') + '?';
+      message += '\n\nThis action cannot be undone.';
+      
+      if (confirm(message)) {
+        try {
+          // Import required functions from idb.js
+          const { tx, STORES, getSetting, setSetting } = await import('./idb.js');
+          
+          if (deleteSettings || deleteLockedData) {
+            try {
+              // Get all settings using the proper API
+              const store = await tx(STORES.settings, 'readonly');
+              const allSettings = await new Promise((resolve) => {
+                const request = store.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = (e) => {
+                  console.error('Error getting settings:', e);
+                  resolve([]);
+                };
+              });
+              
+              // Delete non-essential settings
+              let settingsToKeep = [];
+              
+              if (deleteLockedData) {
+                // If deleting locked data, only keep non-security settings
+                settingsToKeep = ['theme', 'fontSize', 'autoSave', 'spellCheck'];
+              } else {
+                // If just deleting regular settings, keep security settings
+                settingsToKeep = ['secretHash', 'usePin', 'originalSecret', 'secretSet'];
+              }
+              
+              for (const setting of allSettings) {
+                if (setting && setting.key) {
+                  // If we're deleting locked data and this is a security setting, delete it
+                  // Or if we're deleting settings and this is not a security setting, delete it
+                  const shouldDelete = (deleteLockedData && ['secretHash', 'usePin', 'originalSecret', 'secretSet'].includes(setting.key)) ||
+                                    (deleteSettings && !settingsToKeep.includes(setting.key));
+                  
+                  if (shouldDelete) {
+                    try {
+                      const writeStore = await tx(STORES.settings, 'readwrite');
+                      await new Promise((resolve, reject) => {
+                        const request = writeStore.delete(setting.key);
+                        request.onsuccess = resolve;
+                        request.onerror = (e) => {
+                          console.error(`Error deleting setting ${setting.key}:`, e);
+                          resolve(); // Continue with other deletions
+                        };
+                      });
+                    } catch (e) {
+                      console.error(`Error in transaction for ${setting.key}:`, e);
+                    }
+                  }
+                }
+              }
+              
+              // Reset theme to default if deleting settings
+              if (deleteSettings) {
+                document.documentElement.setAttribute('data-theme', 'light');
+              }
+            } catch (error) {
+              console.error('Error in settings deletion:', error);
+              throw new Error('Failed to delete settings');
+            }
+          }
+          
+          if (deleteDocuments || deleteLockedData) {
+            try {
+              const store = await tx(STORES.documents, 'readwrite');
+              
+              if (deleteLockedData) {
+                // Get all documents to process
+                const allDocs = await new Promise((resolve) => {
+                  const request = store.getAll();
+                  request.onsuccess = () => resolve(request.result || []);
+                  request.onerror = () => resolve([]);
+                });
+                
+                const lockedDocs = [];
+                const galleriesToUpdate = [];
+                const deletePromises = [];
+                
+                // First pass: identify locked documents and process galleries
+                for (const doc of allDocs) {
+                  // Check for locked documents
+                  if (doc.locked || doc.isEncrypted) {
+                    lockedDocs.push(doc);
+                  }
+                  
+                  // Process gallery content for locked images
+                  if (doc.type === 'gallery' && Array.isArray(doc.content)) {
+                    // Check for locked images in gallery content
+                    const hasLockedImages = doc.content.some(entry => {
+                      return typeof entry === 'object' && entry !== null && entry.locked === true;
+                    });
+                    
+                    if (hasLockedImages) {
+                      // Create a copy of the gallery with locked images removed
+                      const updatedGallery = {
+                        ...doc,
+                        content: doc.content.filter(entry => {
+                          // Keep entries that are not objects, or don't have locked: true
+                          return typeof entry !== 'object' || !entry || entry.locked !== true;
+                        }),
+                        updatedAt: Date.now()
+                      };
+                      galleriesToUpdate.push(updatedGallery);
+                    }
+                  }
+                }
+                
+                // Delete locked documents
+                for (const doc of lockedDocs) {
+                  deletePromises.push(
+                    new Promise((resolve) => {
+                      const request = store.delete(doc.id);
+                      request.onsuccess = resolve;
+                      request.onerror = (e) => {
+                        console.error(`Error deleting document ${doc.id}:`, e);
+                        resolve();
+                      };
+                    })
+                  );
+                }
+                
+                // Update galleries to remove locked images
+                for (const gallery of galleriesToUpdate) {
+                  deletePromises.push(
+                    new Promise((resolve) => {
+                      const request = store.put(gallery);
+                      request.onsuccess = resolve;
+                      request.onerror = (e) => {
+                        console.error(`Error updating gallery ${gallery.id}:`, e);
+                        resolve();
+                      };
+                    })
+                  );
+                }
+                
+                // Wait for all operations to complete
+                await Promise.all(deletePromises);
+              } else {
+                // Delete all documents and their gallery images if deleteDocuments is true
+                const allDocs = await new Promise((resolve) => {
+                  const request = store.getAll();
+                  request.onsuccess = () => resolve(request.result || []);
+                  request.onerror = () => resolve([]);
+                });
+                
+                // First delete all gallery images
+                for (const doc of allDocs) {
+                  if (doc.type === 'gallery' && doc.images && doc.images.length > 0) {
+                    const imagePromises = doc.images.map(imageId => {
+                      return new Promise((resolve) => {
+                        const imgRequest = store.delete(imageId);
+                        imgRequest.onsuccess = resolve;
+                        imgRequest.onerror = (e) => {
+                          console.error(`Error deleting gallery image ${imageId}:`, e);
+                          resolve();
+                        };
+                      });
+                    });
+                    await Promise.all(imagePromises);
+                  }
+                }
+                
+                // Then clear all documents
+                await new Promise((resolve, reject) => {
+                  const request = store.clear();
+                  request.onsuccess = resolve;
+                  request.onerror = (e) => {
+                    console.error('Error clearing documents:', e);
+                    reject(e);
+                  };
+                });
+              }
+            } catch (e) {
+              console.error('Error in documents deletion:', e);
+              throw new Error('Failed to delete documents');
+            }
+          }
+          
+          if (deleteFolders) {
+            try {
+              // First, get all documents that are in any folder
+              const allDocs = await new Promise(async (resolve) => {
+                const docStore = await tx(STORES.documents, 'readonly');
+                const request = docStore.getAll();
+                request.onsuccess = () => resolve(request.result || []);
+                request.onerror = () => resolve([]);
+              });
+              
+              // Move all documents to root (set folderId to null)
+              const docsToUpdate = allDocs.filter(doc => doc.folderId)
+                .map(doc => ({ ...doc, folderId: null }));
+              
+              if (docsToUpdate.length > 0) {
+                const docStore = await tx(STORES.documents, 'readwrite');
+                await new Promise((resolve, reject) => {
+                  const updatePromises = [];
+                  
+                  for (const doc of docsToUpdate) {
+                    updatePromises.push(
+                      new Promise((resolveUpdate) => {
+                        const request = docStore.put(doc);
+                        request.onsuccess = resolveUpdate;
+                        request.onerror = (e) => {
+                          console.error(`Error moving document ${doc.id} to root:`, e);
+                          resolveUpdate();
+                        };
+                      })
+                    );
+                  }
+                  
+                  // Wait for all updates to complete
+                  Promise.all(updatePromises).then(resolve).catch(reject);
+                });
+              }
+              
+              // Clear folders in a separate transaction
+              const folderStore = await tx(STORES.folders, 'readwrite');
+              await new Promise((resolve, reject) => {
+                const request = folderStore.clear();
+                request.onsuccess = resolve;
+                request.onerror = (e) => {
+                  console.error('Error clearing folders:', e);
+                  reject(e);
+                };
+              });
+            } catch (e) {
+              console.error('Error in folders deletion:', e);
+              throw new Error('Failed to delete folders');
+            }
+          }
+          
+          // Show success message
+          alert('Selected data has been deleted successfully.');
+          
+          // Refresh the page to reflect changes
+          if (deleteSettings || deleteLockedData || deleteFolders) {
+            window.location.reload();
+          } else {
+            // If only documents were deleted, just uncheck the boxes and disable the button
+            deleteSettingsCheckbox.checked = false;
+            deleteDocumentsCheckbox.checked = false;
+            document.getElementById('deleteFolders').checked = false;
+            document.getElementById('deleteLockedData').checked = false;
+            deleteDataBtn.disabled = true;
+            
+            // Refresh the UI if on a page that shows documents
+            if (window.location.pathname.endsWith('home.html') && window.refreshDocumentList) {
+              window.refreshDocumentList();
+            }
+          }
+          
+        } catch (error) {
+          console.error('Error deleting data:', error);
+          alert('An error occurred while deleting data: ' + (error.message || 'Unknown error'));
+        }
+      }
+    });
+  }
+  
   // Handle tab switching
   handleTabSwitching();
   const aiProviderSelect = document.getElementById('aiProvider');
   if (aiProviderSelect) {
     aiProviderSelect.addEventListener('change', toggleAiProviderSettings);
   }
+
+  // Data Management
+  const exportZipButton = document.getElementById('exportZip');
+  exportZipButton.addEventListener('click', exportDataAsZip);
+
+const exportBluecoreButton = document.getElementById('exportBluecore');
+exportBluecoreButton.addEventListener('click', exportDataAsBluecore);
+  const importButton = document.getElementById('importButton');
+  const importFile = document.getElementById('importFile');
+importFile.addEventListener('change', handleFileImport);
+  const tipBox = document.getElementById('tipBox');
+
+  importButton.addEventListener('click', (e) => {
+    isOverwriteImport = e.altKey;
+    importFile.click();
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (e.altKey) {
+      importButton.textContent = 'Overwrite';
+      tipBox.style.display = 'block';
+    }
+  });
+
+  window.addEventListener('keyup', (e) => {
+    if (!e.altKey) {
+      importButton.textContent = 'Add';
+      tipBox.style.display = 'none';
+    }
+  });
 });
+
+async function exportDataAsZip() {
+  const zip = new JSZip();
+
+  for (const storeName of Object.values(STORES)) {
+    const store = await tx(storeName, 'readonly');
+    const allRecords = await new Promise((resolve, reject) => {
+      const r = store.getAll();
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    zip.file(`${storeName}.json`, JSON.stringify(allRecords, null, 2));
+  }
+
+  zip.generateAsync({ type: 'blob' }).then((content) => {
+    const link = document.createElement('a');
+    link.href = URL.createObjectURL(content);
+    link.download = 'buddydocs_export.zip';
+    link.click();
+  });
+}
+
+async function exportDataAsBluecore() {
+  const password = prompt('Please enter a password to encrypt your data:');
+  if (!password) {
+    alert('Password is required for encryption.');
+    return;
+  }
+
+  const data = {};
+  for (const storeName of Object.values(STORES)) {
+    const store = await tx(storeName, 'readonly');
+    const allRecords = await new Promise((resolve, reject) => {
+      const r = store.getAll();
+      r.onsuccess = () => resolve(r.result);
+      r.onerror = () => reject(r.error);
+    });
+    data[storeName] = allRecords;
+  }
+
+  const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), password).toString();
+  const blob = new Blob([encrypted], { type: 'application/octet-stream' });
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(blob);
+  link.download = 'buddydocs_export.bluecore';
+  link.click();
+}
+
+let isOverwriteImport = false;
+
+async function handleFileImport(event) {
+  const file = event.target.files[0];
+  if (!file) {
+    return;
+  }
+
+  const isOverwrite = isOverwriteImport;
+  const reader = new FileReader();
+
+  reader.onload = async (e) => {
+    const content = e.target.result;
+    if (file.name.endsWith('.zip')) {
+      const zip = await JSZip.loadAsync(content);
+      for (const filename in zip.files) {
+        const storeName = filename.replace('.json', '');
+        if (Object.values(STORES).includes(storeName)) {
+          const fileData = await zip.files[filename].async('string');
+          const data = JSON.parse(fileData);
+          await importData(storeName, data, isOverwrite);
+        }
+      }
+      alert('Data imported successfully!');
+    } else if (file.name.endsWith('.bluecore')) {
+      const password = prompt('Please enter the password to decrypt your data:');
+      if (!password) {
+        alert('Password is required for decryption.');
+        return;
+      }
+      try {
+        const bytes = CryptoJS.AES.decrypt(content, password);
+        const decryptedData = JSON.parse(bytes.toString(CryptoJS.enc.Utf8));
+        for (const storeName in decryptedData) {
+          if (Object.values(STORES).includes(storeName)) {
+            await importData(storeName, decryptedData[storeName], isOverwrite);
+          }
+        }
+        alert('Data imported successfully!');
+      } catch (error) {
+        alert('Decryption failed. Please check your password.');
+      }
+    } else {
+      alert('Unsupported file type.');
+    }
+  };
+
+  if (file.name.endsWith('.zip')) {
+    reader.readAsArrayBuffer(file);
+  } else {
+    reader.readAsText(file);
+  }
+}
+
+async function importData(storeName, data, isOverwrite) {
+  const store = await tx(storeName, 'readwrite');
+  if (isOverwrite) {
+    await new Promise((resolve, reject) => {
+      const r = store.clear();
+      r.onsuccess = () => resolve();
+      r.onerror = () => reject(r.error);
+    });
+  }
+  for (const record of data) {
+    await new Promise((resolve, reject) => {
+      const r = store.put(record);
+      r.onsuccess = () => resolve();
+      r.onerror = () => reject(r.error);
+    });
+  }
+}
 
 // Dynamic theme live preview function
 function livePreviewDynamicTheme() {
