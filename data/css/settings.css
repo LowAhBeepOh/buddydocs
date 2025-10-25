@@ -455,6 +455,42 @@ input[type="range"]::-moz-range-thumb {
   background: color-mix(in hsl, var(--surface) 80%, black 20%);
 }
 
+/* Sync status indicator */
+.sync-status {
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  margin-right: 1rem;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.sync-status::before {
+  content: '';
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background-color: var(--text-secondary);
+  animation: pulse 2s infinite;
+}
+
+.sync-status.syncing::before {
+  background-color: var(--accent);
+  animation: pulse 1s infinite;
+}
+
+.sync-status.error::before {
+  background-color: var(--error);
+  animation: none;
+}
+
+@keyframes pulse {
+  0% { opacity: 0.5; }
+  50% { opacity: 1; }
+  100% { opacity: 0.5; }
+}
+
 /* Cloud Integration Styles */
 .cloud-connection-tile {
   grid-column: 1 / -1;

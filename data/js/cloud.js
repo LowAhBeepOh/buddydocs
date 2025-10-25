@@ -1,18 +1,50 @@
 // Import required functions from idb.js
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
+import { initSyncService, onSync, updateSyncCountdown } from './syncService.js';
 
 // Google Drive API Configuration
 const GOOGLE_CLIENT_ID = '843640373447-4v9vbpn0nhtallnmkrua34msqgm25j9d.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
-const SYNC_INTERVAL = 5 * 60 * 1000; // 5 minutes in milliseconds
+const SYNC_INTERVAL = 8 * 60 * 1000; // 8 minutes in milliseconds
+const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes before token expires
+const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
 const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
 const STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1GB in bytes
 
 // Global variables
 let tokenClient = null;
-let syncInterval = null;
 let gapiInited = false;
 let gisInited = false;
+let lastSyncToken = null;
+
+// Refresh token if needed
+async function refreshTokenIfNeeded() {
+  try {
+    const savedToken = localStorage.getItem('googleAuthToken');
+    if (!savedToken) return false;
+    
+    const token = JSON.parse(savedToken);
+    const now = Date.now() / 1000;
+    
+    // If token expires in less than 5 minutes or is already expired
+    if (token.expires_at && (now + 300) >= token.expires_at) {
+      console.log('Refreshing access token...');
+      tokenClient.requestAccessToken({ prompt: 'none' });
+      return true;
+    }
+    
+    // Schedule next refresh
+    const timeUntilRefresh = (token.expires_at * 1000) - Date.now() - TOKEN_REFRESH_BUFFER;
+    if (timeUntilRefresh > 0) {
+      setTimeout(() => refreshTokenIfNeeded(), timeUntilRefresh);
+    }
+    
+    return true;
+  } catch (error) {
+    console.error('Error refreshing token:', error);
+    return false;
+  }
+}
 
 // Initialize Google API client
 async function initGoogleAuth() {
@@ -60,7 +92,8 @@ async function initGoogleAuth() {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: GOOGLE_SCOPES,
-      prompt: '', // Will be set per-request
+      prompt: 'consent', // Request consent for offline access
+      include_granted_scopes: true, // Request incremental auth
       callback: async (tokenResponse) => {
         if (!tokenResponse) {
           console.log('No token response received');
@@ -76,8 +109,8 @@ async function initGoogleAuth() {
         }
         
         try {
-          // Calculate expiration time (default to 1 hour if not provided)
-          const expiresIn = tokenResponse.expires_in || 3600;
+          // Calculate expiration time (extended session duration)
+          const expiresIn = tokenResponse.expires_in || (7 * 24 * 60 * 60); // Default to 7 days if not provided
           const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
           
           // Store the token with expiration
@@ -117,7 +150,8 @@ async function initGoogleAuth() {
       const savedToken = localStorage.getItem('googleAuthToken');
       if (savedToken) {
         const token = JSON.parse(savedToken);
-        const isTokenValid = token.expires_at && (Date.now() / 1000 < token.expires_at);
+        const now = Date.now() / 1000;
+        const isTokenValid = token.expires_at && (now < token.expires_at);
         
         if (isTokenValid) {
           // Set the token
@@ -126,8 +160,13 @@ async function initGoogleAuth() {
           // Update UI immediately with stored token
           await updateCloudStatus();
           
-          // Try to refresh the token in the background
-          tokenClient.requestAccessToken({ prompt: 'none' });
+          // Set up token refresh before it expires
+          const timeUntilExpiry = (token.expires_at * 1000) - Date.now();
+          if (timeUntilExpiry > 0) {
+            const refreshTime = Math.max(timeUntilExpiry - TOKEN_REFRESH_BUFFER, 10000); // At least 10 seconds
+            setTimeout(() => refreshTokenIfNeeded(), refreshTime);
+          }
+          
           return true;
         } else {
           // Token expired, remove it
@@ -271,22 +310,104 @@ async function handleGoogleSignOut() {
 }
 
 // Start auto-sync interval
-function startAutoSync() {
-  stopAutoSync(); // Clear any existing interval
-  syncInterval = setInterval(syncToGoogleDrive, SYNC_INTERVAL);
+async function startAutoSync() {
+  // Initialize the sync service
+  await initSyncService();
+  
+  // Register our sync handler
+  onSync(syncToGoogleDrive);
+  
+  // Set up change detection polling
+  setupChangeDetection();
+  
+  console.log('Auto-sync started');
+}
+
+// Handle page unload
+function handleBeforeUnload() {
+  // Force a sync if it's been a while since the last one
+  const lastSync = localStorage.getItem('lastSyncTime');
+  if (lastSync) {
+    const timeSinceLastSync = Date.now() - new Date(lastSync).getTime();
+    if (timeSinceLastSync >= SYNC_INTERVAL / 2) { // If it's been more than half the interval
+      // Use sendBeacon for reliable sync on page unload
+      const syncData = new FormData();
+      syncData.append('lastSyncTime', new Date().toISOString());
+      navigator.sendBeacon('/sync', syncData);
+    }
+  }
+}
+
+// Set up change detection polling
+async function setupChangeDetection() {
+  try {
+    // Get the initial sync token if we don't have one
+    if (!lastSyncToken) {
+      const response = await gapi.client.drive.changes.getStartPageToken();
+      lastSyncToken = response.result.startPageToken;
+    }
+    
+    // Start polling for changes every 2 minutes
+    setInterval(checkForChanges, 2 * 60 * 1000);
+  } catch (error) {
+    console.error('Error setting up change detection:', error);
+    // Retry after a delay
+    setTimeout(setupChangeDetection, 60000);
+  }
+}
+
+// Check for remote changes
+async function checkForChanges() {
+  if (!lastSyncToken) return;
+  
+  try {
+    const response = await gapi.client.drive.changes.list({
+      pageToken: lastSyncToken,
+      spaces: 'drive',
+      fields: 'newStartPageToken, changes(file(id, name, modifiedTime, trashed))',
+      includeItemsFromAllDrives: false,
+      supportsAllDrives: false
+    });
+    
+    // Update the sync token for the next request
+    lastSyncToken = response.result.newStartPageToken;
+    
+    // If there are changes, trigger a sync
+    if (response.result.changes && response.result.changes.length > 0) {
+      console.log('Detected remote changes, syncing...');
+      syncToGoogleDrive();
+    }
+  } catch (error) {
+    console.error('Error checking for changes:', error);
+    // If the token is invalid, get a new one
+    if (error.status === 404) {
+      const response = await gapi.client.drive.changes.getStartPageToken();
+      lastSyncToken = response.result.startPageToken;
+    }
+  }
 }
 
 // Stop auto-sync interval
 function stopAutoSync() {
-  if (syncInterval) {
-    clearInterval(syncInterval);
-    syncInterval = null;
-  }
+  // The sync service handles its own cleanup
+  console.log('Auto-sync stopped');
 }
 
 // Sync documents to Google Drive
-async function syncToGoogleDrive() {
+async function syncToGoogleDrive(forceFullSync = false) {
   const syncNowBtn = document.getElementById('syncNow');
+  let lastSync = await getSetting('lastSyncTime', 0);
+  const now = Date.now();
+  
+  // Skip if we synced recently (unless forced)
+  if (!forceFullSync && lastSync && (now - new Date(lastSync).getTime()) < 10000) {
+    console.log('Skipping sync - too soon since last sync');
+    return;
+  }
+  
+  // Update last sync time
+  lastSync = now;
+  await setSetting('lastSyncTime', lastSync);
   
   try {
     if (syncNowBtn) {
@@ -307,20 +428,90 @@ async function syncToGoogleDrive() {
     // Get or create app folder
     const folderId = await getOrCreateAppFolder();
     
-    // Get all local documents
-    const documents = await listDocuments();
+    // Get all local documents (including archived ones for complete sync)
+    const documents = await listDocuments({ includeArchived: true });
     
-    // Upload each document
+    // First, get all existing files in the folder to track what needs to be deleted
+    let allFiles = [];
+    let pageToken = '';
+    
+    do {
+      const params = {
+        q: `'${folderId}' in parents and trashed=false and mimeType='application/json'`,
+        fields: 'nextPageToken, files(id, name, properties, modifiedTime, appProperties)',
+        pageSize: 100
+      };
+      
+      if (pageToken) {
+        params.pageToken = pageToken;
+      }
+      
+      const response = await gapi.client.drive.files.list(params);
+      if (response.result.files && response.result.files.length > 0) {
+        allFiles = allFiles.concat(response.result.files);
+      }
+      
+      pageToken = response.result.nextPageToken || '';
+    } while (pageToken);
+    
+    const existingFiles = { result: { files: allFiles } };
+    
+    const filesToKeep = new Set();
+    
+    // Upload or update each document
     for (const doc of documents) {
-      await saveToGoogleDrive(folderId, doc);
+      if (!doc.id) continue; // Skip invalid documents
+      
+      try {
+        const fileId = await saveToGoogleDrive(folderId, doc);
+        if (fileId) {
+          filesToKeep.add(fileId);
+        }
+      } catch (error) {
+        console.error(`Error syncing document ${doc.id}:`, error);
+        // Continue with other documents even if one fails
+      }
     }
     
-    // Update last sync time
-    const now = new Date().toISOString();
-    await setSetting('lastSyncTime', now);
+    // Delete files that exist in Drive but not locally
+    const filesToDelete = existingFiles.result.files.filter(driveFile => !filesToKeep.has(driveFile.id));
+    if (filesToDelete.length > 0) {
+      console.log(`Deleting ${filesToDelete.length} files from Google Drive`);
+      
+      const deletePromises = filesToDelete.map(file => {
+        return new Promise((resolve) => {
+          gapi.client.drive.files.delete({ fileId: file.id })
+            .then(() => resolve())
+            .catch(error => {
+              console.error(`Error deleting file ${file.name} (${file.id}):`, error);
+              // Continue with other operations even if one delete fails
+              resolve();
+            });
+        });
+      });
+      
+      await Promise.all(deletePromises);
+    }
+    
+    // Update UI
     updateLastSyncTime();
+    updateStorageUsage();
+    updateSyncCountdown();
+    
+    // Update the sync token after successful sync
+    try {
+      const response = await gapi.client.drive.changes.getStartPageToken();
+      lastSyncToken = response.result.startPageToken;
+    } catch (error) {
+      console.error('Error updating sync token:', error);
+    }
     
     showToast('Sync completed successfully', 'success');
+    
+    // Trigger UI update to show any new changes
+    if (typeof loadDocuments === 'function') {
+      loadDocuments();
+    }
   } catch (error) {
     console.error('Sync error:', error);
     showToast('Sync failed: ' + (error.message || 'Unknown error'), 'error');
@@ -361,63 +552,105 @@ async function getOrCreateAppFolder() {
   }
 }
 
-// Save document to Google Drive
-async function saveToGoogleDrive(folderId, doc) {
-  const fileName = `${doc.title || 'Untitled'}.buddydoc`;
-  const fileContent = JSON.stringify(doc);
+// Helper function to upload file with proper multipart handling
+async function uploadFileToDrive(fileContent, fileName, folderId, docId) {
+  const accessToken = gapi.client.getToken().access_token;
+  const now = new Date().toISOString();
   
+  // 1. Define the file metadata
+  const metadata = {
+    name: fileName,
+    mimeType: 'application/json',
+    parents: [folderId],
+    properties: {
+      app: 'BuddyDocs',
+      docId: docId,
+      updatedAt: now,
+      archived: 'false',
+      starred: 'false'
+    },
+    appProperties: {
+      version: '1.0',
+      type: 'buddydoc',
+      created: now
+    }
+  };
+
+  // 2. Check if file exists
+  let existingFileId = null;
   try {
-    const fileMetadata = {
-      name: fileName,
-      mimeType: 'application/json',
-      parents: [folderId],
-      properties: {
-        app: 'BuddyDocs',
-        docId: doc.id,
-        updatedAt: doc.updatedAt || new Date().toISOString()
-      }
-    };
-    
-    // Check if file already exists
     const response = await gapi.client.drive.files.list({
-      q: `name='${fileName}' and '${folderId}' in parents and trashed=false`,
-      fields: 'files(id, name, modifiedTime, properties)'
+      q: `'${folderId}' in parents and trashed=false and appProperties has { key='docId' and value='${docId}' }`,
+      fields: 'files(id, name)',
+      pageSize: 1
     });
     
-    const media = {
-      mimeType: 'application/json',
-      body: fileContent
-    };
-    
-    if (response.result.files.length > 0) {
-      // Update existing file
-      const file = response.result.files[0];
-      const remoteUpdatedAt = new Date(file.modifiedTime).getTime();
-      const localUpdatedAt = new Date(doc.updatedAt || 0).getTime();
-      
-      // Skip if remote version is newer
-      if (remoteUpdatedAt > localUpdatedAt) {
-        return file.id;
-      }
-      
-      // Update the file
-      await gapi.client.drive.files.update({
-        fileId: file.id,
-        resource: fileMetadata,
-        media: media
-      });
-      
-      return file.id;
-    } else {
-      // Create new file
-      const file = await gapi.client.drive.files.create({
-        resource: fileMetadata,
-        media: media,
-        fields: 'id, modifiedTime'
-      });
-      
-      return file.result.id;
+    if (response.result.files && response.result.files.length > 0) {
+      existingFileId = response.result.files[0].id;
     }
+  } catch (e) {
+    console.warn('Error checking for existing file:', e);
+  }
+
+  // 3. Create the FormData for the multipart upload
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', new Blob([fileContent], { type: 'application/json' }));
+
+  // 4. Determine the endpoint and method
+  const url = existingFileId 
+    ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,name,webViewLink`
+    : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+  const method = existingFileId ? 'PATCH' : 'POST';
+
+  // 5. Send the request
+  const response = await fetch(url, {
+    method: method,
+    headers: new Headers({
+      'Authorization': 'Bearer ' + accessToken
+    }),
+    body: form
+  });
+
+  if (!response.ok) {
+    const errorText = await response.text();
+    console.error('Upload failed:', errorText);
+    throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+  }
+
+  const fileData = await response.json();
+  return fileData.id;
+}
+
+// Save document to Google Drive
+async function saveToGoogleDrive(folderId, doc) {
+  if (!doc || !doc.id) {
+    console.error('Invalid document:', doc);
+    return null;
+  }
+  
+  // Create a clean document object with only the necessary data
+  const docToSave = {
+    id: doc.id,
+    title: doc.title || 'Untitled Document',
+    content: doc.content || '',
+    createdAt: doc.createdAt || new Date().toISOString(),
+    updatedAt: doc.updatedAt || new Date().toISOString(),
+    tags: doc.tags || [],
+    archived: doc.archived || false,
+    starred: doc.starred || false,
+    color: doc.color || '',
+    dueDate: doc.dueDate || null,
+  };
+  
+  const fileName = `${docToSave.title}.buddydoc`;
+  const fileContent = JSON.stringify(docToSave, null, 2);
+  
+  try {
+    // Use the new upload function
+    const fileId = await uploadFileToDrive(fileContent, fileName, folderId, docToSave.id);
+    console.log('File saved to Google Drive:', fileId);
+    return fileId;
   } catch (error) {
     console.error('Error saving to Google Drive:', error);
     throw error;
