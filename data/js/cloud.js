@@ -60,18 +60,84 @@ async function initGoogleAuth() {
     tokenClient = google.accounts.oauth2.initTokenClient({
       client_id: GOOGLE_CLIENT_ID,
       scope: GOOGLE_SCOPES,
-      callback: (tokenResponse) => {
-        if (tokenResponse && tokenResponse.access_token) {
+      prompt: '', // Will be set per-request
+      callback: async (tokenResponse) => {
+        if (!tokenResponse) {
+          console.log('No token response received');
+          return;
+        }
+        
+        if (tokenResponse.error) {
+          console.error('Token error:', tokenResponse.error);
+          if (tokenResponse.error !== 'popup_closed_by_user') {
+            showToast('Failed to sign in to Google', 'error');
+          }
+          return;
+        }
+        
+        try {
+          // Calculate expiration time (default to 1 hour if not provided)
+          const expiresIn = tokenResponse.expires_in || 3600;
+          const expiresAt = Math.floor(Date.now() / 1000) + expiresIn;
+          
+          // Store the token with expiration
+          const tokenToStore = {
+            ...tokenResponse,
+            expires_at: expiresAt
+          };
+          
+          localStorage.setItem('googleAuthToken', JSON.stringify(tokenToStore));
+          
+          // Set the token for API calls
           gapi.client.setToken(tokenResponse);
-          updateCloudStatus();
+          
+          // Update UI and start sync
+          await updateCloudStatus();
           startAutoSync();
+        } catch (e) {
+          console.error('Error processing token:', e);
+          localStorage.removeItem('googleAuthToken');
         }
       },
       error_callback: (error) => {
         console.error('Google Auth error:', error);
-        showToast('Failed to sign in to Google', 'error');
+        if (error.result && error.result.error === 'popup_closed_by_user') {
+          // User closed the popup, don't show error
+          return;
+        }
+        localStorage.removeItem('googleAuthToken');
+        if (error.error !== 'popup_closed_by_user') {
+          showToast('Failed to sign in to Google', 'error');
+        }
       }
     });
+    
+    // Check for existing valid token on page load
+    try {
+      const savedToken = localStorage.getItem('googleAuthToken');
+      if (savedToken) {
+        const token = JSON.parse(savedToken);
+        const isTokenValid = token.expires_at && (Date.now() / 1000 < token.expires_at);
+        
+        if (isTokenValid) {
+          // Set the token
+          gapi.client.setToken(token);
+          
+          // Update UI immediately with stored token
+          await updateCloudStatus();
+          
+          // Try to refresh the token in the background
+          tokenClient.requestAccessToken({ prompt: 'none' });
+          return true;
+        } else {
+          // Token expired, remove it
+          localStorage.removeItem('googleAuthToken');
+        }
+      }
+    } catch (e) {
+      console.error('Error checking saved token:', e);
+      localStorage.removeItem('googleAuthToken');
+    }
     
     gisInited = true;
     return true;
@@ -85,7 +151,6 @@ async function initGoogleAuth() {
 // Handle Google sign-in
 async function handleGoogleSignIn() {
   const signInBtn = document.getElementById('connectGoogleDrive');
-  const originalText = signInBtn?.textContent;
   
   try {
     if (signInBtn) {
@@ -100,8 +165,44 @@ async function handleGoogleSignIn() {
       }
     }
     
-    // Request access token (this will show the Google sign-in popup)
-    tokenClient.requestAccessToken();
+    // First try silent token refresh
+    tokenClient.requestAccessToken({ prompt: 'none' });
+    
+    // Set a timeout to show the popup if silent refresh doesn't work
+    const checkAuth = setInterval(async () => {
+      if (gapi.client.getToken()) {
+        clearInterval(checkAuth);
+        if (signInBtn) {
+          signInBtn.disabled = false;
+          signInBtn.textContent = 'Connect Google Drive';
+        }
+      } else if (localStorage.getItem('googleAuthToken')) {
+        // If we have a token but gapi doesn't know about it, try to set it
+        try {
+          const token = JSON.parse(localStorage.getItem('googleAuthToken'));
+          if (token && token.access_token) {
+            gapi.client.setToken(token);
+            await updateCloudStatus();
+            startAutoSync();
+            clearInterval(checkAuth);
+            if (signInBtn) {
+              signInBtn.disabled = false;
+              signInBtn.textContent = 'Connect Google Drive';
+            }
+          }
+        } catch (e) {
+          console.error('Error setting token from localStorage:', e);
+        }
+      }
+    }, 500);
+    
+    // If we don't have a token after 1 second, show the popup
+    setTimeout(() => {
+      if (!gapi.client.getToken() && !localStorage.getItem('googleAuthToken')) {
+        console.log('Silent refresh failed, showing sign-in popup');
+        tokenClient.requestAccessToken({ prompt: 'select_account' });
+      }
+    }, 1000);
     
   } catch (error) {
     console.error('Google sign-in error:', error);
@@ -112,11 +213,11 @@ async function handleGoogleSignIn() {
     }
     
     // Make sure to update the UI state
-    updateCloudStatus();
-  } finally {
+    await updateCloudStatus();
+    
     if (signInBtn) {
       signInBtn.disabled = false;
-      signInBtn.textContent = originalText;
+      signInBtn.textContent = 'Connect Google Drive';
     }
   }
 }
@@ -132,12 +233,18 @@ async function handleGoogleSignOut() {
       signOutBtn.textContent = 'Signing out...';
     }
     
-    // Revoke the token
+    // Revoke the token and clear stored data
     const token = gapi.client.getToken();
     if (token) {
-      await google.accounts.oauth2.revoke(token.access_token);
+      try {
+        await google.accounts.oauth2.revoke(token.access_token);
+      } catch (e) {
+        console.warn('Error revoking token:', e);
+      }
       gapi.client.setToken(null);
     }
+    // Clear stored token
+    localStorage.removeItem('googleAuthToken');
     
     // Update settings
     await Promise.all([
@@ -180,7 +287,6 @@ function stopAutoSync() {
 // Sync documents to Google Drive
 async function syncToGoogleDrive() {
   const syncNowBtn = document.getElementById('syncNow');
-  const wasSyncing = syncNowBtn?.textContent === 'Syncing...';
   
   try {
     if (syncNowBtn) {
@@ -214,16 +320,12 @@ async function syncToGoogleDrive() {
     await setSetting('lastSyncTime', now);
     updateLastSyncTime();
     
-    if (!wasSyncing) {
-      showToast('Sync completed successfully', 'success');
-    }
+    showToast('Sync completed successfully', 'success');
   } catch (error) {
     console.error('Sync error:', error);
-    if (!wasSyncing) {
-      showToast('Sync failed: ' + (error.message || 'Unknown error'), 'error');
-    }
+    showToast('Sync failed: ' + (error.message || 'Unknown error'), 'error');
   } finally {
-    if (syncNowBtn && !wasSyncing) {
+    if (syncNowBtn) {
       syncNowBtn.disabled = false;
       syncNowBtn.textContent = 'Sync Now';
     }
@@ -329,8 +431,6 @@ async function updateCloudStatus() {
   const disconnectBtn = document.getElementById('disconnectGoogleDrive');
   const syncNowBtn = document.getElementById('syncNow');
   const autoSyncCheckbox = document.getElementById('autoSync');
-  const syncOptions = document.querySelector('.sync-options');
-  const storageInfo = document.querySelector('.storage-info');
   
   if (!statusElement) return;
   
@@ -357,12 +457,9 @@ async function updateCloudStatus() {
       
       // Update status and UI
       statusElement.textContent = `Connected as ${email}`;
-      statusElement.style.color = 'var(--success)';
+      statusElement.className = 'status-text connected';
       
       // Store the email for future use
-      await setSetting('googleDriveEmail', email);
-      
-      // Update settings
       await setSetting('googleDriveEmail', email);
       await setSetting('googleDriveEnabled', true);
       
@@ -371,8 +468,6 @@ async function updateCloudStatus() {
       if (disconnectBtn) disconnectBtn.style.display = 'inline-block';
       if (syncNowBtn) syncNowBtn.disabled = false;
       if (autoSyncCheckbox) autoSyncCheckbox.disabled = false;
-      if (syncOptions) syncOptions.style.display = 'block';
-      if (storageInfo) storageInfo.style.display = 'block';
       
       // Update last sync time and storage usage
       updateLastSyncTime();
@@ -381,12 +476,12 @@ async function updateCloudStatus() {
     } catch (error) {
       console.error('Error getting user info:', error);
       statusElement.textContent = 'Connected (error getting user info)';
-      statusElement.style.color = 'var(--warning)';
+      statusElement.className = 'status-text error';
     }
   } else {
     // Not signed in state
     statusElement.textContent = 'Not connected to Google Drive';
-    statusElement.style.color = 'var(--text-muted)';
+    statusElement.className = 'status-text';
     
     // Update settings
     await setSetting('googleDriveEnabled', false);
@@ -400,15 +495,12 @@ async function updateCloudStatus() {
     if (disconnectBtn) disconnectBtn.style.display = 'none';
     if (syncNowBtn) syncNowBtn.disabled = true;
     if (autoSyncCheckbox) autoSyncCheckbox.disabled = true;
-    if (syncOptions) syncOptions.style.display = 'none';
-    if (storageInfo) storageInfo.style.display = 'none';
   }
   
   // Update the sync button text based on state
   if (syncNowBtn) {
-    const isSyncing = syncNowBtn.textContent === 'Syncing...';
-    syncNowBtn.textContent = isSyncing ? 'Syncing...' : 'Sync Now';
-    syncNowBtn.disabled = isSyncing;
+    syncNowBtn.textContent = 'Sync Now';
+    syncNowBtn.disabled = false;
   }
 }
 
@@ -494,12 +586,11 @@ async function updateStorageUsage() {
     storageBar.style.width = `${usagePercent}%`;
     
     // Update storage bar color based on usage
+    storageBar.className = 'storage-used';
     if (usagePercent > 90) {
-      storageBar.style.backgroundColor = '#ff4d4f'; // Red
+      storageBar.classList.add('danger');
     } else if (usagePercent > 70) {
-      storageBar.style.backgroundColor = '#faad14'; // Orange
-    } else {
-      storageBar.style.backgroundColor = '#52c41a'; // Green
+      storageBar.classList.add('warning');
     }
     
   } catch (error) {
@@ -510,41 +601,64 @@ async function updateStorageUsage() {
 // Initialize cloud tab
 export async function initCloudTab() {
   try {
+    // Add event listeners first so they're available immediately
+    document.getElementById('connectGoogleDrive')?.addEventListener('click', handleGoogleSignIn);
+    document.getElementById('disconnectGoogleDrive')?.addEventListener('click', handleGoogleSignOut);
+    document.getElementById('syncNow')?.addEventListener('click', syncToGoogleDrive);
+    
+    // Show loading state
+    const statusElement = document.getElementById('cloudStatus');
+    if (statusElement) {
+      statusElement.textContent = 'Initializing...';
+      statusElement.className = 'status-text';
+    }
+    
     // Initialize Google Auth
     const isInitialized = await initGoogleAuth();
     
     if (!isInitialized) {
       // Show error state in UI
-      const statusElement = document.getElementById('cloudStatus');
       if (statusElement) {
         statusElement.textContent = 'Failed to initialize Google Drive';
-        statusElement.style.color = 'var(--error)';
+        statusElement.className = 'status-text error';
       }
       return;
     }
     
-    // Add event listeners
-    document.getElementById('connectGoogleDrive')?.addEventListener('click', handleGoogleSignIn);
-    document.getElementById('disconnectGoogleDrive')?.addEventListener('click', handleGoogleSignOut);
-    document.getElementById('syncNow')?.addEventListener('click', syncToGoogleDrive);
-    
-    // Initial UI update
-    await updateCloudStatus();
-    
-    // Start auto-sync only if user is signed in
-    const token = gapi.client?.getToken();
-    if (token) {
+    // Check if we have a valid token in localStorage
+    const savedToken = localStorage.getItem('googleAuthToken');
+    if (savedToken) {
       try {
-        await syncToGoogleDrive();
-        startAutoSync();
-      } catch (error) {
-        console.error('Initial sync failed:', error);
-        showToast('Sync failed: ' + (error.message || 'Unknown error'), 'error');
+        const token = JSON.parse(savedToken);
+        if (token.expires_at && (Date.now() / 1000 < (token.expires_at - 300))) {
+          gapi.client.setToken(token);
+          // Don't await this to make the UI more responsive
+          updateCloudStatus().then(() => {
+            // Start auto-sync in the background
+            if (gapi.client.getToken()) {
+              syncToGoogleDrive().catch(console.error);
+              startAutoSync();
+            }
+          });
+          return;
+        }
+      } catch (e) {
+        console.error('Error initializing with saved token:', e);
+        localStorage.removeItem('googleAuthToken');
       }
     }
+    
+    // If we get here, either no token or it's invalid
+    await updateCloudStatus();
     
   } catch (error) {
     console.error('Error initializing cloud tab:', error);
     showToast('Failed to initialize cloud features', 'error');
+    
+    const statusElement = document.getElementById('cloudStatus');
+    if (statusElement) {
+      statusElement.textContent = 'Initialization failed';
+      statusElement.className = 'status-text error';
+    }
   }
 }

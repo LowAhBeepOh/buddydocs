@@ -325,35 +325,43 @@
       <section id="cloud" class="settings-pane">
         <h2>Google Drive Integration</h2>
         
-        <div class="cloud-status">
-          <p>Status: <span id="cloudStatus">Checking...</span></p>
-          <button id="connectGoogleDrive" class="btn primary">Connect Google Drive</button>
-          <button id="disconnectGoogleDrive" class="btn secondary" style="display: none;">Disconnect</button>
-        </div>
-
-        <div class="sync-options">
-          <h3>Sync Options</h3>
-          <div class="form-group">
-            <label class="toggle">
-              <input type="checkbox" id="autoSync" checked />
-              <span class="slider round"></span>
-              <span>Enable automatic sync (every 5 minutes)</span>
-            </label>
-            <p class="hint">Automatically sync changes to Google Drive</p>
-          </div>
-
-          <div class="form-group">
-            <button id="syncNow" class="btn" disabled>Sync Now</button>
-            <p class="hint">Last synced: <span id="lastSyncTime">Never</span></p>
+        <div class="row">
+          <div class="tile cloud-connection-tile">
+            <span>Connection Status</span>
+            <div class="connection-info">
+              <p class="status-text" id="cloudStatus">Not connected</p>
+              <div class="connection-buttons">
+                <button id="connectGoogleDrive" class="btn primary">Connect Google Drive</button>
+                <button id="disconnectGoogleDrive" class="btn secondary" style="display: none;">Disconnect</button>
+              </div>
+            </div>
           </div>
         </div>
 
-        <div class="storage-info">
-          <h3>Storage Usage</h3>
-          <div class="storage-bar">
-            <div class="storage-used"></div>
+        <div class="row">
+          <div class="tile">
+            <span>Sync Options</span>
+            <div class="sync-controls">
+              <label class="toggle-row">
+                <span>Auto-sync every 5 minutes</span>
+                <input type="checkbox" id="autoSync" checked class="toggle" />
+              </label>
+              <button id="syncNow" class="btn" disabled>Sync Now</button>
+              <p class="help-text">Last synced: <span id="lastSyncTime">Never</span></p>
+            </div>
           </div>
-          <p class="storage-details"><span id="storageUsed">0 B</span> of <span id="storageTotal">1 GB</span> used</p>
+        </div>
+
+        <div class="row">
+          <div class="tile storage-tile">
+            <span>Storage Usage</span>
+            <div class="storage-display">
+              <div class="storage-bar">
+                <div class="storage-used"></div>
+              </div>
+              <p class="storage-details"><span id="storageUsed">0 B</span> of <span id="storageTotal">1 GB</span> used</p>
+            </div>
+          </div>
         </div>
       </section>
 
