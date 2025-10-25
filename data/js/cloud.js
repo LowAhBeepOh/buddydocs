@@ -473,24 +473,11 @@ async function syncToGoogleDrive(forceFullSync = false) {
       }
     }
     
-    // Delete files that exist in Drive but not locally
-    const filesToDelete = existingFiles.result.files.filter(driveFile => !filesToKeep.has(driveFile.id));
-    if (filesToDelete.length > 0) {
-      console.log(`Deleting ${filesToDelete.length} files from Google Drive`);
-      
-      const deletePromises = filesToDelete.map(file => {
-        return new Promise((resolve) => {
-          gapi.client.drive.files.delete({ fileId: file.id })
-            .then(() => resolve())
-            .catch(error => {
-              console.error(`Error deleting file ${file.name} (${file.id}):`, error);
-              // Continue with other operations even if one delete fails
-              resolve();
-            });
-        });
-      });
-      
-      await Promise.all(deletePromises);
+    // Instead of deleting files that exist in Drive but not locally,
+    // we'll just log them for information purposes
+    const filesOnlyInDrive = existingFiles.result.files.filter(driveFile => !filesToKeep.has(driveFile.id));
+    if (filesOnlyInDrive.length > 0) {
+      console.log(`Found ${filesOnlyInDrive.length} files in Google Drive that don't exist locally. These will be preserved.`);
     }
     
     // Update UI
