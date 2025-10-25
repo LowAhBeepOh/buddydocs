@@ -46,6 +46,10 @@
         <span class="material-symbols-outlined">integration_instructions</span>
         <span>Integrations</span>
       </button>
+      <button class="nav-tab" data-tab="cloud">
+        <span class="material-symbols-outlined">cloud</span>
+        <span>Cloud</span>
+      </button>
       <button class="nav-tab" data-tab="data">
         <span class="material-symbols-outlined">database</span>
         <span>Data</span>
@@ -315,6 +319,41 @@
               </select>
             </label>
           </div>
+        </div>
+      </section>
+
+      <section id="cloud" class="settings-pane">
+        <h2>Google Drive Integration</h2>
+        
+        <div class="cloud-status">
+          <p>Status: <span id="cloudStatus">Checking...</span></p>
+          <button id="connectGoogleDrive" class="btn primary">Connect Google Drive</button>
+          <button id="disconnectGoogleDrive" class="btn secondary" style="display: none;">Disconnect</button>
+        </div>
+
+        <div class="sync-options">
+          <h3>Sync Options</h3>
+          <div class="form-group">
+            <label class="toggle">
+              <input type="checkbox" id="autoSync" checked />
+              <span class="slider round"></span>
+              <span>Enable automatic sync (every 5 minutes)</span>
+            </label>
+            <p class="hint">Automatically sync changes to Google Drive</p>
+          </div>
+
+          <div class="form-group">
+            <button id="syncNow" class="btn" disabled>Sync Now</button>
+            <p class="hint">Last synced: <span id="lastSyncTime">Never</span></p>
+          </div>
+        </div>
+
+        <div class="storage-info">
+          <h3>Storage Usage</h3>
+          <div class="storage-bar">
+            <div class="storage-used"></div>
+          </div>
+          <p class="storage-details"><span id="storageUsed">0 B</span> of <span id="storageTotal">1 GB</span> used</p>
         </div>
       </section>
 

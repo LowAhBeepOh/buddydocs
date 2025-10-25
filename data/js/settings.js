@@ -582,9 +582,17 @@ async function populateMusicFilterValues() {
 }
 
 
+// Import Cloud tab initialization
+import { initCloudTab } from './cloud.js';
+
 // Initialize the app
-loadSettings().then(() => {
+loadSettings().then(async () => {
   handleTabSwitching();
+  
+  // Initialize Cloud tab if it exists
+  if (document.getElementById('cloud')) {
+    await initCloudTab();
+  }
   // Add event listeners
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   
