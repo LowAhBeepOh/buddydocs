@@ -1,0 +1,14 @@
+# For all web crawlers
+User-agent: *
+
+# Allow crawling of all content by default
+# (Polite bots will still follow rules, bad bots will ignore anyway)
+Disallow:
+
+# --- Optional: If you have specific directories you *don't* want crawled ---
+# Example: Disallow internal config files or test folders if any exist publicly
+# Disallow: /config/
+# Disallow: /test/
+
+# --- Point crawlers to your sitemap ---
+Sitemap: https://lowahbeepoh.github.io/buddydocs/sitemap.xml
