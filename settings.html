@@ -48,7 +48,7 @@
       </button>
       <button class="nav-tab" data-tab="cloud">
         <span class="material-symbols-outlined">cloud</span>
-        <span>Cloud</span>
+        <span>Cloud (WIP)</span>
       </button>
       <button class="nav-tab" data-tab="data">
         <span class="material-symbols-outlined">database</span>
@@ -147,6 +147,7 @@
                   <label for="secretInput" id="secretLabel">New Password</label>
                   <input id="secretInput" class="input" type="password" autocomplete="new-password" placeholder="Set new password or PIN" />
                   <p class="help-text">Password: at least 4 characters. PIN: 4–8 digits when enabled.</p>
+                  <p class="help-text">Security: your password/PIN is never stored in plain text. Buddy Docs stores a secure hash using scrypt with a unique per-device salt and syncs it via settings.json so your credentials work across devices.</p>
                 </div>
                 
                 <div class="tile">
@@ -330,6 +331,7 @@
             <span>Connection Status</span>
             <div class="connection-info">
               <p class="status-text" id="cloudStatus">Not connected</p>
+              <p class="help-text">When connected, Buddy Docs syncs documents.json, folders.json, and settings.json to your Google Drive Buddy Docs folder.</p>
               <div class="connection-buttons">
                 <button id="connectGoogleDrive" class="btn primary">Connect Google Drive</button>
                 <button id="disconnectGoogleDrive" class="btn secondary" style="display: none;">Disconnect</button>
@@ -363,6 +365,19 @@
             </div>
           </div>
         </div>
+
+        <div class="row">
+          <div class="tile">
+            <h3>Delete Cloud Data</h3>
+            <p>Want to delete everything on your cloud?</p>
+            <ol>
+              <li>Click the "Disconnect" button on the connection status</li>
+              <li>Open Google Drive</li>
+              <li>Delete the folder called BuddyDocs</li>
+            </ol>
+            <p>Now you're signed out, and your documents are gone from cloud.</p>
+          </div>
+        </div>
       </section>
 
       <section id="about" class="settings-pane">
@@ -372,7 +387,7 @@
           <div class="about-logo">
             <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">map</span>
             <h3>Wiremap</h3>
-            <p class="version">Version 0.9.2</p>
+            <p class="version">Version 0.9.3</p>
           </div>
 
           <div class="about-content">

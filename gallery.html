@@ -755,13 +755,25 @@
       const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
       if (input == null) return false;
       try {
-        const enc = new TextEncoder();
-        const data = enc.encode(input);
-        const digest = await crypto.subtle.digest('SHA-256', data);
-        const bytes = Array.from(new Uint8Array(digest));
-        const hash = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+        const saltStr = await getSetting('secretSalt', '');
+        let hashHex = '';
+        if (saltStr && saltStr.length > 0) {
+          const { scrypt } = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+          const enc = new TextEncoder();
+          const passwordBytes = enc.encode(input);
+          const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
+          const N = 16384, r = 8, p = 1, dkLen = 32;
+          const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
+          hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+        } else {
+          const enc = new TextEncoder();
+          const data = enc.encode(input);
+          const digest = await crypto.subtle.digest('SHA-256', data);
+          const bytes = Array.from(new Uint8Array(digest));
+          hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+        }
         const stored = await getSetting('secretHash', '');
-        return stored && hash === stored;
+        return stored && hashHex === stored;
       } catch {
         return false;
       }

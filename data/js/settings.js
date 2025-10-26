@@ -1,6 +1,7 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES } from './idb.js';
 import { applyDynamicTheme, applyClassicTheme } from './theme.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
+import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -15,11 +16,22 @@ function updateMetaThemeColor(){
 let originalSecret = '';
 
 async function hashSecret(secret) {
-  const enc = new TextEncoder();
-  const data = enc.encode(secret);
-  const digest = await crypto.subtle.digest('SHA-256', data);
-  const bytes = Array.from(new Uint8Array(digest));
-  return bytes.map(b => b.toString(16).padStart(2, '0')).join('');
+  // Use scrypt for password hashing suitable for storage (memory-hard)
+  // Keep salt stable across devices via synced settings
+  let saltBase64 = await getSetting('secretSalt', null);
+  if (!saltBase64) {
+    const saltBytes = new Uint8Array(16);
+    crypto.getRandomValues(saltBytes);
+    saltBase64 = btoa(String.fromCharCode(...saltBytes));
+    await setSetting('secretSalt', saltBase64);
+  }
+  const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+
+  const N = 16384, r = 8, p = 1, dkLen = 32; // Reasonable defaults for browsers
+  const pwBytes = new TextEncoder().encode(secret);
+  const out = await scrypt(pwBytes, saltBytes, N, r, p, dkLen);
+  // Convert to hex string
+  return Array.from(out).map(b => b.toString(16).padStart(2, '0')).join('');
 }
 
 async function loadSettings() {
@@ -141,7 +153,7 @@ async function loadSettings() {
 
   const aiApiKeyInput = document.getElementById('aiApiKey');
   if (aiApiKey) {
-    aiApiKeyInput.placeholder = "••••••••••••••••••••";
+    aiApiKeyInput.placeholder = "••••••••••••••••••••••••";
   } else {
     aiApiKeyInput.placeholder = "sk-...";
   }
@@ -362,6 +374,10 @@ async function saveSettings() {
   }
 
   await Promise.all(settingsToSave);
+
+  // Record settings lastUpdated for conflict resolution during cloud sync
+  const nowIso = new Date().toISOString();
+  await setSetting('settingsLastUpdated', nowIso);
 
   // Save secret if provided and matches
   if (newSecret || secretConfirm) {

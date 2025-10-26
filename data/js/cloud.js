@@ -1,5 +1,5 @@
 // Import required functions from idb.js
-import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument } from './idb.js';
+import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, saveFolder, tx, STORES } from './idb.js';
 import { initSyncService, onSync, updateSyncCountdown } from './syncService.js';
 
 // Google Drive API Configuration
@@ -398,104 +398,473 @@ async function syncToGoogleDrive(forceFullSync = false) {
   const syncNowBtn = document.getElementById('syncNow');
   let lastSync = await getSetting('lastSyncTime', 0);
   const now = Date.now();
-  
+
   // Skip if we synced recently (unless forced)
   if (!forceFullSync && lastSync && (now - new Date(lastSync).getTime()) < 10000) {
     console.log('Skipping sync - too soon since last sync');
     return;
   }
-  
-  // Update last sync time
+
+  // Update last sync time (pre-emptive, matches previous behavior)
   lastSync = now;
   await setSetting('lastSyncTime', lastSync);
-  
+
   try {
     if (syncNowBtn) {
       syncNowBtn.disabled = true;
       syncNowBtn.textContent = 'Syncing...';
     }
-    
+
     // Ensure we're signed in
     const token = gapi.client?.getToken();
     if (!token) {
-      // Try to sign in if not already signed in
       await handleGoogleSignIn();
       if (!gapi.client?.getToken()) {
         throw new Error('Please sign in to Google Drive to sync');
       }
     }
-    
-    // Get or create app folder
+
+    // Get or create BuddyDocs app folder (unchanged)
     const folderId = await getOrCreateAppFolder();
-    
-    // Get all local documents (including archived ones for complete sync)
-    const documents = await listDocuments({ includeArchived: true });
-    
-    // First, get all existing files in the folder to track what needs to be deleted
-    let allFiles = [];
-    let pageToken = '';
-    
-    do {
-      const params = {
-        q: `'${folderId}' in parents and trashed=false and mimeType='application/json'`,
-        fields: 'nextPageToken, files(id, name, properties, modifiedTime, appProperties)',
-        pageSize: 100
-      };
-      
-      if (pageToken) {
-        params.pageToken = pageToken;
+
+    // Helper: find documents.json in BuddyDocs folder
+    async function getDocumentsJsonFile() {
+      const resp = await gapi.client.drive.files.list({
+        q: `'${folderId}' in parents and trashed=false and name='documents.json' and mimeType='application/json'`,
+        fields: 'files(id, name, modifiedTime)',
+        pageSize: 1
+      });
+      if (resp.result.files && resp.result.files.length > 0) {
+        const f = resp.result.files[0];
+        return { id: f.id, modifiedTime: f.modifiedTime };
       }
-      
-      const response = await gapi.client.drive.files.list(params);
-      if (response.result.files && response.result.files.length > 0) {
-        allFiles = allFiles.concat(response.result.files);
-      }
-      
-      pageToken = response.result.nextPageToken || '';
-    } while (pageToken);
-    
-    const existingFiles = { result: { files: allFiles } };
-    
-    const filesToKeep = new Set();
-    
-    // Upload or update each document
-    for (const doc of documents) {
-      if (!doc.id) continue; // Skip invalid documents
-      
+      return { id: null, modifiedTime: null };
+    }
+
+    // Helper: download JSON file body
+    async function downloadDocumentsJson(fileId) {
+      if (!fileId) return null;
+      const accessToken = gapi.client.getToken().access_token;
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+      if (!res.ok) throw new Error('Failed to download documents.json');
+      const text = await res.text();
       try {
-        const fileId = await saveToGoogleDrive(folderId, doc);
-        if (fileId) {
-          filesToKeep.add(fileId);
-        }
-      } catch (error) {
-        console.error(`Error syncing document ${doc.id}:`, error);
-        // Continue with other documents even if one fails
+        return JSON.parse(text);
+      } catch (e) {
+        console.warn('documents.json parse error, using empty set', e);
+        return null;
       }
     }
-    
-    // Instead of deleting files that exist in Drive but not locally,
-    // we'll just log them for information purposes
-    const filesOnlyInDrive = existingFiles.result.files.filter(driveFile => !filesToKeep.has(driveFile.id));
-    if (filesOnlyInDrive.length > 0) {
-      console.log(`Found ${filesOnlyInDrive.length} files in Google Drive that don't exist locally. These will be preserved.`);
+
+    // Helper: upload (create or patch) documents.json with multipart
+    async function uploadDocumentsJson(jsonString, existingFileId) {
+      const accessToken = gapi.client.getToken().access_token;
+      const metadata = existingFileId
+        ? {
+            name: 'documents.json',
+            mimeType: 'application/json',
+            appProperties: { version: '1.0', type: 'bundle' }
+          }
+        : {
+            name: 'documents.json',
+            mimeType: 'application/json',
+            parents: [folderId],
+            appProperties: { version: '1.0', type: 'bundle' }
+          };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([jsonString], { type: 'application/json' }));
+      const url = existingFileId
+        ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,name,webViewLink`
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+      const method = existingFileId ? 'PATCH' : 'POST';
+      const response = await fetch(url, {
+        method,
+        headers: new Headers({ Authorization: 'Bearer ' + accessToken }),
+        body: form
+      });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload documents.json failed:', errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+      const fileData = await response.json();
+      return fileData.id;
     }
-    
-    // Update UI
+
+    // Helper: normalize and timestamp handling
+    const toTime = (t) => {
+      if (!t) return 0;
+      if (typeof t === 'number') return t;
+      const d = new Date(t).getTime();
+      return Number.isFinite(d) ? d : 0;
+    };
+    const normalizeDoc = (doc) => ({
+      id: doc.id,
+      title: doc.title || 'Untitled Document',
+      content: doc.content || '',
+      createdAt: doc.createdAt || new Date().toISOString(),
+      updatedAt: doc.updatedAt || new Date().toISOString(),
+      tags: Array.isArray(doc.tags) ? doc.tags : [],
+      archived: !!doc.archived,
+      starred: !!doc.starred,
+      color: doc.color || '',
+      dueDate: doc.dueDate || null
+    });
+
+    function mergeByUpdatedAt(localDocs, remoteDocs) {
+      const map = new Map();
+      for (const r of (remoteDocs || [])) {
+        if (!r || !r.id) continue;
+        map.set(r.id, normalizeDoc(r));
+      }
+      for (const l of (localDocs || [])) {
+        if (!l || !l.id) continue;
+        const cur = map.get(l.id);
+        if (!cur) {
+          map.set(l.id, normalizeDoc(l));
+        } else {
+          const lt = toTime(l.updatedAt);
+          const rt = toTime(cur.updatedAt);
+          map.set(l.id, lt >= rt ? normalizeDoc(l) : cur);
+        }
+      }
+      return Array.from(map.values());
+    }
+
+    async function updateLocalFromRemote(mergedDocs, localDocs) {
+      const localMap = new Map((localDocs || []).map(d => [d.id, d]));
+      const ops = [];
+      for (const doc of mergedDocs) {
+        const l = localMap.get(doc.id);
+        if (!l || toTime(l.updatedAt) < toTime(doc.updatedAt)) {
+          ops.push(saveDocument(doc));
+        }
+      }
+      if (ops.length) await Promise.allSettled(ops);
+    }
+
+    // 1) Load local docs
+    const localDocs = await listDocuments({ includeArchived: true });
+
+    // 2) Load remote documents.json (if exists)
+    const { id: documentsJsonId, modifiedTime: remoteModTimeA } = await getDocumentsJsonFile();
+    let remoteBundle = await downloadDocumentsJson(documentsJsonId);
+    let remoteDocs = Array.isArray(remoteBundle?.documents) ? remoteBundle.documents : [];
+
+    // 3) Merge
+    const mergedDocs = mergeByUpdatedAt(localDocs, remoteDocs);
+
+    // 4) Update local from remote newer versions
+    await updateLocalFromRemote(mergedDocs, localDocs);
+
+    // 5) Double-check concurrency: if remote changed since we read it, re-fetch and re-merge
+    if (documentsJsonId) {
+      try {
+        const latestMeta = await gapi.client.drive.files.get({ fileId: documentsJsonId, fields: 'id, modifiedTime' });
+        const remoteModTimeB = latestMeta.result.modifiedTime;
+        if (remoteModTimeA && remoteModTimeB && remoteModTimeA !== remoteModTimeB) {
+          const latestBundle = await downloadDocumentsJson(documentsJsonId);
+          const latestDocs = Array.isArray(latestBundle?.documents) ? latestBundle.documents : [];
+          const remerged = mergeByUpdatedAt(mergedDocs, latestDocs);
+          // Also update local after remerge to avoid losing concurrent updates
+          await updateLocalFromRemote(remerged, mergedDocs);
+          // Replace mergedDocs
+          mergedDocs.splice(0, mergedDocs.length, ...remerged);
+        }
+      } catch (e) {
+        console.warn('Concurrency check failed, proceeding with current merge', e);
+      }
+    }
+
+    // 6) Upload merged bundle to documents.json
+    const bundle = {
+      version: 1,
+      lastUpdated: new Date().toISOString(),
+      documents: mergedDocs
+    };
+    const jsonString = JSON.stringify(bundle, null, 2);
+    const finalFileId = await uploadDocumentsJson(jsonString, documentsJsonId);
+
+    // ===== Folders Sync (folders.json) =====
+    // Helper: find folders.json in BuddyDocs folder
+    async function getFoldersJsonFile() {
+      const resp = await gapi.client.drive.files.list({
+        q: `'${folderId}' in parents and trashed=false and name='folders.json' and mimeType='application/json'`,
+        fields: 'files(id, name, modifiedTime)',
+        pageSize: 1
+      });
+      if (resp.result.files && resp.result.files.length > 0) {
+        const f = resp.result.files[0];
+        return { id: f.id, modifiedTime: f.modifiedTime };
+      }
+      return { id: null, modifiedTime: null };
+    }
+
+    async function downloadFoldersJson(fileId) {
+      if (!fileId) return null;
+      const accessToken = gapi.client.getToken().access_token;
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+      if (!res.ok) throw new Error('Failed to download folders.json');
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.warn('folders.json parse error, using empty set', e);
+        return null;
+      }
+    }
+
+    async function uploadFoldersJson(jsonString, existingFileId) {
+      const accessToken = gapi.client.getToken().access_token;
+      const metadata = existingFileId
+        ? { name: 'folders.json', mimeType: 'application/json', appProperties: { version: '1.0', type: 'bundle' } }
+        : { name: 'folders.json', mimeType: 'application/json', parents: [folderId], appProperties: { version: '1.0', type: 'bundle' } };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([jsonString], { type: 'application/json' }));
+      const url = existingFileId
+        ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,name,webViewLink`
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+      const method = existingFileId ? 'PATCH' : 'POST';
+      const response = await fetch(url, { method, headers: new Headers({ Authorization: 'Bearer ' + accessToken }), body: form });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload folders.json failed:', errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+      const fileData = await response.json();
+      return fileData.id;
+    }
+
+    const normalizeFolder = (f) => ({
+      id: f.id,
+      name: f.name || 'Untitled Folder',
+      color: f.color || 'blue',
+      emoji: f.emoji || '📁',
+      parentId: typeof f.parentId === 'string' ? f.parentId : null,
+      updatedAt: f.updatedAt || Date.now()
+    });
+
+    function mergeFoldersByUpdatedAt(localFolders, remoteFolders) {
+      const map = new Map();
+      for (const r of (remoteFolders || [])) {
+        if (!r || !r.id) continue;
+        map.set(r.id, normalizeFolder(r));
+      }
+      for (const l of (localFolders || [])) {
+        if (!l || !l.id) continue;
+        const cur = map.get(l.id);
+        if (!cur) {
+          map.set(l.id, normalizeFolder(l));
+        } else {
+          const lt = toTime(l.updatedAt);
+          const rt = toTime(cur.updatedAt);
+          map.set(l.id, lt >= rt ? normalizeFolder(l) : cur);
+        }
+      }
+      return Array.from(map.values());
+    }
+
+    async function listAllLocalFolders() {
+      const store = await tx(STORES.folders, 'readonly');
+      const all = await new Promise((resolve) => {
+        const r = store.getAll();
+        r.onsuccess = () => resolve(r.result || []);
+        r.onerror = () => resolve([]);
+      });
+      return all;
+    }
+
+    async function updateLocalFoldersFromRemote(mergedFolders, localFolders) {
+      const localMap = new Map((localFolders || []).map(f => [f.id, f]));
+      const ops = [];
+      for (const f of mergedFolders) {
+        const l = localMap.get(f.id);
+        if (!l || toTime(l.updatedAt) < toTime(f.updatedAt)) {
+          ops.push(saveFolder(f));
+        }
+      }
+      if (ops.length) await Promise.allSettled(ops);
+    }
+
+    const { id: foldersJsonId, modifiedTime: remoteFoldersModA } = await getFoldersJsonFile();
+    let remoteFoldersBundle = await downloadFoldersJson(foldersJsonId);
+    let remoteFolders = Array.isArray(remoteFoldersBundle?.folders) ? remoteFoldersBundle.folders : [];
+
+    const localFolders = await listAllLocalFolders();
+    const mergedFolders = mergeFoldersByUpdatedAt(localFolders, remoteFolders);
+    await updateLocalFoldersFromRemote(mergedFolders, localFolders);
+
+    // Concurrency re-check for folders
+    if (foldersJsonId) {
+      try {
+        const latestMeta = await gapi.client.drive.files.get({ fileId: foldersJsonId, fields: 'id, modifiedTime' });
+        const remoteFoldersModB = latestMeta.result.modifiedTime;
+        if (remoteFoldersModA && remoteFoldersModB && remoteFoldersModA !== remoteFoldersModB) {
+          const latestBundle = await downloadFoldersJson(foldersJsonId);
+          const latestFolders = Array.isArray(latestBundle?.folders) ? latestBundle.folders : [];
+          const remerged = mergeFoldersByUpdatedAt(mergedFolders, latestFolders);
+          await updateLocalFoldersFromRemote(remerged, mergedFolders);
+          mergedFolders.splice(0, mergedFolders.length, ...remerged);
+        }
+      } catch (e) {
+        console.warn('Folders concurrency check failed, proceeding with current merge', e);
+      }
+    }
+
+    const foldersBundle = { version: 1, lastUpdated: new Date().toISOString(), folders: mergedFolders };
+    const foldersJsonString = JSON.stringify(foldersBundle, null, 2);
+    await uploadFoldersJson(foldersJsonString, foldersJsonId);
+
+    // ===== Settings Sync (settings.json) =====
+    async function getSettingsJsonFile() {
+      const resp = await gapi.client.drive.files.list({
+        q: `'${folderId}' in parents and trashed=false and name='settings.json' and mimeType='application/json'`,
+        fields: 'files(id, name, modifiedTime)',
+        pageSize: 1
+      });
+      if (resp.result.files && resp.result.files.length > 0) {
+        const f = resp.result.files[0];
+        return { id: f.id, modifiedTime: f.modifiedTime };
+      }
+      return { id: null, modifiedTime: null };
+    }
+
+    async function downloadSettingsJson(fileId) {
+      if (!fileId) return null;
+      const accessToken = gapi.client.getToken().access_token;
+      const url = `https://www.googleapis.com/drive/v3/files/${fileId}?alt=media`;
+      const res = await fetch(url, { headers: { Authorization: 'Bearer ' + accessToken } });
+      if (!res.ok) throw new Error('Failed to download settings.json');
+      const text = await res.text();
+      try {
+        return JSON.parse(text);
+      } catch (e) {
+        console.warn('settings.json parse error, using empty set', e);
+        return null;
+      }
+    }
+
+    async function uploadSettingsJson(jsonString, existingFileId) {
+      const accessToken = gapi.client.getToken().access_token;
+      const metadata = existingFileId
+        ? { name: 'settings.json', mimeType: 'application/json', appProperties: { version: '1.0', type: 'bundle' } }
+        : { name: 'settings.json', mimeType: 'application/json', parents: [folderId], appProperties: { version: '1.0', type: 'bundle' } };
+      const form = new FormData();
+      form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+      form.append('file', new Blob([jsonString], { type: 'application/json' }));
+      const url = existingFileId
+        ? `https://www.googleapis.com/upload/drive/v3/files/${existingFileId}?uploadType=multipart&fields=id,name,webViewLink`
+        : 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+      const method = existingFileId ? 'PATCH' : 'POST';
+      const response = await fetch(url, { method, headers: new Headers({ Authorization: 'Bearer ' + accessToken }), body: form });
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Upload settings.json failed:', errorText);
+        throw new Error(`Upload failed: ${response.status} ${response.statusText}`);
+      }
+      const fileData = await response.json();
+      return fileData.id;
+    }
+
+    // Read all local settings
+    const settingsStore = await tx(STORES.settings, 'readonly');
+    const localSettingsArr = await new Promise((resolve) => {
+      const r = settingsStore.getAll();
+      r.onsuccess = () => resolve(r.result || []);
+      r.onerror = () => resolve([]);
+    });
+    const localSettings = new Map(localSettingsArr.map(s => [s.key, s.value]));
+
+    const { id: settingsJsonId, modifiedTime: remoteSettingsModA } = await getSettingsJsonFile();
+    let remoteSettingsBundle = await downloadSettingsJson(settingsJsonId);
+    let remoteSettingsMap = new Map(Object.entries(remoteSettingsBundle?.settings || {}));
+
+    // Determine which side wins based on lastUpdated timestamps
+    const localLastUpdated = localSettings.get('settingsLastUpdated') || null;
+    const remoteLastUpdated = remoteSettingsBundle?.lastUpdated || null;
+
+    let mergedSettings;
+    function addMissing(fromMap, toMap) {
+      for (const [k, v] of fromMap.entries()) {
+        if (!toMap.has(k)) toMap.set(k, v);
+      }
+    }
+
+    if (remoteLastUpdated && localLastUpdated) {
+      if (new Date(remoteLastUpdated) > new Date(localLastUpdated)) {
+        // Remote newer -> take remote, add local-only keys
+        mergedSettings = new Map(remoteSettingsMap);
+        addMissing(localSettings, mergedSettings);
+      } else {
+        // Local newer -> take local, add remote-only keys
+        mergedSettings = new Map(localSettings);
+        addMissing(remoteSettingsMap, mergedSettings);
+      }
+    } else if (remoteLastUpdated && !localLastUpdated) {
+      // Only remote has timestamp
+      mergedSettings = new Map(remoteSettingsMap);
+      addMissing(localSettings, mergedSettings);
+    } else {
+      // Fallback: prefer local
+      mergedSettings = new Map(localSettings);
+      addMissing(remoteSettingsMap, mergedSettings);
+    }
+
+    // Apply merged settings locally
+    for (const [k, v] of mergedSettings.entries()) {
+      try { await setSetting(k, v); } catch (e) { console.warn('Failed to set setting', k, e); }
+    }
+
+    // Concurrency check for settings
+    if (settingsJsonId) {
+      try {
+        const latestMeta = await gapi.client.drive.files.get({ fileId: settingsJsonId, fields: 'id, modifiedTime' });
+        const remoteSettingsModB = latestMeta.result.modifiedTime;
+        if (remoteSettingsModA && remoteSettingsModB && remoteSettingsModA !== remoteSettingsModB) {
+          const latestBundle = await downloadSettingsJson(settingsJsonId);
+          const latestMap = new Map(Object.entries(latestBundle?.settings || {}));
+          const latestLastUpdated = latestBundle?.lastUpdated || null;
+          if (latestLastUpdated && localLastUpdated && new Date(latestLastUpdated) > new Date(localLastUpdated)) {
+            // Remote changed since start and is newer -> re-merge favoring remote
+            mergedSettings = new Map(latestMap);
+            addMissing(localSettings, mergedSettings);
+            for (const [k, v] of mergedSettings.entries()) {
+              try { await setSetting(k, v); } catch (e) {}
+            }
+            // Update local lastUpdated to reflect remote takeover
+            try { await setSetting('settingsLastUpdated', latestLastUpdated); } catch (_) {}
+          }
+        }
+      } catch (e) {
+        console.warn('Settings concurrency check failed', e);
+      }
+    }
+
+    // Persist merged settings to Drive, bumping lastUpdated now
+    const nowIsoForSettings = new Date().toISOString();
+    try { await setSetting('settingsLastUpdated', nowIsoForSettings); } catch (_) {}
+    const settingsBundle = { version: 1, lastUpdated: nowIsoForSettings, settings: Object.fromEntries(mergedSettings) };
+    const settingsJsonString = JSON.stringify(settingsBundle, null, 2);
+    await uploadSettingsJson(settingsJsonString, settingsJsonId);
+
+    // UI updates
     updateLastSyncTime();
     updateStorageUsage();
     updateSyncCountdown();
-    
-    // Update the sync token after successful sync
+
     try {
       const response = await gapi.client.drive.changes.getStartPageToken();
       lastSyncToken = response.result.startPageToken;
     } catch (error) {
       console.error('Error updating sync token:', error);
     }
-    
+
     showToast('Sync completed successfully', 'success');
-    
-    // Trigger UI update to show any new changes
+
     if (typeof loadDocuments === 'function') {
       loadDocuments();
     }
