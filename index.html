@@ -358,6 +358,58 @@
   </script>
   
   <!-- Logo Manager -->
+  <script>
+    // Easter eggs for the search input — if the user types specific phrases
+    // we clear the page and show a centered image or text.
+    document.addEventListener('DOMContentLoaded', function () {
+      const search = document.getElementById('search');
+      if (!search) return;
+
+      function showEasterEgg(key) {
+        const v = (key || '').trim().toLowerCase();
+        if (v !== 'sillyseal' && v !== 'ifoundpatti' && v !== '404') return;
+
+        // Remove all existing body content
+        document.body.innerHTML = '';
+
+        // Create a full-viewport wrapper centered both axes
+        const wrapper = document.createElement('div');
+        wrapper.style.minHeight = '100vh';
+        wrapper.style.display = 'flex';
+        wrapper.style.flexDirection = 'column';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
+        wrapper.style.gap = '1rem';
+        wrapper.style.padding = '2rem';
+        wrapper.style.boxSizing = 'border-box';
+        wrapper.style.background = getComputedStyle(document.documentElement).getPropertyValue('--bg') || '';
+
+        if (v === '404') {
+          const txt = document.createElement('div');
+          txt.textContent = '404 my ahh';
+          txt.style.fontSize = '12vw';
+          txt.style.fontWeight = '700';
+          txt.style.letterSpacing = '0.02em';
+          txt.style.color = 'var(--text, #111)';
+          wrapper.appendChild(txt);
+        } else {
+          const img = document.createElement('img');
+          img.alt = v === 'sillyseal' ? 'Silly Seal' : 'Patti';
+          img.src = v === 'sillyseal' ? 'data/assets/silly-seal.gif' : 'data/assets/patti.gif';
+          img.style.maxWidth = '90%';
+          img.style.maxHeight = '90vh';
+          img.style.objectFit = 'contain';
+          wrapper.appendChild(img);
+        }
+
+        document.body.appendChild(wrapper);
+      }
+
+      // Trigger on typing or Enter. Match exactly (case-insensitive) after trimming.
+      search.addEventListener('input', (e) => showEasterEgg(e.target.value));
+      search.addEventListener('keyup', (e) => { if (e.key === 'Enter') showEasterEgg(e.target.value); });
+    });
+  </script>
   <script src="data/js/logo-manager.js"></script>
 </body>
 </html>
