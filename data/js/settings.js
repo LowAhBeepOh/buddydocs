@@ -913,6 +913,7 @@ loadSettings().then(async () => {
                 
                 // First delete all gallery images
                 for (const doc of allDocs) {
+                  // Handle gallery type documents with images
                   if (doc.type === 'gallery' && doc.images && doc.images.length > 0) {
                     const imagePromises = doc.images.map(imageId => {
                       return new Promise((resolve) => {
@@ -925,6 +926,13 @@ loadSettings().then(async () => {
                       });
                     });
                     await Promise.all(imagePromises);
+                  }
+                  
+                  // Handle any other document types that might have associated data
+                  // This ensures we delete ALL document types: document, list, essay, gallery, board
+                  if (doc.type && ['document', 'list', 'essay', 'gallery', 'board'].includes(doc.type)) {
+                    // Additional cleanup for specific document types if needed
+                    console.log(`Deleting document of type: ${doc.type}, id: ${doc.id}`);
                   }
                 }
                 

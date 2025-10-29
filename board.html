@@ -1,0 +1,624 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet" />
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/editor.css" />
+  <link rel="stylesheet" href="data/css/board.css" />
+  <title>Board • Buddy Docs</title>
+</head>
+<body>
+  <header class="topbar">
+    <div class="left">
+      <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
+      <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled Board</h1>
+    </div>
+    <div class="right">
+      <button id="profileBtn" class="avatar" title="Profile">U</button>
+      <div id="profileMenu" class="menu" hidden>
+        <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+        <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+      </div>
+    </div>
+  </header>
+
+  <main class="editor-wrap">
+    <aside class="meta-panel" style="height: calc(100dvh - 120px); position: sticky; top: 90px;">
+      <label>
+        <span>Type</span>
+        <select id="docType">
+          <option value="board" selected>Board</option>
+        </select>
+      </label>
+      <label>
+        <span>Due date</span>
+        <input id="dueDate" type="date"/>
+      </label>
+      <label>
+        <span>Tags</span>
+        <input id="tags" type="text" placeholder="comma, separated"/>
+      </label>
+      <button id="deleteBtn" class="btn danger outline">Delete</button>
+    </aside>
+
+    <section class="page board-page" style="flex:1;">
+      <div id="board" class="board-canvas">
+        <div id="boardExpander" class="board-expander"></div>
+        <!-- items rendered here -->
+      </div>
+      <div class="board-toolbar" role="toolbar" aria-label="Board tools">
+        <div class="dock-group">
+          <button id="selectToolBtn" class="icon-btn active" title="Select/Move"><span class="material-symbols-outlined">near_me</span></button>
+          <button id="toggleGridBtn" class="icon-btn" title="Toggle grid & snap"><span class="material-symbols-outlined">grid_on</span></button>
+        </div>
+        <span class="sep"></span>
+        <div class="dock-group">
+          <button id="addRectBtn" class="icon-btn" title="Add rectangle"><span class="material-symbols-outlined">check_box_outline_blank</span></button>
+          <button id="addCircleBtn" class="icon-btn" title="Add circle"><span class="material-symbols-outlined">radio_button_unchecked</span></button>
+          <button id="addNoteBtn" class="icon-btn" title="Add note"><span class="material-symbols-outlined">sticky_note_2</span></button>
+          <button id="addLinkBtn" class="icon-btn" title="Add link"><span class="material-symbols-outlined">link</span></button>
+          <button id="addImageBtn" class="icon-btn" title="Add image"><span class="material-symbols-outlined">image</span></button>
+          <input id="imageInput" type="file" accept="image/*" hidden />
+        </div>
+        <span class="sep"></span>
+        <div class="dock-group">
+          <label class="inline-label">Fill <input id="fillColor" type="color" value="#FFF3A4" /></label>
+          <label class="inline-label">Text <input id="textColor" type="color" value="#333333" /></label>
+        </div>
+        <span class="sep"></span>
+        <div class="dock-group">
+          <button id="bringForwardBtn" class="icon-btn" title="Bring forward"><span class="material-symbols-outlined">stack</span></button>
+          <button id="sendBackwardBtn" class="icon-btn" title="Send backward"><span class="material-symbols-outlined">layers</span></button>
+          <button id="boardSettingsBtn" class="icon-btn" title="Board settings"><span class="material-symbols-outlined">settings</span></button>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <div id="boardSettings" class="board-settings-popover" hidden>
+    <h4>Board settings</h4>
+    <label>
+      <span>Mode</span>
+      <select id="boardMode">
+        <option value="endless" selected>Endless</option>
+        <option value="ratio">Ratio</option>
+        <option value="custom">Custom</option>
+      </select>
+    </label>
+    <label>
+      <span>Ratio</span>
+      <select id="boardRatio">
+        <option value="16:9" selected>16:9</option>
+        <option value="9:16">9:16</option>
+        <option value="1:1">1:1</option>
+        <option value="3:4">3:4</option>
+        <option value="4:3">4:3</option>
+      </select>
+    </label>
+    <div class="row">
+      <label style="flex:1">
+        <span>Custom width (px)</span>
+        <input id="customWidth" type="number" min="200" step="10" value="1920" />
+      </label>
+      <label style="flex:1">
+        <span>Custom height (px)</span>
+        <input id="customHeight" type="number" min="200" step="10" value="1080" />
+      </label>
+    </div>
+    <div class="btns">
+      <button id="closeSettingsBtn" class="btn">Close</button>
+      <button id="applySettingsBtn" class="btn primary">Apply</button>
+    </div>
+  </div>
+
+  <template id="boardItemTemplate">
+    <div class="board-item">
+      <div class="resize-handle" data-handle="br"></div>
+      <div class="rotate-handle" data-handle="rot"></div>
+    </div>
+  </template>
+
+  <script type="module">
+    import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
+    import { setSetting, getSetting } from './data/js/idb.js';
+
+    let currentDoc = { id:null, title:'Untitled Board', type:'board', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
+    const titleEl = document.getElementById('docTitle');
+    const typeEl = document.getElementById('docType');
+    const dueEl = document.getElementById('dueDate');
+    const tagsEl = document.getElementById('tags');
+    const board = document.getElementById('board');
+    const itemTemplate = document.getElementById('boardItemTemplate');
+
+    const addNoteBtn = document.getElementById('addNoteBtn');
+    // Plain text tool
+    const addTextBtn = (function(){
+      const btn = document.createElement('button');
+      btn.id = 'addTextBtn';
+      btn.className = 'icon-btn';
+      btn.title = 'Add text';
+      btn.innerHTML = '<span class="material-symbols-outlined">text_fields</span>';
+      document.querySelector('.board-toolbar .dock-group:nth-of-type(2)')?.appendChild(btn);
+      return btn;
+    })();
+    const addLinkBtn = document.getElementById('addLinkBtn');
+    const addRectBtn = document.getElementById('addRectBtn');
+    const addCircleBtn = document.getElementById('addCircleBtn');
+    const addImageBtn = document.getElementById('addImageBtn');
+    const imageInput = document.getElementById('imageInput');
+    const fillColor = document.getElementById('fillColor');
+    const textColor = document.getElementById('textColor');
+    const bringForwardBtn = document.getElementById('bringForwardBtn');
+    const sendBackwardBtn = document.getElementById('sendBackwardBtn');
+    const selectToolBtn = document.getElementById('selectToolBtn');
+    const toggleGridBtn = document.getElementById('toggleGridBtn');
+    const boardExpander = document.getElementById('boardExpander');
+    const boardSettingsBtn = document.getElementById('boardSettingsBtn');
+    const boardSettings = document.getElementById('boardSettings');
+    const boardModeEl = document.getElementById('boardMode');
+    const boardRatioEl = document.getElementById('boardRatio');
+    const customWidthEl = document.getElementById('customWidth');
+    const customHeightEl = document.getElementById('customHeight');
+    const applySettingsBtn = document.getElementById('applySettingsBtn');
+    const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+
+    let selectedItem = null;
+    let dragging = null;
+    let resizing = null;
+    let rotating = null;
+    let snapEnabled = false;
+    const GRID = 20;
+    const WORLD = 80000; // virtual world size in px (both directions)
+    let boardSettingsState = { mode: 'endless', ratio: '16:9', custom: { width: 1920, height: 1080 } };
+    let panning = null;
+
+    function getParam(name){
+      const u = new URL(location.href);
+      return u.searchParams.get(name);
+    }
+
+    function selectItem(el){
+      if (selectedItem) selectedItem.classList.remove('selected');
+      selectedItem = el;
+      if (selectedItem){
+        selectedItem.classList.add('selected');
+        const meta = selectedItem._meta || {};
+        if (meta.bg) fillColor.value = toHexColor(meta.bg);
+        if (meta.color) textColor.value = toHexColor(meta.color);
+      }
+    }
+
+    function toHexColor(c){
+      const ctx = document.createElement('canvas').getContext('2d');
+      ctx.fillStyle = c;
+      return ctx.fillStyle; // normalized
+    }
+
+    function createItem(meta){
+      const el = itemTemplate.content.cloneNode(true).children[0];
+      el._meta = { ...meta };
+      el.style.left = (meta.x || 80) + 'px';
+      el.style.top = (meta.y || 80) + 'px';
+      el.style.width = (meta.width || 200) + 'px';
+      el.style.height = (meta.height || 140) + 'px';
+      el.style.transform = `rotate(${meta.rotation || 0}deg)`;
+      el.style.zIndex = meta.z || 1;
+      // Appearance by type
+      if (meta.type === 'note'){
+        el.classList.add('note');
+        el.style.background = meta.bg || '#FFF3A4';
+        const inner = document.createElement('div');
+        inner.className = 'note-content';
+        inner.contentEditable = 'true';
+        inner.spellcheck = true;
+        inner.style.color = meta.color || '#333';
+        inner.innerText = meta.text || '';
+        inner.addEventListener('input', ()=>{ el._meta.text = inner.innerText; });
+        inner.addEventListener('mousedown', (e)=>{ /* allow text selection/editing */ e.stopPropagation(); });
+        el.appendChild(inner);
+      } else if (meta.type === 'text'){
+        el.classList.add('text');
+        el.style.background = 'transparent';
+        const inner = document.createElement('div');
+        inner.className = 'text-content';
+        inner.contentEditable = 'true';
+        inner.spellcheck = true;
+        inner.style.color = meta.color || '#eee';
+        inner.style.fontSize = (meta.fontSize || 18) + 'px';
+        inner.innerText = meta.text || 'Text';
+        inner.addEventListener('input', ()=>{ el._meta.text = inner.innerText; });
+        inner.addEventListener('mousedown', (e)=>{ e.stopPropagation(); });
+        el.appendChild(inner);
+      } else if (meta.type === 'link'){
+        el.classList.add('link');
+        el.style.background = meta.bg || '#E8F0FF';
+        const inner = document.createElement('a');
+        inner.className = 'link-card';
+        inner.href = meta.href || '#';
+        inner.target = '_blank';
+        inner.textContent = meta.text || (meta.href || 'Link');
+        inner.style.color = meta.color || '#0550FF';
+        inner.addEventListener('mousedown', (e)=>{ e.stopPropagation(); });
+        el.appendChild(inner);
+      } else if (meta.type === 'shape'){
+        el.classList.add('shape');
+        el.style.background = meta.bg || '#FFD78A';
+        el.style.borderRadius = meta.shape === 'circle' ? '50%' : '8px';
+      } else if (meta.type === 'image'){
+        el.classList.add('image');
+        const img = document.createElement('img');
+        img.src = meta.src || '';
+        img.alt = 'Image';
+        el.appendChild(img);
+      }
+      // Events
+      el.addEventListener('mousedown', (e)=>{
+        selectItem(el);
+        const target = e.target;
+        const rect = el.getBoundingClientRect();
+        const startX = e.clientX;
+        const startY = e.clientY;
+        const startW = rect.width;
+        const startH = rect.height;
+        const startL = rect.left;
+        const startT = rect.top;
+        const startRot = el._meta.rotation || 0;
+        const offsetX = e.clientX - rect.left;
+        const offsetY = e.clientY - rect.top;
+        const handle = target.closest('.resize-handle');
+        const rhandle = target.closest('.rotate-handle');
+        const isEditable = target.closest('.note-content, .text-content');
+        const isLink = target.closest('.link-card');
+        if (handle){
+          resizing = { el, startX, startY, startW, startH };
+        } else if (rhandle){
+          rotating = { el, startX, startY, startRot, cx: rect.left + rect.width/2, cy: rect.top + rect.height/2 };
+        } else if (!isEditable && !isLink) {
+          dragging = { el, offsetX, offsetY };
+        }
+        if (!isEditable && !isLink) e.preventDefault();
+      });
+      el.addEventListener('click', ()=> selectItem(el));
+      board.appendChild(el);
+      return el;
+    }
+
+    function onMouseMove(e){
+      if (panning){
+        const dx = e.clientX - panning.startX;
+        const dy = e.clientY - panning.startY;
+        board.scrollLeft = panning.scrollLeft - dx;
+        board.scrollTop = panning.scrollTop - dy;
+      } else if (dragging){
+        const { el, offsetX, offsetY } = dragging;
+        const parentRect = board.getBoundingClientRect();
+        const x = e.clientX - parentRect.left - offsetX + board.scrollLeft;
+        const y = e.clientY - parentRect.top - offsetY + board.scrollTop;
+        const nx = x;
+        const ny = y;
+        el.style.left = (snapEnabled ? Math.round(nx/GRID)*GRID : nx) + 'px';
+        el.style.top = (snapEnabled ? Math.round(ny/GRID)*GRID : ny) + 'px';
+      } else if (resizing){
+        const { el, startX, startY, startW, startH } = resizing;
+        const dx = e.clientX - startX;
+        const dy = e.clientY - startY;
+        const nw = Math.max(60, startW + dx);
+        const nh = Math.max(40, startH + dy);
+        el.style.width = (snapEnabled ? Math.round(nw/GRID)*GRID : nw) + 'px';
+        el.style.height = (snapEnabled ? Math.round(nh/GRID)*GRID : nh) + 'px';
+      } else if (rotating){
+        const { el, cx, cy } = rotating;
+        const angle = Math.atan2(e.clientY - cy, e.clientX - cx) * 180 / Math.PI;
+        const rot = Math.round(angle);
+        el.style.transform = `rotate(${rot}deg)`;
+      }
+    }
+    function onMouseUp(){
+      if (panning){ panning = null; board.classList.remove('panning'); saveNow(); }
+      if (dragging){ dragging.el._meta.x = parseInt(dragging.el.style.left)||0; dragging.el._meta.y = parseInt(dragging.el.style.top)||0; dragging = null; saveNow(); }
+      if (resizing){ resizing.el._meta.width = parseInt(resizing.el.style.width)||0; resizing.el._meta.height = parseInt(resizing.el.style.height)||0; resizing = null; saveNow(); }
+      if (rotating){ const v = rotating.el.style.transform.match(/rotate\(([-\d.]+)deg\)/); rotating.el._meta.rotation = v ? parseFloat(v[1]) : 0; rotating = null; saveNow(); }
+    }
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+
+    // Background drag to pan (when clicking empty space or the canvas)
+    board.addEventListener('mousedown', (e)=>{
+      const onItem = e.target.closest('.board-item');
+      if (!onItem){
+        panning = { startX: e.clientX, startY: e.clientY, scrollLeft: board.scrollLeft, scrollTop: board.scrollTop };
+        board.classList.add('panning');
+        e.preventDefault();
+      }
+    });
+
+    function bindToolbar(){
+      selectToolBtn.addEventListener('click', ()=>{
+        document.querySelectorAll('.board-toolbar .icon-btn').forEach(b=>b.classList.remove('active'));
+        selectToolBtn.classList.add('active');
+      });
+      toggleGridBtn.addEventListener('click', ()=>{
+        snapEnabled = !snapEnabled;
+        board.classList.toggle('show-grid', snapEnabled);
+        toggleGridBtn.classList.toggle('active', snapEnabled);
+      });
+      addNoteBtn.addEventListener('click', ()=>{
+        const el = createItem({ type:'note', x: 80, y: 80, width: 220, height: 150, rotation: -2, bg: fillColor.value, color: textColor.value, text: '' });
+        selectItem(el); saveNow();
+      });
+      addTextBtn.addEventListener('click', ()=>{
+        const el = createItem({ type:'text', x: 120, y: 100, width: 260, height: 60, rotation: 0, color: textColor.value, text: 'Text' });
+        selectItem(el); saveNow();
+      });
+      addLinkBtn.addEventListener('click', ()=>{
+        const url = prompt('Link URL');
+        if (url === null || url.trim()==='') return;
+        const text = prompt('Label (optional)') || url;
+        const el = createItem({ type:'link', x: 120, y: 120, width: 260, height: 60, rotation: 1, bg: fillColor.value, color: textColor.value, href: url, text });
+        selectItem(el); saveNow();
+      });
+      addRectBtn.addEventListener('click', ()=>{
+        const el = createItem({ type:'shape', shape:'rect', x: 160, y: 100, width: 180, height: 120, rotation: 0, bg: fillColor.value });
+        selectItem(el); saveNow();
+      });
+      addCircleBtn.addEventListener('click', ()=>{
+        const el = createItem({ type:'shape', shape:'circle', x: 220, y: 160, width: 120, height: 120, rotation: 0, bg: fillColor.value });
+        selectItem(el); saveNow();
+      });
+      addImageBtn.addEventListener('click', ()=> imageInput.click());
+      imageInput.addEventListener('change', async (e)=>{
+        const file = e.target.files?.[0];
+        if (!file) return;
+        const src = await readFileAsDataURL(file);
+        const el = createItem({ type:'image', src, x: 140, y: 140, width: 240, height: 180, rotation: 0 });
+        selectItem(el); saveNow(); imageInput.value = '';
+      });
+      fillColor.addEventListener('change', ()=>{
+        if (!selectedItem) return;
+        selectedItem._meta.bg = fillColor.value;
+        if (selectedItem.classList.contains('note') || selectedItem.classList.contains('shape')){
+          selectedItem.style.background = fillColor.value;
+        }
+        saveNow();
+      });
+      textColor.addEventListener('change', ()=>{
+        if (!selectedItem) return;
+        selectedItem._meta.color = textColor.value;
+        const inner = selectedItem.querySelector('.note-content, .link-card');
+        if (inner) inner.style.color = textColor.value;
+        saveNow();
+      });
+      bringForwardBtn.addEventListener('click', ()=>{
+        if (!selectedItem) return;
+        selectedItem._meta.z = (selectedItem._meta.z||1) + 1;
+        selectedItem.style.zIndex = selectedItem._meta.z;
+        saveNow();
+      });
+      sendBackwardBtn.addEventListener('click', ()=>{
+        if (!selectedItem) return;
+        selectedItem._meta.z = Math.max(1, (selectedItem._meta.z||1) - 1);
+        selectedItem.style.zIndex = selectedItem._meta.z;
+        saveNow();
+      });
+
+      // Settings toggle
+      boardSettingsBtn.addEventListener('click', ()=>{
+        boardSettings.hidden = !boardSettings.hidden;
+        if (!boardSettings.hidden){
+          // Populate UI
+          boardModeEl.value = boardSettingsState.mode;
+          boardRatioEl.value = boardSettingsState.ratio;
+          customWidthEl.value = boardSettingsState.custom.width;
+          customHeightEl.value = boardSettingsState.custom.height;
+        }
+      });
+      closeSettingsBtn.addEventListener('click', ()=>{ boardSettings.hidden = true; });
+      applySettingsBtn.addEventListener('click', ()=>{
+        boardSettingsState.mode = boardModeEl.value;
+        boardSettingsState.ratio = boardRatioEl.value;
+        boardSettingsState.custom = { width: parseInt(customWidthEl.value)||1920, height: parseInt(customHeightEl.value)||1080 };
+        applyBoardSettings();
+        boardSettings.hidden = true; saveNow();
+      });
+    }
+
+    function bindMeta(){
+      titleEl.addEventListener('input', () => {
+        currentDoc.title = titleEl.textContent.trim() || 'Untitled Board';
+        saveNow();
+      });
+      typeEl.addEventListener('change', () => {
+        currentDoc.type = typeEl.value;
+        saveNow();
+      });
+      dueEl.addEventListener('change', () => {
+        currentDoc.dueDate = dueEl.value || null;
+        saveNow();
+      });
+      tagsEl.addEventListener('change', () => {
+        currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean);
+        saveNow();
+      });
+    }
+
+    function applyBoardSettings(){
+      currentDoc.settings = currentDoc.settings || {};
+      currentDoc.settings.board = { ...boardSettingsState };
+      if (boardSettingsState.mode === 'endless'){
+        // infinite mode
+        board.classList.remove('bounded');
+        boardExpander.hidden = false;
+        board.style.aspectRatio = '';
+        board.style.backgroundImage = '';
+        board.style.height = 'calc(100dvh - 160px)';
+        board.style.width = '100%';
+      } else if (boardSettingsState.mode === 'ratio'){
+        board.classList.add('bounded');
+        boardExpander.hidden = true;
+        const [w,h] = boardSettingsState.ratio.split(':').map(n=>parseInt(n));
+        if (w && h){
+          board.style.aspectRatio = `${w} / ${h}`;
+          board.style.height = '';
+          board.style.width = '100%';
+        }
+      } else if (boardSettingsState.mode === 'custom'){
+        board.classList.add('bounded');
+        boardExpander.hidden = true;
+        board.style.aspectRatio = `${boardSettingsState.custom.width} / ${boardSettingsState.custom.height}`;
+        board.style.height = '';
+        board.style.width = '100%';
+      }
+    }
+
+    function serialize(){
+      const items = Array.from(board.querySelectorAll('.board-item'));
+      currentDoc.content = items.map(el => ({
+        ...el._meta,
+        x: parseInt(el.style.left)||0,
+        y: parseInt(el.style.top)||0,
+        width: parseInt(el.style.width)||0,
+        height: parseInt(el.style.height)||0,
+        rotation: (function(){ const m = el.style.transform.match(/rotate\(([-\d.]+)deg\)/); return m? parseFloat(m[1]) : (el._meta.rotation||0); })(),
+        z: parseInt(el.style.zIndex)||1,
+        // Dynamic content
+        text: el.querySelector('.note-content')?.innerText || el._meta.text || undefined
+      }));
+      // Save viewport scroll so the board restores to where you left off
+      currentDoc.viewport = { scrollLeft: board.scrollLeft, scrollTop: board.scrollTop };
+      currentDoc.settings = currentDoc.settings || {}; currentDoc.settings.board = { ...boardSettingsState };
+    }
+
+    async function saveNow(){
+      serialize();
+      const saved = await saveDocument(currentDoc);
+      if (!getParam('id')){
+        history.replaceState({}, '', `board.html?id=${encodeURIComponent(saved.id)}`);
+      }
+    }
+
+    async function loadOrCreate(){
+      const id = getParam('id');
+      if (id){
+        const d = await getDocument(id);
+        if (d){ currentDoc = d; }
+      }
+      titleEl.textContent = currentDoc.title || 'Untitled Board';
+      if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
+      if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
+      // Configure infinite world expander with corkboard texture and center/restore viewport
+      board.dataset.texture = 'corkboard1.png';
+      boardExpander.style.width = WORLD + 'px';
+      boardExpander.style.height = WORLD + 'px';
+      boardExpander.style.left = (-WORLD/2) + 'px';
+      boardExpander.style.top = (-WORLD/2) + 'px';
+      boardExpander.style.backgroundImage = `url('data/assets/textures/${board.dataset.texture}'),
+        radial-gradient(circle at 20% 30%, rgba(0,0,0,.06) 0 8px, transparent 8px),
+        radial-gradient(circle at 70% 60%, rgba(0,0,0,.05) 0 10px, transparent 10px)`;
+
+      if (currentDoc.viewport && Number.isFinite(currentDoc.viewport.scrollLeft) && Number.isFinite(currentDoc.viewport.scrollTop)){
+        board.scrollLeft = currentDoc.viewport.scrollLeft;
+        board.scrollTop = currentDoc.viewport.scrollTop;
+      } else {
+        board.scrollLeft = (WORLD/2) - (board.clientWidth/2);
+        board.scrollTop = (WORLD/2) - (board.clientHeight/2);
+      }
+
+      // Render items
+      if (Array.isArray(currentDoc.content)){
+        currentDoc.content.forEach(meta => { createItem(meta); });
+      }
+
+      // Restore board settings
+      if (currentDoc.settings?.board){
+        boardSettingsState = { ...boardSettingsState, ...currentDoc.settings.board };
+      }
+      applyBoardSettings();
+    }
+
+    // Keyboard shortcuts: Delete to remove selected, Ctrl+D to duplicate
+    document.addEventListener('keydown', (e)=>{
+      if (selectedItem && (e.key === 'Delete' || e.key === 'Backspace')){
+        selectedItem.remove(); selectedItem = null; saveNow();
+      } else if (selectedItem && (e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'd'){
+        // Ensure we duplicate current live state including text content
+        const liveText = selectedItem.querySelector('.note-content, .text-content')?.innerText;
+        const meta = { ...selectedItem._meta, text: liveText ?? selectedItem._meta.text, x: (selectedItem._meta.x||80) + 20, y: (selectedItem._meta.y||80) + 20, z: (selectedItem._meta.z||1) + 1 };
+        const el = createItem(meta); selectItem(el); saveNow();
+      }
+    });
+
+    async function deleteNow(){
+      if (!currentDoc.id) return;
+      const ok = confirm('Delete this board?');
+      if (!ok) return;
+      await deleteDocument(currentDoc.id);
+      location.href = './';
+    }
+
+    // File helpers
+    function readFileAsDataURL(file){
+      return new Promise((resolve, reject)=>{
+        const reader = new FileReader();
+        reader.onload = () => resolve(reader.result);
+        reader.onerror = reject;
+        reader.readAsDataURL(file);
+      });
+    }
+
+    // Profile avatar/menu setup
+    (async () => {
+      const profilePicture = await getSetting('profilePicture', null);
+      const initials = await getSetting('initials', 'BD');
+      const btn = document.getElementById('profileBtn');
+      if (btn) {
+        if (profilePicture) { btn.style.backgroundImage = `url(${profilePicture})`; btn.textContent = ''; }
+        else { btn.style.backgroundImage = ''; btn.textContent = (initials || 'BD').slice(0,2).toUpperCase(); }
+      }
+    })();
+
+    const btn = document.getElementById('profileBtn');
+    const menu = document.getElementById('profileMenu');
+    function closeMenu(){
+      if (menu?.classList.contains('open')){
+        menu.classList.remove('open');
+        document.removeEventListener('click', onDocClick);
+        window.removeEventListener('resize', closeMenu);
+        window.removeEventListener('scroll', closeMenu, true);
+      }
+    }
+    function onDocClick(e){ if (!menu.contains(e.target) && e.target !== btn) closeMenu(); }
+    btn?.addEventListener('click', (e)=>{
+      e.stopPropagation();
+      const isOpen = menu.classList.toggle('open');
+      if (isOpen){
+        document.addEventListener('click', onDocClick);
+        window.addEventListener('resize', closeMenu);
+        window.addEventListener('scroll', closeMenu, true);
+      } else closeMenu();
+    });
+
+    // Initialize
+    bindToolbar();
+    bindMeta();
+    loadOrCreate();
+    document.getElementById('deleteBtn').addEventListener('click', deleteNow);
+    window.addEventListener('resize', ()=>{
+      if (boardSettingsState.mode !== 'endless') applyBoardSettings();
+    });
+  </script>
+
+  <script type="module" src="data/js/theme.js"></script>
+  <script type="module" src="data/js/version-history.js"></script>
+  <script type="module" src="data/js/initSync.js"></script>
+</body>
+</html>

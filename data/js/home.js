@@ -855,6 +855,8 @@ function createDocCard(doc){
     targetHref = `gallery.html?id=${encodeURIComponent(doc.id)}`;
   } else if (doc.type === 'presentation') {
     targetHref = `slides.html?id=${encodeURIComponent(doc.id)}`;
+  } else if (doc.type === 'board') {
+    targetHref = `board.html?id=${encodeURIComponent(doc.id)}`;
   } else {
     targetHref = `editor.html?id=${encodeURIComponent(doc.id)}`;
   }
@@ -875,11 +877,22 @@ function createDocCard(doc){
   // Show document preview in thumb
   const thumb = node.querySelector('.thumb');
   if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
-    // For galleries, choose a random non-spoiler, non-locked image
-    const candidates = doc.content
-      .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
-      .filter(e => !e.spoiler && !e.locked);
-    const chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
+    // Normalize entries
+    const entries = doc.content
+      .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry);
+    // Prefer pinned cover if valid (exists and not spoiler/locked)
+    let chosen = null;
+    if (doc.pinnedImageSrc) {
+      const match = entries.find(e => e.src === doc.pinnedImageSrc && !e.spoiler && !e.locked);
+      if (match) {
+        chosen = match.src;
+      }
+    }
+    // Fallback: choose a random non-spoiler, non-locked image
+    if (!chosen) {
+      const candidates = entries.filter(e => !e.spoiler && !e.locked);
+      chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
+    }
     if (chosen){
       thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
     }
@@ -891,6 +904,28 @@ function createDocCard(doc){
       <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
     </div>`;
     thumb.style.padding = '0';
+  } else if (doc.type === 'board') {
+    // Render a simple board preview: corkboard background and a few notes
+    const hasItems = Array.isArray(doc.content) && doc.content.length > 0;
+    const bgUrl = 'data/assets/textures/corkboard1.png';
+    thumb.style.padding = '0';
+    thumb.innerHTML = `
+      <div style="position:absolute; inset:0; background:${hasItems?`url('${bgUrl}') center / cover`:'var(--surface)'};"></div>
+      <div style="position:absolute; inset:0; padding:8px;">
+        ${hasItems ? doc.content
+          .filter(it => it.type === 'note' || it.type === 'link' || it.type === 'shape')
+          .slice(0,3)
+          .map((it, i) => {
+            const bg = it.bg || (it.type==='shape' ? '#FFD78A' : '#FFF3A4');
+            const rot = it.rotation || (i === 0 ? -4 : i === 1 ? 3 : 1);
+            const text = (it.text || it.href || '');
+            return `<div style="position:absolute; left:${8 + i*58}px; top:${10 + i*8}px; width:80px; height:56px; background:${bg}; color:#333; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.2); transform:rotate(${rot}deg); display:flex; align-items:center; justify-content:center; font-size:10px; overflow:hidden;">${text ? text.slice(0,22) : ''}</div>`;
+          }).join('')
+          : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted);">
+               <span class="material-symbols-outlined" style="font-size:40px;">dashboard</span>
+             </div>`}
+      </div>
+    `;
   } else {
     // For documents, check both content field and pages array
     const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);

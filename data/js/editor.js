@@ -17,6 +17,9 @@ let currentDoc = { id:null, title:'Untitled', type:'document', content:'', dueDa
 let smartCompose = null;
 let currentPageIndex = 0;
 let autoCorrectEnabled = false;
+// View mode state & reading speed (words per minute)
+let isViewMode = false;
+const READING_WPM = 190;
 
 function getParam(name){
   const u = new URL(location.href);
@@ -92,6 +95,12 @@ function updateToolbarForType(type) {
   if (type === 'gallery') {
     const id = getParam('id');
     location.href = `gallery.html${id ? '?id=' + id : ''}`;
+    return;
+  }
+  // If it's board type, redirect to board.html
+  if (type === 'board') {
+    const id = getParam('id');
+    location.href = `board.html${id ? '?id=' + id : ''}`;
     return;
   }
 }
@@ -1678,6 +1687,11 @@ function updateStatusCounts() {
   const text = (editor?.innerText || '').trim();
   const words = text ? text.split(/\s+/).filter(Boolean).length : 0;
   const display = document.getElementById('wordCountDisplay');
+  // In view mode, replace word count with reading time info
+  if (isViewMode) {
+    updateReadingUI(words);
+    return;
+  }
   if (display) display.textContent = `${words} ${words === 1 ? 'word' : 'words'}`;
   
   // Update progress bar
@@ -1687,6 +1701,30 @@ function updateStatusCounts() {
     const goal = parseInt(goalInput.value) || 0;
     const progress = goal > 0 ? Math.min((words / goal) * 100, 100) : 0;
     progressBar.style.width = `${progress}%`;
+  }
+}
+
+// Update reading time and remaining time based on scroll position in view mode
+function updateReadingUI(wordsCountOverride = null) {
+  if (!isViewMode) return;
+  const display = document.getElementById('wordCountDisplay');
+  const progressBar = document.getElementById('wordProgressBar');
+  // Calculate words if not provided
+  const text = (editor?.innerText || '').trim();
+  const words = wordsCountOverride ?? (text ? text.split(/\s+/).filter(Boolean).length : 0);
+  const totalMinutes = Math.max(1, Math.ceil(words / READING_WPM));
+  // Estimate reading progress using viewport bottom relative to editor top
+  const editorTop = editor.offsetTop;
+  const editorHeight = Math.max(1, editor.scrollHeight || editor.getBoundingClientRect().height);
+  const viewportBottom = (window.scrollY || document.documentElement.scrollTop) + window.innerHeight;
+  let progress = (viewportBottom - editorTop) / editorHeight;
+  progress = Math.max(0, Math.min(1, progress));
+  const remainingMinutes = Math.max(0, Math.ceil(totalMinutes * (1 - progress)));
+  if (display) {
+    display.textContent = `${totalMinutes} min read${totalMinutes ? ` • ${remainingMinutes} left` : ''}`;
+  }
+  if (progressBar) {
+    progressBar.style.width = `${progress * 100}%`;
   }
 }
 
@@ -1785,15 +1823,34 @@ function buildOutline() {
       editor.setAttribute('contenteditable','false');
       viewBtn?.classList.add('active');
       editBtn?.classList.remove('active');
+      isViewMode = true;
+      // Hide word goal controls
+      const goalInput = document.getElementById('wordGoalInput');
+      const goalLabel = document.getElementById('wordGoalLabel');
+      if (goalInput) goalInput.style.display = 'none';
+      if (goalLabel) goalLabel.style.display = 'none';
+      // Initialize reading UI immediately
+      updateReadingUI();
     } else {
       editor.setAttribute('contenteditable','true');
       editBtn?.classList.add('active');
       viewBtn?.classList.remove('active');
+      isViewMode = false;
+      // Restore word goal controls
+      const goalInput = document.getElementById('wordGoalInput');
+      const goalLabel = document.getElementById('wordGoalLabel');
+      if (goalInput) goalInput.style.display = '';
+      if (goalLabel) goalLabel.style.display = '';
       editor.focus();
+      // Immediately refresh word count UI
+      updateStatusCounts();
     }
   };
   editBtn?.addEventListener('click', ()=> setMode('edit'));
   viewBtn?.addEventListener('click', ()=> setMode('view'));
+  // Keep reading UI in sync while scrolling/resizing
+  window.addEventListener('scroll', ()=> updateReadingUI(), { passive: true });
+  window.addEventListener('resize', ()=> updateReadingUI());
 })();
 
 // Hook into existing flows to update counts and outline

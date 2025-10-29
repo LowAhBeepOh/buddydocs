@@ -185,9 +185,9 @@ const AVAILABLE_TOOLS = {
         type: doc.type || 'document',
         dueDate: doc.dueDate,
         updatedAt: doc.updatedAt,
-        content: doc.content ? doc.content.substring(0, 250) + '...' : '',
+        content: (typeof doc.content === 'string' && doc.content) ? doc.content.substring(0, 250) + '...' : '',
         score: doc.searchScore,
-        wordCount: doc.content ? doc.content.split(/\s+/).length : 0,
+        wordCount: (typeof doc.content === 'string' && doc.content) ? doc.content.split(/\s+/).length : 0,
         hasDeadline: !!doc.dueDate,
         isOverdue: doc.dueDate ? new Date(doc.dueDate) < new Date() : false
       }));

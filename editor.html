@@ -256,7 +256,7 @@
       <button id="wordCountWidget" class="word-count-widget" title="Document statistics">
         <span id="wordCountDisplay">0 words</span>
       </button>
-      <span style="margin-left: 8px; color:var(--muted); font-size:12px;">Goal:</span>
+      <span id="wordGoalLabel" style="margin-left: 8px; color:var(--muted); font-size:12px;">Goal:</span>
       <input id="wordGoalInput" type="number" min="0" step="50" class="word-goal-input" value="0" title="Set word goal"/>
     </div>
     <div id="musicPlayerWidget" class="music-player" style="display: none;">
@@ -293,6 +293,7 @@
             <option value="essay">Essay</option>
             <option value="list">List</option>
             <option value="gallery">Gallery</option>
+            <option value="board">Board</option>
           </select>
         </label>
         <label>

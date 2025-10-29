@@ -87,6 +87,13 @@
             <p>Collect images</p>
           </div>
         </a>
+        <a class="card new quick-action-link" href="board.html" data-type="board">
+          <span class="material-symbols-outlined">dashboard</span>
+          <div>
+            <strong>Board (BETA)</strong>
+            <p>Freeform corkboard</p>
+          </div>
+        </a>
         <a id="openTemplatesModal" class="card new" href="#">
           <span class="material-symbols-outlined">library_books</span>
           <div>
@@ -266,10 +273,27 @@
   </style>
   <script type="module">
     import { initAiCommandBar } from './data/js/ai-command.js';
+    import { getSetting } from './data/js/idb.js';
+    
+    // Check if user has completed onboarding
+    async function checkOnboardingStatus() {
+      const onboardingCompleted = await getSetting('onboardingCompleted', false);
+      
+      if (!onboardingCompleted) {
+        // Redirect to onboarding for new users
+        window.location.href = 'onboarding.html';
+      }
+    }
+    
+    // Initialize AI command bar and check onboarding status
     if (document.readyState === 'loading') {
-      document.addEventListener('DOMContentLoaded', initAiCommandBar);
+      document.addEventListener('DOMContentLoaded', () => {
+        initAiCommandBar();
+        checkOnboardingStatus();
+      });
     } else {
       initAiCommandBar();
+      checkOnboardingStatus();
     }
   </script>
   <script type="module">

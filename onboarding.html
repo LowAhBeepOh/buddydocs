@@ -1,0 +1,206 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta name="description" content="Buddy Docs is an open-source document editor project, designed for students. No login at all.">
+  <meta name="keywords" content="Buddy Docs, document editor, open-source, student, free, web app, editor, lowkey peak">
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <!-- Google Fonts & Material Icons -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/onboarding.css" />
+  <title>Welcome to Buddy Docs</title>
+</head>
+<body>
+  <div class="onboarding-container">
+    <!-- Background animation -->
+    <div class="animated-background">
+      <canvas id="animationCanvas"></canvas>
+    </div>
+
+    <div class="onboarding-card">
+      <div class="logo-container">
+        <img src="data/assets/docslogo.svg" alt="Buddy Docs logo" class="logo" />
+        <h1>Buddy Docs</h1>
+      </div>
+
+      <!-- Progress indicator -->
+      <div class="progress-container">
+        <div class="progress-steps">
+          <div class="step-pill active" data-step="1"></div>
+          <div class="step-pill" data-step="2"></div>
+          <div class="step-pill" data-step="3"></div>
+          <div class="step-pill" data-step="4"></div>
+          <div class="step-pill" data-step="5"></div>
+        </div>
+      </div>
+
+      <!-- Step 1: Welcome -->
+      <div class="step-content active" id="step1">
+        <h2>Welcome to Buddy Docs</h2>
+        <p>Your personal document editor designed for students. No login required, all your data stays on your device.</p>
+        <div class="welcome-animation">
+          <span class="material-symbols-outlined">description</span>
+          <span class="material-symbols-outlined">slideshow</span>
+          <span class="material-symbols-outlined">checklist</span>
+        </div>
+        <div class="button-container">
+          <button class="btn btn-primary next-btn" data-next="2">Get Started</button>
+          <button class="btn btn-text skip-onboarding" id="skipOnboarding">Skip onboarding</button>
+        </div>
+      </div>
+
+      <!-- Step 2: Import Data -->
+      <div class="step-content" id="step2">
+        <h2>Import Your Data</h2>
+        <p>Start with your existing documents or begin fresh.</p>
+        
+        <div class="import-options">
+          <div class="import-option">
+            <label for="fileImport" class="file-import-label">
+              <span class="material-symbols-outlined">upload_file</span>
+              <span>Import .zip or .bluecore</span>
+            </label>
+            <input type="file" id="fileImport" accept=".zip,.bluecore" hidden />
+          </div>
+        </div>
+        
+        <div class="button-container">
+          <button class="btn btn-secondary prev-btn" data-prev="1">Back</button>
+          <button class="btn btn-primary next-btn" data-next="3">Start Fresh</button>
+        </div>
+      </div>
+
+      <!-- Step 3: Profile -->
+      <div class="step-content" id="step3">
+        <h2>Create Your Profile</h2>
+        <p>Add a personal touch to your Buddy Docs experience.</p>
+        
+        <div class="profile-setup">
+          <div class="profile-picture-container">
+            <div class="profile-picture" id="profilePreview">
+              <span class="initials">BD</span>
+              <div class="profile-overlay">
+                <span class="material-symbols-outlined">add_a_photo</span>
+              </div>
+            </div>
+            <input type="file" id="profilePicture" accept="image/*" hidden />
+          </div>
+          
+          <div class="form-group">
+            <label for="userName">Your Name</label>
+            <input type="text" id="userName" class="input" placeholder="Enter your name" />
+          </div>
+        </div>
+        
+        <div class="button-container">
+          <button class="btn btn-secondary prev-btn" data-prev="2">Back</button>
+          <button class="btn btn-primary next-btn" data-next="4">Continue</button>
+          <button class="btn btn-text skip-btn" data-next="4">Skip</button>
+        </div>
+      </div>
+
+      <!-- Step 4: Password -->
+      <div class="step-content" id="step4">
+        <h2>Add Security (Optional)</h2>
+        <p>Set a password to protect your sensitive documents.</p>
+        
+        <div class="form-group">
+          <label for="password">Password</label>
+          <div class="password-input-container">
+            <input type="password" id="password" class="input" placeholder="Create a password" />
+            <button class="toggle-password" type="button">
+              <span class="material-symbols-outlined">visibility</span>
+            </button>
+          </div>
+          <p class="helper-text">Leave blank if you don't want to set a password</p>
+        </div>
+        
+        <div class="button-container">
+          <button class="btn btn-secondary prev-btn" data-prev="3">Back</button>
+          <button class="btn btn-primary next-btn" data-next="5">Continue</button>
+          <button class="btn btn-text skip-btn" data-next="5">Skip</button>
+        </div>
+      </div>
+
+      <!-- Step 5: Theme -->
+      <div class="step-content" id="step5">
+        <h2>Choose Your Theme</h2>
+        <p>Select a theme that suits your style.</p>
+        
+        <div class="theme-options">
+          <div class="theme-option" data-theme="light">
+            <div class="theme-preview light-theme">
+              <div class="theme-header"></div>
+              <div class="theme-content">
+                <div class="theme-line"></div>
+                <div class="theme-line"></div>
+              </div>
+            </div>
+            <span>Light</span>
+          </div>
+          
+          <div class="theme-option" data-theme="dark">
+            <div class="theme-preview dark-theme">
+              <div class="theme-header"></div>
+              <div class="theme-content">
+                <div class="theme-line"></div>
+                <div class="theme-line"></div>
+              </div>
+            </div>
+            <span>Dark</span>
+          </div>
+          
+          <div class="theme-option" data-theme="system">
+            <div class="theme-preview system-theme">
+              <div class="theme-half light-theme">
+                <div class="theme-header"></div>
+                <div class="theme-content">
+                  <div class="theme-line"></div>
+                </div>
+              </div>
+              <div class="theme-half dark-theme">
+                <div class="theme-header"></div>
+                <div class="theme-content">
+                  <div class="theme-line"></div>
+                </div>
+              </div>
+            </div>
+            <span>System</span>
+          </div>
+        </div>
+        
+        <div class="button-container">
+          <button class="btn btn-secondary prev-btn" data-prev="4">Back</button>
+          <button class="btn btn-primary" id="completeBtn">Complete Setup</button>
+        </div>
+      </div>
+
+      <!-- Completion Screen (Hidden initially) -->
+      <div class="step-content" id="completion">
+        <div class="completion-animation">
+          <span class="material-symbols-outlined checkmark">check_circle</span>
+        </div>
+        <h2>All Set!</h2>
+        <p>Your Buddy Docs experience is ready to go.</p>
+        <i>Click on the profile picture at the top right to find more stuff.</i>
+        <div class="button-container">
+          <a href="index.html" class="btn btn-primary">Get Started</a>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="data/js/idb.js" type="module"></script>
+  <script src="data/js/theme.js" type="module"></script>
+  <script src="data/js/onboarding.js" type="module"></script>
+</body>
+</html>
