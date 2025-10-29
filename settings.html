@@ -512,5 +512,93 @@
   <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/settings.js" type="module"></script>
+  <script>
+    // Nyan Cat easter-egg: when on the Data tab, pressing C + A + T + Alt and
+    // then holding the period key will replace the Data tab content with
+    // data/assets/nyancat.gif. Releasing the period key (or breaking the combo)
+    // restores the original content.
+    (function () {
+      const required = new Set(['KeyC', 'KeyA', 'KeyT']);
+      const altKeys = new Set(['AltLeft', 'AltRight']);
+      const pressed = new Set();
+      const dataSection = document.getElementById('data');
+      if (!dataSection) return;
+
+      let shown = false;
+
+      function isArmed() {
+        // All letter keys pressed and at least one Alt pressed
+        for (const k of required) if (!pressed.has(k)) return false;
+        if (![...altKeys].some(k => pressed.has(k))) return false;
+        // Also ensure user is currently viewing the Data tab
+        return dataSection.classList.contains('active');
+      }
+
+      function showNyan() {
+        if (shown) return;
+        // Save original content only once
+        if (!dataSection.dataset.originalHtml) {
+          dataSection.dataset.originalHtml = dataSection.innerHTML;
+        }
+        dataSection.innerHTML = '';
+        const wrapper = document.createElement('div');
+        wrapper.style.display = 'flex';
+        wrapper.style.alignItems = 'center';
+        wrapper.style.justifyContent = 'center';
+        wrapper.style.minHeight = '200px';
+        wrapper.style.padding = '1rem';
+        wrapper.style.boxSizing = 'border-box';
+
+        const img = document.createElement('img');
+        img.src = 'data/assets/nyancat.gif';
+        img.alt = 'Nyan Cat';
+        img.style.maxWidth = '100%';
+        img.style.maxHeight = '60vh';
+        img.style.objectFit = 'contain';
+        wrapper.appendChild(img);
+
+        dataSection.appendChild(wrapper);
+        shown = true;
+      }
+
+      function hideNyan() {
+        if (!shown) return;
+        if (dataSection.dataset.originalHtml) {
+          dataSection.innerHTML = dataSection.dataset.originalHtml;
+          delete dataSection.dataset.originalHtml;
+        }
+        shown = false;
+      }
+
+      window.addEventListener('keydown', (e) => {
+        pressed.add(e.code);
+
+        // Only react when period is pressed and the combo is armed
+        if (e.code === 'Period' && isArmed()) {
+          showNyan();
+          // prevent the keypress from typing in focused inputs
+          e.preventDefault();
+        }
+      }, { passive: false });
+
+      window.addEventListener('keyup', (e) => {
+        // If period released, hide
+        if (e.code === 'Period') {
+          hideNyan();
+        }
+
+        // Remove the key from pressed set
+        pressed.delete(e.code);
+
+        // If the combo is broken while period is still held, hide
+        if (!isArmed() && pressed.has('Period')) {
+          hideNyan();
+        }
+      });
+
+      // If focus leaves the window, clear pressed set and restore
+      window.addEventListener('blur', () => { pressed.clear(); hideNyan(); });
+    })();
+  </script>
 </body>
 </html>
