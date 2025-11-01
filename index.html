@@ -42,6 +42,7 @@
         <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
         <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
         <a href="archive.html" class="menu-item"><span class="material-symbols-outlined">inventory_2</span> Archive</a>
+        <a href="data/legal/privacypolicy.html" class="menu-item"><span class="material-symbols-outlined">policy</span> Privacy Policy</a>
       </div>
     </div>
   </header>
@@ -233,10 +234,32 @@
           <label for="folderNameInput">Folder Name</label>
           <input id="folderNameInput" type="text" class="input" placeholder="My Folder" />
         </div>
+        
         <div class="form-group">
-          <label for="folderEmojiInput">Emoji (optional)</label>
+          <label>Folder Thumbnail</label>
+          <div class="thumbnail-options">
+            <div class="thumbnail-option">
+              <input type="radio" id="useEmoji" name="thumbnailType" value="emoji" checked />
+              <label for="useEmoji">Use Emoji</label>
+            </div>
+            <div class="thumbnail-option">
+              <input type="radio" id="useImage" name="thumbnailType" value="image" />
+              <label for="useImage">Use Image</label>
+            </div>
+          </div>
+        </div>
+        
+        <div id="emojiSection" class="form-group">
+          <label for="folderEmojiInput">Emoji</label>
           <input id="folderEmojiInput" type="text" class="input emoji-input" placeholder="📁" maxlength="2" />
         </div>
+        
+        <div id="imageSection" class="form-group" style="display: none;">
+          <label for="folderImageInput">Upload Image</label>
+          <input id="folderImageInput" type="file" accept="image/*" class="input file-input" />
+          <div id="imagePreview" class="image-preview"></div>
+        </div>
+        
         <div class="form-group">
           <label>Folder Color</label>
           <div id="folderColorPicker" class="color-picker">
@@ -262,7 +285,36 @@
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/home.js" type="module"></script>
   <script type="module" src="data/js/initSync.js"></script>
-  <script src="data/js/ai-command.js" type="module"></script>
+  <script>
+    // Privacy Banner Logic
+    document.addEventListener('DOMContentLoaded', function() {
+      // Only create and show the banner if user hasn't dismissed it before
+      if (localStorage.getItem('privacyBannerDismissed') !== 'true') {
+        // Create the banner elements
+        const privacyBanner = document.createElement('div');
+        privacyBanner.className = 'privacy-banner';
+        
+        const bannerText = document.createElement('div');
+        bannerText.className = 'privacy-banner-text';
+        bannerText.innerHTML = 'By using this site, you agree to our <a href="data/legal/privacypolicy.html">Privacy Policy</a>.';
+        
+        const dismissButton = document.createElement('button');
+        dismissButton.className = 'privacy-banner-dismiss';
+        dismissButton.textContent = 'Got it';
+        
+        // Add event listener to dismiss button
+        dismissButton.addEventListener('click', function() {
+          localStorage.setItem('privacyBannerDismissed', 'true');
+          privacyBanner.remove();
+        });
+        
+        // Assemble and append the banner
+        privacyBanner.appendChild(bannerText);
+        privacyBanner.appendChild(dismissButton);
+        document.body.appendChild(privacyBanner);
+      }
+    });
+  </script>
   <style>
     .thumb.locked { filter: blur(60px); }
     .thumb .lock-overlay{
@@ -270,9 +322,68 @@
       pointer-events:none;
     }
     .thumb .lock-overlay .material-symbols-outlined{ font-size: 42px; color: var(--text-secondary); text-shadow: 0 2px 8px rgba(0,0,0,.25); }
+    
+    /* Folder thumbnail styles */
+    .thumbnail-options {
+      display: flex;
+      gap: 16px;
+      margin-bottom: 12px;
+    }
+    
+    .thumbnail-option {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+    }
+    
+    .image-preview {
+      margin-top: 8px;
+      width: 64px;
+      height: 64px;
+      border-radius: 8px;
+      background-color: var(--bg-secondary);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      overflow: hidden;
+      border: 1px solid var(--border);
+      box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+    }
+    
+    .image-preview img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
+    
+    .file-input {
+      padding: 8px;
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      background-color: var(--bg-primary);
+      width: 100%;
+      margin-top: 8px;
+    }
+    
+    .folder-thumbnail {
+      width: 32px;
+      height: 32px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 20px;
+      border-radius: 6px;
+      overflow: hidden;
+      background-color: var(--bg-secondary);
+    }
+    
+    .folder-thumbnail img {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+    }
   </style>
   <script type="module">
-    import { initAiCommandBar } from './data/js/ai-command.js';
     import { getSetting } from './data/js/idb.js';
     
     // Check if user has completed onboarding
@@ -285,14 +396,12 @@
       }
     }
     
-    // Initialize AI command bar and check onboarding status
+    // Only check onboarding status here; AI Command Bar is initialized inside home.js
     if (document.readyState === 'loading') {
       document.addEventListener('DOMContentLoaded', () => {
-        initAiCommandBar();
         checkOnboardingStatus();
       });
     } else {
-      initAiCommandBar();
       checkOnboardingStatus();
     }
   </script>

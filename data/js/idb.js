@@ -185,6 +185,7 @@ export async function saveFolder(folder) {
   if (!folder.color) folder.color = 'blue';
   if (!folder.emoji) folder.emoji = '📁';
   if (!folder.parentId) folder.parentId = null; // null means root level
+  if (!folder.thumbnailType) folder.thumbnailType = 'emoji'; // Default to emoji
   
   const store = await tx(STORES.folders, 'readwrite');
   return new Promise((resolve, reject) => {

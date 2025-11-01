@@ -600,15 +600,32 @@ async function populateMusicFilterValues() {
 
 // Import Cloud tab initialization
 import { initCloudTab } from './cloud.js';
+let cloudTabInitialized = false;
+function lazyInitCloudTab(){
+  if (cloudTabInitialized) return;
+  const cloudPane = document.getElementById('cloud');
+  if (!cloudPane) return;
+  cloudTabInitialized = true;
+  Promise.resolve().then(()=>initCloudTab()).catch((e)=>{
+    console.warn('Cloud tab init failed:', e);
+    cloudTabInitialized = false;
+  });
+}
 
 // Initialize the app
 loadSettings().then(async () => {
   handleTabSwitching();
   
-  // Initialize Cloud tab if it exists
-  if (document.getElementById('cloud')) {
-    await initCloudTab();
+  // Lazy initialize Cloud tab only when opened
+  const cloudPane = document.getElementById('cloud');
+  if (cloudPane && cloudPane.classList.contains('active')) {
+    lazyInitCloudTab();
   }
+  document.querySelectorAll('.nav-tab').forEach(tab => {
+    tab.addEventListener('click', () => {
+      if (tab.dataset.tab === 'cloud') lazyInitCloudTab();
+    });
+  });
   // Add event listeners
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   

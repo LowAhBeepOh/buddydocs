@@ -150,6 +150,26 @@
       opacity: 0;
       transition: opacity 0.2s;
     }
+    
+    .gallery-item.pinned::after {
+      content: 'push_pin';
+      font-family: 'Material Symbols Outlined';
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      width: 32px;
+      height: 32px;
+      background: var(--accent);
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      color: rgb(255, 255, 255);
+      font-weight: 600;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      z-index: 3;
+      font-size: 18px;
+    }
 
     .gallery-item:hover .remove-btn {
       opacity: 1;
@@ -289,11 +309,12 @@
     function createGalleryItem(imageEntry, lazy = true) {
       const item = itemTemplate.content.cloneNode(true).children[0];
       const img = item.querySelector('img');
-      // imageEntry can be string (src) or object {src, spoiler, locked}
-      const meta = typeof imageEntry === 'string' ? { src: imageEntry, spoiler: false, locked: false } : {
+      // imageEntry can be string (src) or object {src, spoiler, locked, pinned}
+      const meta = typeof imageEntry === 'string' ? { src: imageEntry, spoiler: false, locked: false, pinned: false } : {
         src: imageEntry.src,
         spoiler: !!imageEntry.spoiler,
-        locked: !!imageEntry.locked
+        locked: !!imageEntry.locked,
+        pinned: !!imageEntry.pinned
       };
       
       // Add security attributes to the image
@@ -303,8 +324,10 @@
       // Set item classes and data attributes
       if (meta.spoiler) item.classList.add('spoiler');
       if (meta.locked) item.classList.add('locked');
+      if (meta.pinned) item.classList.add('pinned');
       item.dataset.spoiler = String(!!meta.spoiler);
       item.dataset.locked = String(!!meta.locked);
+      item.dataset.pinned = String(!!meta.pinned);
 
       if (lazy) {
         // Lazy loading: set data-src instead of src
@@ -580,8 +603,27 @@
         const src = img?.dataset?.src || img?.src;
         const spoiler = item.dataset.spoiler === 'true';
         const locked = item.dataset.locked === 'true';
-        return { src, spoiler, locked };
+        const pinned = item.dataset.pinned === 'true';
+        return { src, spoiler, locked, pinned };
       });
+      
+      // Set thumbnailSrc property based on pinned image
+      const pinnedItem = items.find(item => item.dataset.pinned === 'true');
+      if (pinnedItem) {
+        const img = pinnedItem.querySelector('img');
+        currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
+      } else {
+        // If no pinned image, use the first non-spoiler, non-locked image
+        const firstUsableItem = items.find(item => 
+          item.dataset.spoiler !== 'true' && item.dataset.locked !== 'true');
+        if (firstUsableItem) {
+          const img = firstUsableItem.querySelector('img');
+          currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
+        } else {
+          delete currentDoc.thumbnailSrc;
+        }
+      }
+      
       const saved = await saveDocument(currentDoc);
       if (!getParam('id')){
         history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);
@@ -686,7 +728,35 @@
     function openContextMenu(x, y, item){
       const isSpoiler = item.dataset.spoiler === 'true';
       const isLocked = item.dataset.locked === 'true';
+      const isPinned = item.dataset.pinned === 'true';
       ctx.innerHTML = '';
+      
+      // Pin/Unpin option
+      if (!isLocked && !isSpoiler) {
+        const pinBtn = document.createElement('button');
+        pinBtn.className = 'menu-item';
+        pinBtn.textContent = isPinned ? 'Unpin thumbnail' : 'Set as thumbnail';
+        pinBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          
+          // Remove pinned status from all other items
+          document.querySelectorAll('.gallery-item').forEach(el => {
+            el.classList.remove('pinned');
+            el.dataset.pinned = 'false';
+          });
+          
+          // Toggle pin status for this item
+          if (!isPinned) {
+            item.classList.add('pinned');
+            item.dataset.pinned = 'true';
+          }
+          
+          closeContextMenu();
+          saveNow();
+        });
+        ctx.appendChild(pinBtn);
+      }
+      
       const mk = document.createElement('button');
       mk.className = 'menu-item';
       mk.textContent = isSpoiler ? 'Unmark spoiler' : 'Mark as spoiler';
@@ -696,6 +766,13 @@
         const isSpoiler = item.dataset.spoiler === 'true';
         item.dataset.spoiler = String(!isSpoiler);
         item.classList.toggle('spoiler', !isSpoiler);
+        
+        // If marking as spoiler, remove pinned status
+        if (!isSpoiler) {
+          item.classList.remove('pinned');
+          item.dataset.pinned = 'false';
+        }
+        
         const img = item.querySelector('img');
         const ov = item.querySelector('.overlay');
         if (!isSpoiler){ // now spoiler

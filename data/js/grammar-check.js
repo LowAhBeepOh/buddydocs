@@ -124,6 +124,69 @@ const analysisRules = [
     fix: (match, subject, verb) => `${subject} ${verb === 'are' ? 'is' : 'was'}`,
     explanation: 'Singular subjects need singular verbs'
   },
+  // Indefinite pronouns are singular
+  {
+    pattern: /\b(everyone|everybody|someone|anyone|no\s+one|nobody|each|either|neither)\s+(are|were)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Indefinite pronoun takes a singular verb',
+    fix: (match, pronoun, verb) => `${pronoun} ${verb === 'are' ? 'is' : 'was'}`,
+    explanation: 'Indefinite pronouns (e.g., "everyone", "each") are singular and use "is/was"'
+  },
+  // Plural pronouns take plural verbs
+  {
+    pattern: /\b(they|we)\s+(is|was)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Plural subject takes plural verb',
+    fix: (match, subject, verb) => `${subject} ${verb === 'is' ? 'are' : 'were'}`,
+    explanation: 'Use "are/were" with plural subjects like "they" or "we"'
+  },
+  // You takes plural forms (are/were)
+  {
+    pattern: /\b(you)\s+(is|was)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: '"You" uses "are/were"',
+    fix: (match, subject, verb) => `${subject} ${verb === 'is' ? 'are' : 'were'}`,
+    explanation: 'With "you", use "are" (present) and "were" (past)'
+  },
+  // I takes "am" in present, and usually "was" in past
+  {
+    pattern: /\b(I)\s+(are)\b/g,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Use "am" with "I"',
+    suggestion: 'I am',
+    explanation: 'First person singular uses "am" in present tense'
+  },
+  // Irregular plural nouns should use are/were
+  {
+    pattern: /\b(people|children|men|women|teeth|mice|geese|feet|criteria)\s+(is|was)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Plural noun takes plural verb',
+    fix: (match, noun, verb) => `${noun} ${verb === 'is' ? 'are' : 'were'}`,
+    explanation: 'These are plural nouns and should use "are/were"'
+  },
+  // "There is" followed by a plural noun → "There are"
+  {
+    pattern: /\b(there)\s+(is)\s+([a-z]+s)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Use "There are" with plural nouns',
+    fix: (match, thereWord, verb, pluralNoun) => `${thereWord} are ${pluralNoun}`,
+    explanation: 'With plural nouns, use "There are"'
+  },
+  // "One/Each of the [plural] are/were" → "is/was"
+  {
+    pattern: /\b(one|each)\s+of\s+the\s+([a-z]+s)\s+(are|were)\b/gi,
+    type: 'error',
+    category: 'Grammar',
+    message: 'Singular subject (one/each) takes singular verb',
+    fix: (match, quantifier, pluralNoun, verb) => `${quantifier} of the ${pluralNoun} ${verb === 'are' ? 'is' : 'was'}`,
+    explanation: 'When the subject is "one" or "each", use "is/was"'
+  },
   // Wordy phrases with clear alternatives
   {
     pattern: /\bin\s+order\s+to\b/gi,
@@ -233,6 +296,74 @@ function analyzeWordChoice(text) {
   return issues;
 }
 
+// Contextual subject–verb agreement analysis beyond simple patterns
+function analyzeAgreement(text) {
+  const issues = [];
+
+  // a number of [plural] is/was -> are/were
+  {
+    const regex = /\ba\s+number\s+of\s+([a-z]+s)\s+(is|was)\b/gi;
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+      const [, pluralNoun, verb] = m;
+      issues.push({
+        type: 'error',
+        category: 'Grammar',
+        message: 'Use plural verb with "a number of"',
+        original: m[0],
+        suggestion: `a number of ${pluralNoun} ${verb === 'is' ? 'are' : 'were'}`,
+        explanation: 'With the construction "a number of", treat the subject as plural → "are/were".',
+        position: m.index,
+        length: m[0].length
+      });
+    }
+  }
+
+  // the number of [plural] are/were -> is/was
+  {
+    const regex = /\bthe\s+number\s+of\s+([a-z]+s)\s+(are|were)\b/gi;
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+      const [, pluralNoun, verb] = m;
+      issues.push({
+        type: 'error',
+        category: 'Grammar',
+        message: 'Use singular verb with "the number of"',
+        original: m[0],
+        suggestion: `the number of ${pluralNoun} ${verb === 'are' ? 'is' : 'was'}`,
+        explanation: 'With "the number of", the subject is singular → "is/was".',
+        position: m.index,
+        length: m[0].length
+      });
+    }
+  }
+
+  // everyone was/is: ensure singular be verb
+  {
+    const regex = /\b(everyone|everybody)\s+(be|is|are|was|were)\b/gi;
+    let m;
+    while ((m = regex.exec(text)) !== null) {
+      const [, pronoun, verb] = m;
+      const map = { 'be': 'is', 'is': 'is', 'are': 'is', 'was': 'was', 'were': 'was' };
+      const target = map[verb.toLowerCase()] || 'is';
+      if ((verb.toLowerCase() === 'are') || (verb.toLowerCase() === 'were')) {
+        issues.push({
+          type: 'error',
+          category: 'Grammar',
+          message: 'Indefinite pronoun takes a singular verb',
+          original: m[0],
+          suggestion: `${pronoun} ${target}`,
+          explanation: 'Use "is/was" with "everyone/everybody".',
+          position: m.index,
+          length: m[0].length
+        });
+      }
+    }
+  }
+
+  return issues;
+}
+
 // Main grammar check function
 export function checkGrammar(content) {
   const text = extractText(content);
@@ -260,8 +391,9 @@ export function checkGrammar(content) {
   // Run advanced analysis
   const readabilityIssues = analyzeReadability(text);
   const wordChoiceIssues = analyzeWordChoice(text);
-  
-  issues.push(...readabilityIssues, ...wordChoiceIssues);
+  const agreementIssues = analyzeAgreement(text);
+
+  issues.push(...readabilityIssues, ...wordChoiceIssues, ...agreementIssues);
 
   // Sort by position
   issues.sort((a, b) => a.position - b.position);

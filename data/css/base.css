@@ -1,8 +1,62 @@
 @import url('https://fonts.googleapis.com/css2?family=Noto+Color+Emoji&display=swap');
 
+/* Privacy Policy Banner */
+.privacy-banner {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  background-color: var(--surface);
+  border-top: 1px solid var(--border);
+  padding: 12px 20px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  z-index: 1000;
+  box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.05);
+  font-size: 14px;
+  transition: transform 0.3s ease;
+}
+
+.privacy-banner.hidden {
+  transform: translateY(100%);
+}
+
+.privacy-banner-text {
+  margin-right: 20px;
+}
+
+.privacy-banner-text a {
+  color: var(--primary);
+  text-decoration: none;
+}
+
+.privacy-banner-text a:hover {
+  text-decoration: underline;
+}
+
+.privacy-banner-dismiss {
+  background-color: var(--primary);
+  color: white;
+  font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, sans-serif;
+  border: none;
+  border-radius: 4px;
+  padding: 6px 12px;
+  cursor: pointer;
+  font-weight: 700;
+  transition: background-color 0.2s;
+}
+
+.privacy-banner-dismiss:hover {
+  background-color: var(--secondary);
+}
+
 :root {
   --bd-font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
   --font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif;
+  /* Provide alias tokens used by feature CSS */
+  --text-primary: var(--text);
+  --text-secondary: var(--muted);
 }
 
 :root{
@@ -315,8 +369,23 @@ html[data-theme="forest"],
 html[data-theme="pj"],
 html[data-theme="dr-pepper"],
 html[data-theme="dark-pink"],
-html[data-theme="blueberries"]{
+html[data-theme="blueberries"],
+html[data-theme="halloween"],
+html[data-theme="autumn"],
+html[data-theme="black"]{
   --gray: color-mix(in hsl, var(--surface) 60%, white 40%);
+
+  /* Ensure notes have proper contrast in all dark-themed palettes */
+  --note-default-bg: #2a2735;
+  --note-default-border: #4a455c;
+  --note-red-bg: #4d2424;
+  --note-red-border: #7a3a3a;
+  --note-blue-bg: #1a2c4d;
+  --note-blue-border: #2a4a7d;
+  --note-green-bg: #1a4d2c;
+  --note-green-border: #2a7d4a;
+  --note-yellow-bg: #4d4d1a;
+  --note-yellow-border: #7d7d2a;
 }
 
 *{box-sizing:border-box}
@@ -340,6 +409,43 @@ body{
   --note-green-border: #B0E0B0;
   --note-yellow-bg: #F4F4D8;
   --note-yellow-border: #E0E0B0;
+}
+
+/* Override note palette specifically on body for dark and dynamic-dark themes to ensure proper contrast */
+[data-theme="dark"] body,
+html[data-theme="forest"] body,
+html[data-theme="pj"] body,
+html[data-theme="dr-pepper"] body,
+html[data-theme="dark-pink"] body,
+html[data-theme="blueberries"] body,
+html[data-theme="halloween"] body,
+html[data-theme="autumn"] body,
+html[data-theme="black"] body{
+  --note-default-bg: #2a2735;
+  --note-default-border: #4a455c;
+  --note-red-bg: #4d2424;
+  --note-red-border: #7a3a3a;
+  --note-blue-bg: #1a2c4d;
+  --note-blue-border: #2a4a7d;
+  --note-green-bg: #1a4d2c;
+  --note-green-border: #2a7d4a;
+  --note-yellow-bg: #4d4d1a;
+  --note-yellow-border: #7d7d2a;
+}
+
+@media (prefers-color-scheme: dark){
+  [data-theme="system"] body{
+    --note-default-bg: #2a2735;
+    --note-default-border: #4a455c;
+    --note-red-bg: #4d2424;
+    --note-red-border: #7a3a3a;
+    --note-blue-bg: #1a2c4d;
+    --note-blue-border: #2a4a7d;
+    --note-green-bg: #1a4d2c;
+    --note-green-border: #2a7d4a;
+    --note-yellow-bg: #4d4d1a;
+    --note-yellow-border: #7d7d2a;
+  }
 }
 img{max-width:100%;display:block}
 
@@ -686,6 +792,22 @@ img{max-width:100%;display:block}
 .folder-card .folder-emoji {
   font-size: 48px;
   line-height: 1;
+}
+
+.folder-card .folder-thumbnail {
+  width: 100%;
+  height: 100%;
+  border-radius: 8px;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.folder-card .folder-thumbnail img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
 
 /* Folder modal styles */

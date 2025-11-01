@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Buddy Docs: Privacy Policy</title>
+<link rel="shortcut icon" href="../assets/docslogo.svg" type="image/x-icon">
+<link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;600&display=swap" rel="stylesheet">
+<style>
+  :root{color-scheme:light}
+  html,body{height:100%}
+  body{
+    margin:32px;
+    background:#fff;
+    color:#000;
+    font-family:'Inter Tight',system-ui,-apple-system,Segoe UI,Roboto,"Helvetica Neue",Arial;
+    font-weight:300;
+    letter-spacing:-0.01em;
+    line-height:1.5;
+    font-size:18px;
+  }
+  main{max-width:960px;margin:0 auto;padding:0;box-shadow:none;border:none;border-radius:0}
+  h1{font-size:32px;margin:0 0 15px 0;font-weight:600}
+  h2{font-size:20px;margin:30px 0 10px 0;font-weight:600}
+  p,ul{margin:0 0 10px 0;padding:0}
+  ul{padding-left:18px}
+  small{color:#444}
+  a{color:inherit;text-decoration:underline}
+</style>
+</head>
+<body>
+<main>
+  <h1>Buddy Docs: Privacy Policy</h1>
+  <small>Effective date: <strong>2025-11-01</strong></small>
+
+  <h2>Summary</h2>
+  <p>Buddy Docs is designed with your privacy as one of our top priorities and can be used entirely locally without any sign‑in. All documents are stored locally in your browser's IndexedDB. Google Drive sync is an optional backup feature that allows you to access your documents across devices. If you choose to connect your Google account, Buddy Docs interacts directly with your Google Drive to open, edit, and save files you've created with our product. We do not store, copy, or process your files on any servers. All operations occur client‑side within your web browser. If you opt in to cloud saving, authentication is handled via Google OAuth; otherwise, no Google sign‑in or Google API access occurs.</p>
+
+  <h2>Using Buddy Docs without sign‑in</h2>
+  <p>You can use Buddy Docs offline and without connecting to any cloud service, so your documents and preferences are only stored locally in your browser's IndexedDB, with authentication tokens stored separately in localStorage. No Google user data is accessed, requested, or stored unless you explicitly choose to connect your Google Drive for cloud features.</p>
+
+  <h2>What we access</h2>
+  <ul>
+    <li>Google account email address (only if you opt in): We request the <code>userinfo.email</code> scope to authenticate your identity and show your connection status (e.g., “Connected as you@example.com”). We do not request or access your Google profile (name or profile picture) via Google APIs. Profile pictures in the app are optional and provided by you locally.</li>
+    <li>Google Drive files you create inside the Buddy Docs web app (only if you opt in, via <code>drive.file</code>): This permission allows Buddy Docs to interact only with documents you explicitly have created within the web app itself. It can read, write, and modify these specific files, but it cannot see or touch any other files in your Google Drive. Documents and preferences made outside the web app remain private and untouched.</li>
+    <br>
+    <p>You initiate this connection by clicking 'Connect Google Drive' in the app's settings menu.</p>
+  </ul>
+
+  <h2>Scopes we request</h2>
+  <p>These scopes are requested only when you choose to connect your Google Drive for cloud features:</p>
+  <ul>
+    <li><code>https://www.googleapis.com/auth/drive.file</code> — Create, read, write, and modify files you explicitly create within Buddy Docs.</li>
+    <li><code>https://www.googleapis.com/auth/userinfo.email</code> — Authenticate and display your email to indicate connection status.</li>
+  </ul>
+
+  <h2>How we use it</h2>
+  <p>If you opt in to cloud saving, the access permissions described above are used solely to save, load, and manage the documents you store within your Google Drive. Absolutely no file data, content, or personal information from your Google Drive is uploaded to or stored on any servers; all processing occurs client‑side in your browser. If you do not opt in, Buddy Docs functions locally, and your data remains in your browser storage. When connected to Google Drive, Buddy Docs automatically saves your documents every 8 minutes and when you access settings. Opening settings triggers an immediate sync to ensure your latest changes are saved before you make any configuration changes. You can also manually save at any time in settings.</p>
+
+  <h2>Cloud Sync Behavior</h2>
+  <p>When you enable Google Drive sync, Buddy Docs operates as follows:</p>
+  <ul>
+    <li>Documents are automatically saved to Google Drive every 8 minutes.</li>
+    <li>Opening settings triggers an immediate sync to ensure your latest changes are saved.</li>
+    <li>You can manually trigger a save at any time.</li>
+    <li>All documents remain stored locally in IndexedDB; Google Drive serves as a backup and sync mechanism.</li>
+    <li><i style="color: #ac2800;">Note: Google Drive sync is currently in beta. While functional, you may occasionally experience sync issues. We recommend keeping important work backed up locally.</i></li>
+  </ul>
+
+  <h2>Data retention</h2>
+  <p>As Buddy Docs does not store your files on any of our servers, the primary retention of your documents is governed by your Google Drive settings and policies. We do not retain copies of your files. Any operational metadata (such as recent file lists or user preferences) that might be stored locally within your browser (e.g., IndexedDB or localStorage) is entirely under your control and can be cleared by you at any time through your browser's settings. This ensures that you have full command over any residual data on your local device.</p>
+
+  <h2>Persistent identifiers</h2>
+  <p>If you opt in to Google Drive sync, we may access and locally store your Google account email address (a persistent identifier) in your browser (e.g., IndexedDB or localStorage) solely to personalize your experience and show connection status. We do not request or store your Google user ID (<code>sub</code>) or profile data via Google APIs. You can remove this local data at any time by clearing site data for Buddy Docs in your browser settings.</p>
+
+  <h2>OAuth tokens and storage</h2>
+  <p>If you opt in, OAuth tokens are obtained via Google OAuth and used client‑side to call Google APIs. We do not transmit tokens to any server. OAuth tokens are stored in your browser's localStorage to maintain your connection across sessions. You can revoke Buddy Docs’ access at any time via your Google Account permissions page, and you can clear local tokens by signing out, or alternatively clearing site data in your browser.</p>
+
+  <h2>Automatically collected information</h2>
+  <p>Buddy Docs does not operate any backend/server and does not implement its own server‑side logging. The site is hosted on GitHub Pages, which may generate standard access logs (e.g., IP address, user agent, referrer, timestamps) for operational security. Buddy Docs does not access or use these hosting logs. The app itself does not collect telemetry, analytics, or crash reports.</p>
+
+  <h2>Sharing & third parties</h2>
+  <p>We maintain a strict policy against sharing your files or any associated personal data with third parties. The only exception to this policy is when we are legally required to do so by applicable law or a valid governmental request. All OAuth tokens, which facilitate secure communication with Google services, are managed directly by Google and are never transmitted to our servers or any other external servers. This design choice further reinforces our commitment to keeping your data private and secure, ensuring that your authentication credentials remain within Google's secure infrastructure.</p>
+
+  <h2>Limited Use (Google API Services User Data Policy)</h2>
+  <p>Our use of Google user data adheres to Google’s Limited Use Requirements:</p>
+  <ul>
+    <li>We only use Google user data to provide user‑facing features in Buddy Docs.</li>
+    <li>We do not use Google user data for product analytics, marketing, model training, or to improve features beyond enabling the app’s core functions. Feature improvements are based on developer iteration and community feedback (e.g., Discord and social media), not on analysis of Google user data.</li>
+    <li>We do not transfer Google user data to third parties except as necessary to provide the features, comply with applicable law, ensure security, or in aggregated/anonymized form that cannot be used to identify you.</li>
+    <li>We do not permit humans to read Google user data except with your explicit consent, if necessary for security (such as investigating abuse), or to comply with applicable law.</li>
+  </ul>
+
+  <h2>Security</h2>
+  <p>We implement basic client‑side security practices to protect your data within the application, and all interactions happen over HTTPS. If you opt in to cloud saving, the security of your Google account is important; we recommend strong, unique passwords and enabling two‑factor authentication. You can revoke Buddy Docs' access to your Google Drive at any time from your Google Account permissions page.</p>
+
+  <h2>No analytics or crash reporting</h2>
+  <p>We do not use Google Analytics or other analytics/crash reporting services. The app does not send usage telemetry.</p>
+
+  <h2>Children</h2>
+  <p>Buddy Docs is accessible to users of all ages. If you are under the age of 18, you are still welcome to use the application. We do not knowingly collect any personal information from children beyond the basic Google account data that is necessary for sign-in and is managed by Google's own privacy policies. We are committed to complying with all applicable laws and regulations regarding children's online privacy, such as the Children's Online Privacy Protection Act (COPPA) in the United States. If a parent or guardian becomes aware that their child has provided us with personal information without their consent, they should contact us immediately.</p>
+
+  <h2>Contact</h2>
+  <p>Questions or requests: <a href="mailto:flexnorway.buddy@gmail.com">flexnorway.buddy@gmail.com</a></p>
+
+  <h2>Changes to This Privacy Policy</h2>
+  <p>We may update our Privacy Policy from time to time to reflect changes in our practices or for other operational, legal, or regulatory reasons. We will notify you of any changes by posting the new Privacy Policy on this page and updating the "Effective date" at the top of this policy. If we plan to use Google user data in a materially new way not covered by this policy, we will first notify you and obtain your consent before that new use begins.</p>
+
+  <hr />
+  <p><small>Hosted at <a href="https://lowahbeepoh.github.io/buddydocs">lowahbeepoh.github.io/buddydocs</a></small></p>
+</main>
+</body>
+</html>

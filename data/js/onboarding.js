@@ -262,15 +262,20 @@ function initBackgroundAnimation() {
   if (!canvas) return;
   
   const ctx = canvas.getContext('2d');
+  const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   
-  // Set canvas dimensions to match window size
+  // Set canvas dimensions to a scaled size to reduce pixel work, while keeping CSS at 100%
   function resizeCanvas() {
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
+    const scale = prefersReducedMotion ? 0.6 : 0.85;
+    canvas.width = Math.floor(window.innerWidth * scale * dpr);
+    canvas.height = Math.floor(window.innerHeight * scale * dpr);
+    canvas.style.width = '100%';
+    canvas.style.height = '100%';
   }
   
   resizeCanvas();
-  window.addEventListener('resize', resizeCanvas);
+  window.addEventListener('resize', resizeCanvas, { passive: true });
   
   // Get theme colors
   const isDarkTheme = document.documentElement.getAttribute('data-theme') === 'dark';
@@ -280,9 +285,11 @@ function initBackgroundAnimation() {
   const secondaryColor = getComputedStyle(document.documentElement).getPropertyValue('--onboarding-secondary').trim() || '#8B5CF6';
   const accentColor = getComputedStyle(document.documentElement).getPropertyValue('--onboarding-accent').trim() || '#10B981';
   
-  // Create particles
+  // Create particles (adaptive count)
   const particles = [];
-  const particleCount = 50;
+  const area = Math.max(1, canvas.width * canvas.height);
+  const baseParticles = Math.round(area / 120000); // ~17 for 1080p at default scale
+  const particleCount = prefersReducedMotion ? Math.max(8, Math.min(16, baseParticles)) : Math.max(12, Math.min(36, baseParticles));
   
   class Particle {
     constructor() {
@@ -336,7 +343,9 @@ function initBackgroundAnimation() {
     draw() {
       ctx.save();
       ctx.globalAlpha = this.alpha;
-      ctx.filter = `blur(${this.blur}px)`;
+      // Using shadowBlur instead of filter:blur (much cheaper on many devices)
+      ctx.shadowColor = this.color;
+      ctx.shadowBlur = this.blur;
       ctx.fillStyle = this.color;
       ctx.beginPath();
       ctx.arc(this.x, this.y, this.size, 0, Math.PI * 2);
@@ -347,7 +356,7 @@ function initBackgroundAnimation() {
   
   // Create paths
   const paths = [];
-  const pathCount = 5;
+  const pathCount = prefersReducedMotion ? 0 : 4;
   
   class Path {
     constructor() {
@@ -432,8 +441,22 @@ function initBackgroundAnimation() {
     paths.push(new Path());
   }
   
-  // Animation loop
-  function animate() {
+  // Animation loop with frame-rate throttling and page visibility pause
+  const targetFps = prefersReducedMotion ? 24 : 45;
+  const frameMs = 1000 / targetFps;
+  let lastTime = performance.now();
+  
+  function animate(now = performance.now()) {
+    if (document.hidden) {
+      requestAnimationFrame(animate);
+      return;
+    }
+    const dt = now - lastTime;
+    if (dt < frameMs) {
+      requestAnimationFrame(animate);
+      return;
+    }
+    lastTime = now;
     // Clear canvas
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     

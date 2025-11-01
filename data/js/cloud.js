@@ -6,9 +6,7 @@ import { initSyncService, onSync, updateSyncCountdown } from './syncService.js';
 const GOOGLE_CLIENT_ID = '843640373447-4v9vbpn0nhtallnmkrua34msqgm25j9d.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
 const SYNC_INTERVAL = 8 * 60 * 1000; // 8 minutes in milliseconds
-const TOKEN_REFRESH_BUFFER = 5 * 60 * 1000; // 5 minutes before token expires
-const SESSION_DURATION = 7 * 24 * 60 * 60 * 1000; // 7 days in milliseconds
-const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100MB in bytes
+const TOKEN_REFRESH_BUFFER = 90 * 60 * 1000; // 90 minutes before token expires
 const STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1GB in bytes
 
 // Global variables

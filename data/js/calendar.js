@@ -32,6 +32,15 @@ function buildGrid(){
   const startDay = (first.getDay() + 6) % 7; // Monday=0
   const days = last.getDate();
 
+  // Format a date as local YYYY-MM-DD (avoid UTC toISOString off-by-one at month edges)
+  function fmtLocalYYYYMMDD(d){
+    return (
+      d.getFullYear().toString().padStart(4,'0')+'-'+
+      (d.getMonth()+1).toString().padStart(2,'0')+'-'+
+      d.getDate().toString().padStart(2,'0')
+    );
+  }
+
   const wk = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
   for(const h of wk){
     const el = document.createElement('div');
@@ -45,7 +54,8 @@ function buildGrid(){
     const el = document.createElement('div');
     el.className = 'day';
     el.innerHTML = `<div class="date">${d}</div><div class="items"></div><div class="notes"></div>`;
-    el.dataset.date = new Date(year, month, d).toISOString().slice(0,10);
+    // Use local date string so first/last days aren't shifted into previous/next month
+    el.dataset.date = fmtLocalYYYYMMDD(new Date(year, month, d));
     
     // Check if this is today's date
     const today = new Date();
@@ -61,10 +71,22 @@ function buildGrid(){
 async function renderNotes() {
   const notes = await getNotesForMonth(cur.getFullYear(), cur.getMonth());
   const notesByDate = new Map();
+  // Normalize note dates to local YYYY-MM-DD to align with grid dataset
+  function toLocalKeyFromString(dateStr){
+    // dateStr expected 'YYYY-MM-DD'
+    const [y,m,d] = dateStr.split('-').map(n=>parseInt(n,10));
+    const dt = new Date(y, (m||1)-1, d||1);
+    return (
+      dt.getFullYear().toString().padStart(4,'0')+'-'+
+      (dt.getMonth()+1).toString().padStart(2,'0')+'-'+
+      dt.getDate().toString().padStart(2,'0')
+    );
+  }
   for (const note of notes) {
-    const arr = notesByDate.get(note.date) || [];
+    const key = toLocalKeyFromString(note.date);
+    const arr = notesByDate.get(key) || [];
     arr.push(note);
-    notesByDate.set(note.date, arr);
+    notesByDate.set(key, arr);
   }
 
   document.querySelectorAll('.calendar-grid .day .notes').forEach(notesContainer => {
@@ -103,8 +125,19 @@ async function renderDeadlines(){
   list.innerHTML = '';
   const byDate = new Map();
 
+  // Normalize keys to local YYYY-MM-DD to match grid dataset.date regardless of stored format
+  function toLocalKey(dateLike){
+    const d = new Date(dateLike);
+    d.setHours(0,0,0,0);
+    return (
+      d.getFullYear().toString().padStart(4,'0')+'-'+
+      (d.getMonth()+1).toString().padStart(2,'0')+'-'+
+      d.getDate().toString().padStart(2,'0')
+    );
+  }
+
   for (const it of items){
-    const key = it.dueDate;
+    const key = toLocalKey(it.dueDate);
     const arr = byDate.get(key) || [];
     arr.push(it);
     byDate.set(key, arr);

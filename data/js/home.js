@@ -848,6 +848,7 @@ function createDocCard(doc){
   const tmpl = document.getElementById('docCardTmpl');
   const node = tmpl.content.firstElementChild.cloneNode(true);
   const link = node.querySelector('.doc-link');
+  const thumb = node.querySelector('.thumb');
   
   // Route handler with lock protection
   let targetHref;
@@ -874,65 +875,24 @@ function createDocCard(doc){
   node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
   node.querySelector('.due').innerHTML = dueBadge(doc);
   
-  // Show document preview in thumb
-  const thumb = node.querySelector('.thumb');
-  if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
-    // Normalize entries
-    const entries = doc.content
-      .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry);
-    // Prefer pinned cover if valid (exists and not spoiler/locked)
-    let chosen = null;
-    if (doc.pinnedImageSrc) {
-      const match = entries.find(e => e.src === doc.pinnedImageSrc && !e.spoiler && !e.locked);
-      if (match) {
-        chosen = match.src;
-      }
-    }
-    // Fallback: choose a random non-spoiler, non-locked image
-    if (!chosen) {
-      const candidates = entries.filter(e => !e.spoiler && !e.locked);
-      chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
-    }
-    if (chosen){
-      thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
-    }
-    thumb.style.padding = '0';
-  } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
-    // For presentations, show a preview of the first slide
-    const firstSlide = doc.slides[0];
-    thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${firstSlide.background || '#fff'}; font-size: 11px; color: var(--muted);">
-      <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
-    </div>`;
-    thumb.style.padding = '0';
-  } else if (doc.type === 'board') {
-    // Render a simple board preview: corkboard background and a few notes
-    const hasItems = Array.isArray(doc.content) && doc.content.length > 0;
-    const bgUrl = 'data/assets/textures/corkboard1.png';
-    thumb.style.padding = '0';
-    thumb.innerHTML = `
-      <div style="position:absolute; inset:0; background:${hasItems?`url('${bgUrl}') center / cover`:'var(--surface)'};"></div>
-      <div style="position:absolute; inset:0; padding:8px;">
-        ${hasItems ? doc.content
-          .filter(it => it.type === 'note' || it.type === 'link' || it.type === 'shape')
-          .slice(0,3)
-          .map((it, i) => {
-            const bg = it.bg || (it.type==='shape' ? '#FFD78A' : '#FFF3A4');
-            const rot = it.rotation || (i === 0 ? -4 : i === 1 ? 3 : 1);
-            const text = (it.text || it.href || '');
-            return `<div style="position:absolute; left:${8 + i*58}px; top:${10 + i*8}px; width:80px; height:56px; background:${bg}; color:#333; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.2); transform:rotate(${rot}deg); display:flex; align-items:center; justify-content:center; font-size:10px; overflow:hidden;">${text ? text.slice(0,22) : ''}</div>`;
-          }).join('')
-          : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted);">
-               <span class="material-symbols-outlined" style="font-size:40px;">dashboard</span>
-             </div>`}
-      </div>
-    `;
+  // Defer preview population until visible
+  if (doc.type === 'gallery' && doc.thumbnailSrc) {
+    // Use the pinned image as thumbnail for gallery
+    thumb.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = doc.thumbnailSrc;
+    img.alt = doc.title || 'Gallery';
+    img.style.width = '100%';
+    img.style.height = '100%';
+    img.style.objectFit = 'cover';
+    thumb.appendChild(img);
   } else {
-    // For documents, check both content field and pages array
-    const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
-    if (content) {
-      thumb.innerHTML = content.slice(0, 200) + (content.length > 200 ? '...' : '');
-    }
+    thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
   }
+  node._doc = doc;
+
+  ensureDocCardObserver();
+  docCardObserver.observe(node);
 
   // Lock UI overlay
   if (doc.locked){
@@ -1013,7 +973,13 @@ function createFolderCard(folder) {
   
   const thumb = document.createElement('div');
   thumb.className = 'thumb folder-thumb';
-  thumb.innerHTML = `<span class="folder-emoji">${folder.emoji || '📁'}</span>`;
+  
+  // Display either image or emoji based on folder settings
+  if (folder.thumbnailType === 'image' && folder.thumbnailImage) {
+    thumb.innerHTML = `<div class="folder-thumbnail"><img src="${folder.thumbnailImage}" alt="${folder.name}"></div>`;
+  } else {
+    thumb.innerHTML = `<span class="folder-emoji">${folder.emoji || '📁'}</span>`;
+  }
   
   const meta = document.createElement('div');
   meta.className = 'meta';
@@ -1099,6 +1065,103 @@ function createFolderCard(folder) {
   return card;
 }
 
+// Lazy preview hydration for document cards
+let docCardObserver = null;
+function hydrateDocCardPreview(card){
+  try {
+    const doc = card._doc;
+    const thumb = card.querySelector('.thumb');
+    if (!doc || !thumb) return;
+    // Do not render heavy previews for locked docs; keep placeholder + overlay
+    if (doc.locked) return;
+
+    if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
+      const entries = doc.content
+        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry);
+      let chosen = null;
+      if (doc.thumbnailSrc) {
+        chosen = doc.thumbnailSrc;
+      }
+      if (!chosen) {
+        const candidates = entries.filter(e => !e.spoiler && !e.locked);
+        chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
+      }
+      if (chosen){
+        thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+        thumb.style.padding = '0';
+      }
+    } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
+      const firstSlide = doc.slides[0];
+      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${firstSlide.background || '#fff'}; font-size: 11px; color: var(--muted);">
+        <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
+      </div>`;
+      thumb.style.padding = '0';
+    } else if (doc.type === 'board') {
+      const hasItems = Array.isArray(doc.content) && doc.content.length > 0;
+      const bgUrl = 'data/assets/textures/corkboard1.png';
+      thumb.style.padding = '0';
+      thumb.innerHTML = `
+        <div style="position:absolute; inset:0; background:${hasItems?`url('${bgUrl}') center / cover`:'var(--surface)'};"></div>
+        <div style="position:absolute; inset:0; padding:8px;">
+          ${hasItems ? doc.content
+            .filter(it => it.type === 'note' || it.type === 'link' || it.type === 'shape')
+            .slice(0,3)
+            .map((it, i) => {
+              const bg = it.bg || (it.type==='shape' ? '#FFD78A' : '#FFF3A4');
+              const rot = it.rotation || (i === 0 ? -4 : i === 1 ? 3 : 1);
+              const text = (it.text || it.href || '');
+              return `<div style="position:absolute; left:${8 + i*58}px; top:${10 + i*8}px; width:80px; height:56px; background:${bg}; color:#333; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.2); transform:rotate(${rot}deg); display:flex; align-items:center; justify-content:center; font-size:10px; overflow:hidden;">${text ? text.slice(0,22) : ''}</div>`;
+            }).join('')
+            : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted);">
+                 <span class="material-symbols-outlined" style="font-size:40px;">dashboard</span>
+               </div>`}
+        </div>
+      `;
+    } else {
+      const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
+      if (content) {
+        thumb.innerHTML = content.slice(0, 200) + (content.length > 200 ? '...' : '');
+      }
+    }
+  } catch (err) {
+    // Fail gracefully
+    console.warn('Preview hydrate error', err);
+  }
+}
+
+function ensureDocCardObserver(){
+  if (docCardObserver) return;
+  docCardObserver = new IntersectionObserver((entries)=>{
+    for (const e of entries){
+      if (e.isIntersecting){
+        hydrateDocCardPreview(e.target);
+        docCardObserver.unobserve(e.target);
+      }
+    }
+  }, { root: null, rootMargin: '200px 0px', threshold: 0.01 });
+}
+
+// Append large lists in chunks to avoid main-thread jank
+function appendInChunks(container, list, createFn){
+  const CHUNK = 40;
+  let i = 0;
+  function step(){
+    const frag = document.createDocumentFragment();
+    for (let c = 0; c < CHUNK && i < list.length; c++, i++){
+      frag.appendChild(createFn(list[i]));
+    }
+    container.appendChild(frag);
+    if (i < list.length){
+      if ('requestIdleCallback' in window){
+        requestIdleCallback(step, { timeout: 200 });
+      } else {
+        setTimeout(step, 16);
+      }
+    }
+  }
+  step();
+}
+
 async function renderDocs(){
   const grid = document.getElementById('docGrid');
   const term = document.getElementById('search').value;
@@ -1152,14 +1215,10 @@ async function renderDocs(){
       if (existingWelcome) existingWelcome.remove();
       
       // Render folders first
-      for(const f of folders){
-          grid.appendChild(createFolderCard(f));
-      }
+      appendInChunks(grid, folders, createFolderCard);
       
       // Then render documents
-      for(const d of docs){
-          grid.appendChild(createDocCard(d));
-      }
+      appendInChunks(grid, docs, createDocCard);
   }
 }
 
@@ -1424,6 +1483,12 @@ function showEditFolderModal(folder = null) {
   const emojiInput = document.getElementById('folderEmojiInput');
   const colorPicker = document.getElementById('folderColorPicker');
   const saveBtn = document.getElementById('saveFolderBtn');
+  const useEmojiRadio = document.getElementById('useEmoji');
+  const useImageRadio = document.getElementById('useImage');
+  const emojiSection = document.getElementById('emojiSection');
+  const imageSection = document.getElementById('imageSection');
+  const imageInput = document.getElementById('folderImageInput');
+  const imagePreview = document.getElementById('imagePreview');
   
   if (!modal) return;
   
@@ -1437,21 +1502,86 @@ function showEditFolderModal(folder = null) {
     btn.classList.toggle('active', btn.dataset.color === (folder?.color || 'blue'));
   });
   
+  // Set thumbnail type
+  if (folder?.thumbnailType === 'image' && folder?.thumbnailImage) {
+    useImageRadio.checked = true;
+    emojiSection.style.display = 'none';
+    imageSection.style.display = 'block';
+    
+    // Show existing image
+    imagePreview.innerHTML = '';
+    const img = document.createElement('img');
+    img.src = folder.thumbnailImage;
+    imagePreview.appendChild(img);
+  } else {
+    useEmojiRadio.checked = true;
+    emojiSection.style.display = 'block';
+    imageSection.style.display = 'none';
+    imagePreview.innerHTML = '';
+  }
+  
+  // Handle thumbnail type toggle
+  useEmojiRadio.onchange = () => {
+    emojiSection.style.display = 'block';
+    imageSection.style.display = 'none';
+  };
+  
+  useImageRadio.onchange = () => {
+    emojiSection.style.display = 'none';
+    imageSection.style.display = 'block';
+  };
+  
+  // Handle image upload preview
+  imageInput.onchange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      imagePreview.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = e.target.result;
+      imagePreview.appendChild(img);
+    };
+    reader.readAsDataURL(file);
+  };
+  
   modal.removeAttribute('hidden');
   nameInput.focus();
   
   // Handle save
   const handleSave = async () => {
     const name = nameInput.value.trim() || 'Untitled Folder';
-    const emoji = emojiInput.value.trim() || '📁';
     const activeColor = colorPicker.querySelector('.color-option.active');
     const color = activeColor?.dataset.color || 'blue';
+    
+    // Get thumbnail data
+    const thumbnailType = useEmojiRadio.checked ? 'emoji' : 'image';
+    let thumbnailImage = null;
+    let emoji = '📁';
+    
+    if (thumbnailType === 'emoji') {
+      emoji = emojiInput.value.trim() || '📁';
+    } else if (imageInput.files[0]) {
+      // Convert image to base64
+      const file = imageInput.files[0];
+      const reader = new FileReader();
+      thumbnailImage = await new Promise((resolve) => {
+        reader.onload = (e) => resolve(e.target.result);
+        reader.readAsDataURL(file);
+      });
+    } else if (folder?.thumbnailImage) {
+      // Keep existing image if no new one was uploaded
+      thumbnailImage = folder.thumbnailImage;
+    }
     
     const folderData = {
       ...(folder || {}),
       name,
       emoji,
       color,
+      thumbnailType,
+      thumbnailImage,
       parentId: currentFolderId
     };
     

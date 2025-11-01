@@ -32,6 +32,9 @@ export function generateDynamicTheme(hue, mode, scheme) {
     '--text': `hsl(${hue}, 10%, ${isLight ? 10 : 90}%)`,
     '--muted': `hsl(${hue}, 8%, ${isLight ? 45 : 65}%)`,
     '--border': `hsl(${hue}, 10%, ${isLight ? 85 : 20}%)`,
+    // Alias tokens used by components
+    '--text-primary': `hsl(${hue}, 10%, ${isLight ? 10 : 90}%)`,
+    '--text-secondary': `hsl(${hue}, 8%, ${isLight ? 45 : 65}%)`,
   };
 
   let accentHue2 = hue;
@@ -53,6 +56,35 @@ export function generateDynamicTheme(hue, mode, scheme) {
     theme['--secondary'] = `hsl(${accentHue2}, ${baseSat - 10}%, ${isLight ? 60 : 55}%)`;
   } else if (scheme !== 'normal') {
     theme['--secondary'] = `hsl(${accentHue2}, ${baseSat - 15}%, ${isLight ? 60 : 55}%)`;
+  }
+
+  // Ensure notes have proper contrast in dynamic themes
+  if (isLight) {
+    Object.assign(theme, {
+      '--note-default-bg': '#E6E4F4',
+      '--note-default-border': '#C9C5E0',
+      '--note-red-bg': '#F4D8D8',
+      '--note-red-border': '#E0B0B0',
+      '--note-blue-bg': '#D8E4F4',
+      '--note-blue-border': '#B0C0E0',
+      '--note-green-bg': '#D8F4D8',
+      '--note-green-border': '#B0E0B0',
+      '--note-yellow-bg': '#F4F4D8',
+      '--note-yellow-border': '#E0E0B0',
+    });
+  } else {
+    Object.assign(theme, {
+      '--note-default-bg': '#2a2735',
+      '--note-default-border': '#4a455c',
+      '--note-red-bg': '#4d2424',
+      '--note-red-border': '#7a3a3a',
+      '--note-blue-bg': '#1a2c4d',
+      '--note-blue-border': '#2a4a7d',
+      '--note-green-bg': '#1a4d2c',
+      '--note-green-border': '#2a7d4a',
+      '--note-yellow-bg': '#4d4d1a',
+      '--note-yellow-border': '#7d7d2a',
+    });
   }
 
   return theme;
