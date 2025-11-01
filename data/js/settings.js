@@ -848,112 +848,9 @@ loadSettings().then(async () => {
           if (deleteDocuments || deleteLockedData) {
             try {
               const store = await tx(STORES.documents, 'readwrite');
-              
-              if (deleteLockedData) {
-                // Get all documents to process
-                const allDocs = await new Promise((resolve) => {
-                  const request = store.getAll();
-                  request.onsuccess = () => resolve(request.result || []);
-                  request.onerror = () => resolve([]);
-                });
-                
-                const lockedDocs = [];
-                const galleriesToUpdate = [];
-                const deletePromises = [];
-                
-                // First pass: identify locked documents and process galleries
-                for (const doc of allDocs) {
-                  // Check for locked documents
-                  if (doc.locked || doc.isEncrypted) {
-                    lockedDocs.push(doc);
-                  }
-                  
-                  // Process gallery content for locked images
-                  if (doc.type === 'gallery' && Array.isArray(doc.content)) {
-                    // Check for locked images in gallery content
-                    const hasLockedImages = doc.content.some(entry => {
-                      return typeof entry === 'object' && entry !== null && entry.locked === true;
-                    });
-                    
-                    if (hasLockedImages) {
-                      // Create a copy of the gallery with locked images removed
-                      const updatedGallery = {
-                        ...doc,
-                        content: doc.content.filter(entry => {
-                          // Keep entries that are not objects, or don't have locked: true
-                          return typeof entry !== 'object' || !entry || entry.locked !== true;
-                        }),
-                        updatedAt: Date.now()
-                      };
-                      galleriesToUpdate.push(updatedGallery);
-                    }
-                  }
-                }
-                
-                // Delete locked documents
-                for (const doc of lockedDocs) {
-                  deletePromises.push(
-                    new Promise((resolve) => {
-                      const request = store.delete(doc.id);
-                      request.onsuccess = resolve;
-                      request.onerror = (e) => {
-                        console.error(`Error deleting document ${doc.id}:`, e);
-                        resolve();
-                      };
-                    })
-                  );
-                }
-                
-                // Update galleries to remove locked images
-                for (const gallery of galleriesToUpdate) {
-                  deletePromises.push(
-                    new Promise((resolve) => {
-                      const request = store.put(gallery);
-                      request.onsuccess = resolve;
-                      request.onerror = (e) => {
-                        console.error(`Error updating gallery ${gallery.id}:`, e);
-                        resolve();
-                      };
-                    })
-                  );
-                }
-                
-                // Wait for all operations to complete
-                await Promise.all(deletePromises);
-              } else {
-                // Delete all documents and their gallery images if deleteDocuments is true
-                const allDocs = await new Promise((resolve) => {
-                  const request = store.getAll();
-                  request.onsuccess = () => resolve(request.result || []);
-                  request.onerror = () => resolve([]);
-                });
-                
-                // First delete all gallery images
-                for (const doc of allDocs) {
-                  // Handle gallery type documents with images
-                  if (doc.type === 'gallery' && doc.images && doc.images.length > 0) {
-                    const imagePromises = doc.images.map(imageId => {
-                      return new Promise((resolve) => {
-                        const imgRequest = store.delete(imageId);
-                        imgRequest.onsuccess = resolve;
-                        imgRequest.onerror = (e) => {
-                          console.error(`Error deleting gallery image ${imageId}:`, e);
-                          resolve();
-                        };
-                      });
-                    });
-                    await Promise.all(imagePromises);
-                  }
-                  
-                  // Handle any other document types that might have associated data
-                  // This ensures we delete ALL document types: document, list, essay, gallery, board
-                  if (doc.type && ['document', 'list', 'essay', 'gallery', 'board'].includes(doc.type)) {
-                    // Additional cleanup for specific document types if needed
-                    console.log(`Deleting document of type: ${doc.type}, id: ${doc.id}`);
-                  }
-                }
-                
-                // Then clear all documents
+
+              if (deleteDocuments) {
+                // Clear all documents across all types (documents, lists, essays, galleries, boards, presentations)
                 await new Promise((resolve, reject) => {
                   const request = store.clear();
                   request.onsuccess = resolve;
@@ -962,6 +859,52 @@ loadSettings().then(async () => {
                     reject(e);
                   };
                 });
+              } else if (deleteLockedData) {
+                // Delete only locked documents and strip locked entries from galleries
+                const allDocs = await new Promise((resolve) => {
+                  const request = store.getAll();
+                  request.onsuccess = () => resolve(request.result || []);
+                  request.onerror = () => resolve([]);
+                });
+
+                const deletePromises = [];
+
+                for (const doc of allDocs) {
+                  // Delete locked docs
+                  if (doc.locked || doc.isEncrypted) {
+                    deletePromises.push(new Promise((resolve) => {
+                      const request = store.delete(doc.id);
+                      request.onsuccess = resolve;
+                      request.onerror = (e) => {
+                        console.error(`Error deleting document ${doc.id}:`, e);
+                        resolve();
+                      };
+                    }));
+                    continue;
+                  }
+
+                  // For unlocked gallery docs, remove any locked entries within content
+                  if (doc.type === 'gallery' && Array.isArray(doc.content)) {
+                    const hasLockedEntries = doc.content.some(entry => typeof entry === 'object' && entry?.locked === true);
+                    if (hasLockedEntries) {
+                      const updatedGallery = {
+                        ...doc,
+                        content: doc.content.filter(entry => !(typeof entry === 'object' && entry?.locked === true)),
+                        updatedAt: Date.now()
+                      };
+                      deletePromises.push(new Promise((resolve) => {
+                        const request = store.put(updatedGallery);
+                        request.onsuccess = resolve;
+                        request.onerror = (e) => {
+                          console.error(`Error updating gallery ${doc.id}:`, e);
+                          resolve();
+                        };
+                      }));
+                    }
+                  }
+                }
+
+                await Promise.all(deletePromises);
               }
             } catch (e) {
               console.error('Error in documents deletion:', e);
@@ -1026,7 +969,7 @@ loadSettings().then(async () => {
           alert('Selected data has been deleted successfully.');
           
           // Refresh the page to reflect changes
-          if (deleteSettings || deleteLockedData || deleteFolders) {
+          if (deleteSettings || deleteLockedData || deleteFolders || deleteDocuments) {
             window.location.reload();
           } else {
             // If only documents were deleted, just uncheck the boxes and disable the button

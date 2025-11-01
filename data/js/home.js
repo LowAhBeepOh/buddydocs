@@ -875,18 +875,35 @@ function createDocCard(doc){
   node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
   node.querySelector('.due').innerHTML = dueBadge(doc);
   
-  // Defer preview population until visible
-  if (doc.type === 'gallery' && doc.thumbnailSrc) {
-    // Use the pinned image as thumbnail for gallery
-    thumb.innerHTML = '';
-    const img = document.createElement('img');
-    img.src = doc.thumbnailSrc;
-    img.alt = doc.title || 'Gallery';
-    img.style.width = '100%';
-    img.style.height = '100%';
-    img.style.objectFit = 'cover';
-    thumb.appendChild(img);
+  // Immediate preview for gallery: pinned image or random non-spoiler/non-locked fallback
+  if (doc.type === 'gallery') {
+    let chosen = null;
+    if (doc.thumbnailSrc) {
+      chosen = doc.thumbnailSrc;
+    } else if (Array.isArray(doc.content) && doc.content.length > 0) {
+      const entries = doc.content
+        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
+        .filter(e => e && typeof e.src === 'string');
+      const candidates = entries.filter(e => !e.spoiler && !e.locked);
+      if (candidates.length > 0) {
+        const rnd = Math.floor(Math.random() * candidates.length);
+        chosen = candidates[rnd].src;
+      }
+    }
+    if (chosen) {
+      thumb.innerHTML = '';
+      const img = document.createElement('img');
+      img.src = chosen;
+      img.alt = doc.title || 'Gallery';
+      img.style.width = '100%';
+      img.style.height = '100%';
+      img.style.objectFit = 'cover';
+      thumb.appendChild(img);
+    } else {
+      thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
+    }
   } else {
+    // Non-gallery default
     thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
   }
   node._doc = doc;

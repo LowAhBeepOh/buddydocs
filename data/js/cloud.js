@@ -498,18 +498,54 @@ async function syncToGoogleDrive(forceFullSync = false) {
       const d = new Date(t).getTime();
       return Number.isFinite(d) ? d : 0;
     };
-    const normalizeDoc = (doc) => ({
-      id: doc.id,
-      title: doc.title || 'Untitled Document',
-      content: doc.content || '',
-      createdAt: doc.createdAt || new Date().toISOString(),
-      updatedAt: doc.updatedAt || new Date().toISOString(),
-      tags: Array.isArray(doc.tags) ? doc.tags : [],
-      archived: !!doc.archived,
-      starred: !!doc.starred,
-      color: doc.color || '',
-      dueDate: doc.dueDate || null
-    });
+    const normalizeDoc = (doc) => {
+      // Preserve common fields
+      const base = {
+        id: doc.id,
+        type: doc.type || 'document',
+        title: doc.title || 'Untitled Document',
+        createdAt: doc.createdAt || new Date().toISOString(),
+        updatedAt: doc.updatedAt || new Date().toISOString(),
+        tags: Array.isArray(doc.tags) ? doc.tags : [],
+        archived: !!doc.archived,
+        starred: !!doc.starred,
+        color: doc.color || '',
+        dueDate: doc.dueDate || null,
+        locked: !!doc.locked,
+        completed: !!doc.completed,
+        folderId: typeof doc.folderId === 'string' ? doc.folderId : null
+      };
+
+      // Preserve per-document settings and viewport (used by boards and others)
+      if (doc.settings && typeof doc.settings === 'object') {
+        base.settings = doc.settings;
+      }
+      if (doc.viewport && typeof doc.viewport === 'object') {
+        base.viewport = {
+          scrollLeft: Number(doc.viewport.scrollLeft) || 0,
+          scrollTop: Number(doc.viewport.scrollTop) || 0
+        };
+      }
+
+      // Preserve type-specific fields
+      if (base.type === 'presentation') {
+        base.slides = Array.isArray(doc.slides) ? doc.slides : [];
+        base.currentSlideIndex = typeof doc.currentSlideIndex === 'number' ? doc.currentSlideIndex : 0;
+      } else if (base.type === 'gallery') {
+        base.content = Array.isArray(doc.content) ? doc.content : [];
+        base.thumbnailSrc = doc.thumbnailSrc || '';
+      } else if (base.type === 'board') {
+        base.content = Array.isArray(doc.content) ? doc.content : [];
+      } else {
+        // Standard document, list, essay, etc.
+        base.pages = Array.isArray(doc.pages) ? doc.pages : [];
+        base.content = typeof doc.content === 'string'
+          ? doc.content
+          : (Array.isArray(base.pages) && base.pages.length > 0 && base.pages[0]?.content ? base.pages[0].content : '');
+      }
+
+      return base;
+    };
 
     function mergeByUpdatedAt(localDocs, remoteDocs) {
       const map = new Map();
@@ -643,7 +679,10 @@ async function syncToGoogleDrive(forceFullSync = false) {
       color: f.color || 'blue',
       emoji: f.emoji || '📁',
       parentId: typeof f.parentId === 'string' ? f.parentId : null,
-      updatedAt: f.updatedAt || Date.now()
+      updatedAt: f.updatedAt || Date.now(),
+      // Preserve thumbnail settings
+      thumbnailType: f.thumbnailType === 'image' ? 'image' : 'emoji',
+      thumbnailImage: f.thumbnailType === 'image' && typeof f.thumbnailImage === 'string' ? f.thumbnailImage : null
     });
 
     function mergeFoldersByUpdatedAt(localFolders, remoteFolders) {
@@ -983,19 +1022,52 @@ async function saveToGoogleDrive(folderId, doc) {
     return null;
   }
   
-  // Create a clean document object with only the necessary data
-  const docToSave = {
-    id: doc.id,
-    title: doc.title || 'Untitled Document',
-    content: doc.content || '',
-    createdAt: doc.createdAt || new Date().toISOString(),
-    updatedAt: doc.updatedAt || new Date().toISOString(),
-    tags: doc.tags || [],
-    archived: doc.archived || false,
-    starred: doc.starred || false,
-    color: doc.color || '',
-    dueDate: doc.dueDate || null,
-  };
+  // Create a clean document object that preserves type-specific fields
+  const docToSave = (() => {
+    const base = {
+      id: doc.id,
+      type: doc.type || 'document',
+      title: doc.title || 'Untitled Document',
+      createdAt: doc.createdAt || new Date().toISOString(),
+      updatedAt: doc.updatedAt || new Date().toISOString(),
+      tags: Array.isArray(doc.tags) ? doc.tags : [],
+      archived: !!doc.archived,
+      starred: !!doc.starred,
+      color: doc.color || '',
+      dueDate: doc.dueDate || null,
+      locked: !!doc.locked,
+      completed: !!doc.completed,
+      folderId: typeof doc.folderId === 'string' ? doc.folderId : null
+    };
+
+    // Preserve per-document settings and viewport (used by boards and others)
+    if (doc.settings && typeof doc.settings === 'object') {
+      base.settings = doc.settings;
+    }
+    if (doc.viewport && typeof doc.viewport === 'object') {
+      base.viewport = {
+        scrollLeft: Number(doc.viewport.scrollLeft) || 0,
+        scrollTop: Number(doc.viewport.scrollTop) || 0
+      };
+    }
+
+    if (base.type === 'presentation') {
+      base.slides = Array.isArray(doc.slides) ? doc.slides : [];
+      base.currentSlideIndex = typeof doc.currentSlideIndex === 'number' ? doc.currentSlideIndex : 0;
+    } else if (base.type === 'gallery') {
+      base.content = Array.isArray(doc.content) ? doc.content : [];
+      base.thumbnailSrc = doc.thumbnailSrc || '';
+    } else if (base.type === 'board') {
+      base.content = Array.isArray(doc.content) ? doc.content : [];
+    } else {
+      base.pages = Array.isArray(doc.pages) ? doc.pages : [];
+      base.content = typeof doc.content === 'string'
+        ? doc.content
+        : (Array.isArray(base.pages) && base.pages.length > 0 && base.pages[0]?.content ? base.pages[0].content : '');
+    }
+
+    return base;
+  })();
   
   const fileName = `${docToSave.title}.buddydoc`;
   const fileContent = JSON.stringify(docToSave, null, 2);

@@ -607,21 +607,14 @@
         return { src, spoiler, locked, pinned };
       });
       
-      // Set thumbnailSrc property based on pinned image
+      // Set thumbnailSrc only when a pinned image exists. Otherwise leave undefined
+      // so the index page can choose a random non-spoiler, non-locked image.
       const pinnedItem = items.find(item => item.dataset.pinned === 'true');
       if (pinnedItem) {
         const img = pinnedItem.querySelector('img');
         currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
       } else {
-        // If no pinned image, use the first non-spoiler, non-locked image
-        const firstUsableItem = items.find(item => 
-          item.dataset.spoiler !== 'true' && item.dataset.locked !== 'true');
-        if (firstUsableItem) {
-          const img = firstUsableItem.querySelector('img');
-          currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
-        } else {
-          delete currentDoc.thumbnailSrc;
-        }
+        delete currentDoc.thumbnailSrc;
       }
       
       const saved = await saveDocument(currentDoc);

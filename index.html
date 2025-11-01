@@ -520,5 +520,71 @@
     });
   </script>
   <script src="data/js/logo-manager.js"></script>
+  <script type="module">
+    // Index-level gallery thumbnail fallback: if no pinned image
+    // (doc.thumbnailSrc) exists, choose a random non-spoiler, non-locked
+    // image from doc.content for display.
+    // This runs in index.html as requested, complementing home.js.
+    function pickRandomGalleryImage(doc) {
+      if (!doc || doc.type !== 'gallery') return null;
+      if (doc.thumbnailSrc) return doc.thumbnailSrc;
+      if (!Array.isArray(doc.content) || doc.content.length === 0) return null;
+      const entries = doc.content
+        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
+        .filter(e => e && typeof e.src === 'string');
+      const candidates = entries.filter(e => !e.spoiler && !e.locked);
+      if (!candidates.length) return null;
+      const rnd = Math.floor(Math.random() * candidates.length);
+      return candidates[rnd].src;
+    }
+
+    function applyGalleryThumb(card){
+      if (!card || !card.classList.contains('doc-card')) return;
+      const doc = card._doc;
+      const thumb = card.querySelector('.thumb');
+      if (!doc || !thumb) return;
+      // Do not override locked docs or those already showing an image
+      if (doc.locked) return;
+      const hasImg = !!thumb.querySelector('img');
+      const chosen = pickRandomGalleryImage(doc);
+      if (doc.type === 'gallery' && chosen && !hasImg){
+        thumb.innerHTML = '';
+        const img = document.createElement('img');
+        img.src = chosen;
+        img.alt = doc.title || 'Gallery';
+        img.style.width = '100%';
+        img.style.height = '100%';
+        img.style.objectFit = 'cover';
+        thumb.appendChild(img);
+      }
+    }
+
+    function initIndexGalleryThumbs(){
+      const grid = document.getElementById('docGrid');
+      if (!grid) return;
+      // Initial pass
+      grid.querySelectorAll('.doc-card').forEach(applyGalleryThumb);
+      // Observe future additions
+      const obs = new MutationObserver((mutations) => {
+        for (const m of mutations){
+          m.addedNodes?.forEach(node => {
+            if (!(node instanceof Element)) return;
+            if (node.classList.contains('doc-card')){
+              applyGalleryThumb(node);
+            } else {
+              node.querySelectorAll?.('.doc-card').forEach(applyGalleryThumb);
+            }
+          });
+        }
+      });
+      obs.observe(grid, { childList: true, subtree: true });
+    }
+
+    if (document.readyState === 'loading'){
+      document.addEventListener('DOMContentLoaded', initIndexGalleryThumbs);
+    } else {
+      initIndexGalleryThumbs();
+    }
+  </script>
 </body>
 </html>
