@@ -1,7 +1,8 @@
-import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES } from './idb.js';
+import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
 import { applyDynamicTheme, applyClassicTheme } from './theme.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
+import { getVersions } from './version-history.js';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -335,6 +336,7 @@ async function saveSettings() {
   const musicPlayerEnabled = document.getElementById('musicPlayerEnabled').checked;
   const musicFilterType = document.getElementById('musicFilterType').value;
   const musicFilterValue = document.getElementById('musicFilterValue').value;
+  const activityEnabled = document.getElementById('activityEnabled')?.checked || false;
 
   const settingsToSave = [
     setSetting('displayName', displayName),
@@ -354,6 +356,7 @@ async function saveSettings() {
     setSetting('musicPlayerEnabled', musicPlayerEnabled),
     setSetting('musicFilterType', musicFilterType),
     setSetting('musicFilterValue', musicFilterValue),
+    setSetting('activityEnabled', activityEnabled),
   ];
 
   if (aiProvider === 'openai') {
@@ -511,6 +514,14 @@ function handleTabSwitching() {
           pane.classList.remove('active');
         }
       });
+
+      // Lazy init Activity tab on demand
+      if (targetPaneId === 'activity') {
+        lazyInitActivityTab();
+      }
+      if (targetPaneId === 'cloud') {
+        lazyInitCloudTab();
+      }
     });
   });
 }
@@ -612,6 +623,174 @@ function lazyInitCloudTab(){
   });
 }
 
+// Activity tab
+let activityTabInitialized = false;
+function lazyInitActivityTab(){
+  if (activityTabInitialized) return;
+  const pane = document.getElementById('activity');
+  if (!pane) return;
+  activityTabInitialized = true;
+  Promise.resolve().then(()=>initActivityTab()).catch((e)=>{
+    console.warn('Activity tab init failed:', e);
+    activityTabInitialized = false;
+  });
+}
+
+function countWordsFromHtml(html){
+  if (typeof html !== 'string' || !html) return 0;
+  const temp = document.createElement('div');
+  temp.innerHTML = html;
+  const text = temp.textContent || temp.innerText || '';
+  return text.trim().split(/\s+/).filter(Boolean).length;
+}
+
+async function wordsAddedForDocInRange(doc, startMs, endMs){
+  try{
+    const versions = await getVersions(doc.id);
+    if (Array.isArray(versions) && versions.length > 0){
+      // versions are newest-first; make ascending by timestamp
+      const asc = [...versions].sort((a,b)=>a.timestamp - b.timestamp);
+      let prevWC = 0;
+      // seed prevWC as last version before start
+      for (let i=0;i<asc.length;i++){
+        const v = asc[i];
+        if (v.timestamp < startMs){
+          prevWC = v.wordCount || 0;
+        } else {
+          break;
+        }
+      }
+      let sum = 0;
+      for (const v of asc){
+        if (v.timestamp >= startMs && v.timestamp <= endMs){
+          const delta = (v.wordCount||0) - prevWC;
+          if (delta > 0) sum += delta;
+          prevWC = v.wordCount||0;
+        }
+        if (v.timestamp > endMs){
+          break;
+        }
+      }
+      return sum;
+    }
+  } catch(e){
+    // ignore
+  }
+  // Fallback: if doc updated in range, approximate using current word count
+  if (doc.updatedAt >= startMs && doc.updatedAt <= endMs){
+    return countWordsFromHtml(doc.content || '');
+  }
+  return 0;
+}
+
+function formatCompare(curr, prev){
+  if (!prev && !curr) return 'No change';
+  if (!prev && curr>0) return 'up 100%';
+  if (prev===curr) return 'No change';
+  const diff = curr - prev;
+  const pct = Math.round(Math.abs(diff) / (prev || 1) * 100);
+  return diff >= 0 ? `up ${pct}%` : `down ${pct}%`;
+}
+
+async function computeActivityStats(){
+  const docs = await listDocuments({ includeArchived: true });
+  const now = Date.now();
+  const day = 24*60*60*1000;
+  const ranges = {
+    week: { start: now - 7*day, end: now, prevStart: now - 14*day, prevEnd: now - 7*day },
+    month:{ start: now - 30*day, end: now, prevStart: now - 60*day, prevEnd: now - 30*day },
+    year: { start: now - 365*day, end: now, prevStart: now - 730*day, prevEnd: now - 365*day }
+  };
+
+  // Total word count across all documents
+  let totalWords = 0;
+  for (const d of docs){
+    if (typeof d.content === 'string'){
+      totalWords += countWordsFromHtml(d.content);
+    } else if (Array.isArray(d.pages) && d.pages.length){
+      // Some docs keep content in pages
+      totalWords += countWordsFromHtml(d.pages[0]?.content || '');
+    }
+  }
+
+  async function calcFor(range){
+    let words = 0, prevWords = 0, done = 0, prevDone = 0;
+    for (const d of docs){
+      words += await wordsAddedForDocInRange(d, range.start, range.end);
+      prevWords += await wordsAddedForDocInRange(d, range.prevStart, range.prevEnd);
+      // Completed docs counted by updatedAt when completion saved
+      if (d.completed && d.updatedAt >= range.start && d.updatedAt <= range.end){
+        done += 1;
+      }
+      if (d.completed && d.updatedAt >= range.prevStart && d.updatedAt <= range.prevEnd){
+        prevDone += 1;
+      }
+    }
+    return { words, prevWords, done, prevDone };
+  }
+
+  const weekly = await calcFor(ranges.week);
+  const monthly = await calcFor(ranges.month);
+  const yearly = await calcFor(ranges.year);
+
+  return {
+    totalWords,
+    weekly,
+    monthly,
+    yearly
+  };
+}
+
+async function initActivityTab(){
+  const enabled = await getSetting('activityEnabled', false);
+  const toggle = document.getElementById('activityEnabled');
+  const note = document.getElementById('activityDisabledNote');
+  const content = document.getElementById('activityContent');
+  if (toggle){
+    toggle.checked = !!enabled;
+    toggle.addEventListener('change', async (e)=>{
+      await setSetting('activityEnabled', !!e.target.checked);
+      renderActivity();
+    });
+  }
+  // Initial render
+  renderActivity();
+
+  async function renderActivity(){
+    const isOn = await getSetting('activityEnabled', false);
+    if (!isOn){
+      note.style.display = 'block';
+      content.style.display = 'none';
+      return;
+    }
+    note.style.display = 'none';
+    content.style.display = 'block';
+
+    const stats = await computeActivityStats();
+    // Total words
+    const totalEl = document.getElementById('totalWordCount');
+    totalEl.textContent = String(stats.totalWords);
+
+    // Weekly
+    document.getElementById('weeklyWords').textContent = String(stats.weekly.words);
+    document.getElementById('weeklyCompare').textContent = formatCompare(stats.weekly.words, stats.weekly.prevWords);
+    document.getElementById('weeklyDone').textContent = String(stats.weekly.done);
+    document.getElementById('weeklyDoneCompare').textContent = formatCompare(stats.weekly.done, stats.weekly.prevDone);
+
+    // Monthly
+    document.getElementById('monthlyWords').textContent = String(stats.monthly.words);
+    document.getElementById('monthlyCompare').textContent = formatCompare(stats.monthly.words, stats.monthly.prevWords);
+    document.getElementById('monthlyDone').textContent = String(stats.monthly.done);
+    document.getElementById('monthlyDoneCompare').textContent = formatCompare(stats.monthly.done, stats.monthly.prevDone);
+
+    // Yearly
+    document.getElementById('yearlyWords').textContent = String(stats.yearly.words);
+    document.getElementById('yearlyCompare').textContent = formatCompare(stats.yearly.words, stats.yearly.prevWords);
+    document.getElementById('yearlyDone').textContent = String(stats.yearly.done);
+    document.getElementById('yearlyDoneCompare').textContent = formatCompare(stats.yearly.done, stats.yearly.prevDone);
+  }
+}
+
 // Initialize the app
 loadSettings().then(async () => {
   handleTabSwitching();
@@ -624,6 +803,7 @@ loadSettings().then(async () => {
   document.querySelectorAll('.nav-tab').forEach(tab => {
     tab.addEventListener('click', () => {
       if (tab.dataset.tab === 'cloud') lazyInitCloudTab();
+      if (tab.dataset.tab === 'activity') lazyInitActivityTab();
     });
   });
   // Add event listeners

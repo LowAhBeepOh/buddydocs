@@ -544,6 +544,11 @@ async function syncToGoogleDrive(forceFullSync = false) {
           : (Array.isArray(base.pages) && base.pages.length > 0 && base.pages[0]?.content ? base.pages[0].content : '');
       }
 
+      // Preserve version history snapshots for cross-device Activity stats and restores
+      if (Array.isArray(doc.versions)) {
+        base.versions = doc.versions;
+      }
+
       return base;
     };
 
@@ -567,10 +572,12 @@ async function syncToGoogleDrive(forceFullSync = false) {
       return Array.from(map.values());
     }
 
-    async function updateLocalFromRemote(mergedDocs, localDocs) {
+    async function updateLocalFromRemote(mergedDocs, localDocs, tombstoneIds = []) {
       const localMap = new Map((localDocs || []).map(d => [d.id, d]));
       const ops = [];
       for (const doc of mergedDocs) {
+        // Skip if this doc was explicitly deleted locally (tombstoned)
+        if (Array.isArray(tombstoneIds) && tombstoneIds.includes(doc.id)) continue;
         const l = localMap.get(doc.id);
         if (!l || toTime(l.updatedAt) < toTime(doc.updatedAt)) {
           ops.push(saveDocument(doc));
@@ -591,7 +598,8 @@ async function syncToGoogleDrive(forceFullSync = false) {
     const mergedDocs = mergeByUpdatedAt(localDocs, remoteDocs);
 
     // 4) Update local from remote newer versions
-    await updateLocalFromRemote(mergedDocs, localDocs);
+    const locallyDeletedDocIds = await getSetting('locallyDeletedDocIds', []);
+    await updateLocalFromRemote(mergedDocs, localDocs, Array.isArray(locallyDeletedDocIds) ? locallyDeletedDocIds : []);
 
     // 5) Double-check concurrency: if remote changed since we read it, re-fetch and re-merge
     if (documentsJsonId) {
@@ -603,7 +611,7 @@ async function syncToGoogleDrive(forceFullSync = false) {
           const latestDocs = Array.isArray(latestBundle?.documents) ? latestBundle.documents : [];
           const remerged = mergeByUpdatedAt(mergedDocs, latestDocs);
           // Also update local after remerge to avoid losing concurrent updates
-          await updateLocalFromRemote(remerged, mergedDocs);
+          await updateLocalFromRemote(remerged, mergedDocs, Array.isArray(locallyDeletedDocIds) ? locallyDeletedDocIds : []);
           // Replace mergedDocs
           mergedDocs.splice(0, mergedDocs.length, ...remerged);
         }
@@ -613,10 +621,14 @@ async function syncToGoogleDrive(forceFullSync = false) {
     }
 
     // 6) Upload merged bundle to documents.json
+    const cloudExcludedDocIds = await getSetting('cloudExcludedDocIds', []);
+    const filteredDocs = Array.isArray(cloudExcludedDocIds) && cloudExcludedDocIds.length
+      ? mergedDocs.filter(d => !cloudExcludedDocIds.includes(d.id))
+      : mergedDocs;
     const bundle = {
       version: 1,
       lastUpdated: new Date().toISOString(),
-      documents: mergedDocs
+      documents: filteredDocs
     };
     const jsonString = JSON.stringify(bundle, null, 2);
     const finalFileId = await uploadDocumentsJson(jsonString, documentsJsonId);
@@ -1066,6 +1078,11 @@ async function saveToGoogleDrive(folderId, doc) {
         : (Array.isArray(base.pages) && base.pages.length > 0 && base.pages[0]?.content ? base.pages[0].content : '');
     }
 
+    // Include version history if present
+    if (Array.isArray(doc.versions)) {
+      base.versions = doc.versions;
+    }
+
     return base;
   })();
   
@@ -1319,5 +1336,142 @@ export async function initCloudTab() {
       statusElement.textContent = 'Initialization failed';
       statusElement.className = 'status-text error';
     }
+  }
+}
+
+// Exported helper to check cloud connectivity
+export function isCloudConnected() {
+  try {
+    // Prefer gapi token if available
+    const hasGapiToken = !!(gapi.client?.getToken());
+    if (hasGapiToken) return true;
+    // Fallbacks: stored token or setting
+    try {
+      const stored = localStorage.getItem('googleAuthToken');
+      if (stored) {
+        const token = JSON.parse(stored);
+        const now = Date.now() / 1000;
+        if (token?.expires_at && now < token.expires_at) return true;
+      }
+    } catch {}
+    return false;
+  } catch {
+    return false;
+  }
+}
+
+// Remove a single document from the remote documents.json bundle
+export async function removeDocumentFromCloud(docId) {
+  if (!docId) return;
+  let token = null;
+  try { token = gapi.client?.getToken(); } catch {}
+  // If gapi isn't initialized yet, try to initialize quickly
+  if (!token) {
+    try {
+      await initGoogleAuth();
+      token = gapi.client?.getToken();
+      if (!token) {
+        const saved = localStorage.getItem('googleAuthToken');
+        if (saved) {
+          const parsed = JSON.parse(saved);
+          if (parsed?.access_token) {
+            gapi.client.setToken(parsed);
+            token = parsed;
+          }
+        }
+      }
+    } catch (e) {
+      console.warn('Failed to init Google Auth for cloud removal', e);
+    }
+  }
+  if (!token) throw new Error('Not connected to Google Drive');
+
+  // Ensure app folder exists
+  const folderId = await getOrCreateAppFolder();
+
+  // Find documents.json in the app folder
+  const listResp = await gapi.client.drive.files.list({
+    q: `'${folderId}' in parents and trashed=false and name='documents.json' and mimeType='application/json'`,
+    fields: 'files(id, name, modifiedTime)',
+    pageSize: 1
+  });
+  const fileEntry = (listResp.result.files && listResp.result.files[0]) ? listResp.result.files[0] : null;
+  if (!fileEntry) {
+    // Nothing to remove yet; create an empty bundle without the doc
+    const emptyBundle = { version: 1, lastUpdated: new Date().toISOString(), documents: [] };
+    const jsonString = JSON.stringify(emptyBundle, null, 2);
+    const accessToken = gapi.client.getToken().access_token;
+    const metadata = {
+      name: 'documents.json',
+      mimeType: 'application/json',
+      parents: [folderId],
+      appProperties: { version: '1.0', type: 'bundle' }
+    };
+    const form = new FormData();
+    form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+    form.append('file', new Blob([jsonString], { type: 'application/json' }));
+    const uploadUrl = 'https://www.googleapis.com/upload/drive/v3/files?uploadType=multipart&fields=id,name,webViewLink';
+    const response = await fetch(uploadUrl, { method: 'POST', headers: new Headers({ Authorization: 'Bearer ' + accessToken }), body: form });
+    if (!response.ok) {
+      const errorText = await response.text();
+      throw new Error(`Failed to create documents.json: ${errorText}`);
+    }
+    return;
+  }
+
+  // Download the current bundle
+  const accessToken = gapi.client.getToken().access_token;
+  const downloadUrl = `https://www.googleapis.com/drive/v3/files/${fileEntry.id}?alt=media`;
+  const res = await fetch(downloadUrl, { headers: { Authorization: 'Bearer ' + accessToken } });
+  if (!res.ok) throw new Error('Failed to download documents.json');
+  const text = await res.text();
+  let bundle = null;
+  try { bundle = JSON.parse(text); } catch { bundle = null; }
+  const docs = Array.isArray(bundle?.documents) ? bundle.documents : [];
+
+  // Filter out the requested docId
+  const updatedDocs = docs.filter(d => d && d.id !== docId);
+  const newBundle = { version: 1, lastUpdated: new Date().toISOString(), documents: updatedDocs };
+  const payload = JSON.stringify(newBundle, null, 2);
+
+  // Upload back (PATCH)
+  const metadata = {
+    name: 'documents.json',
+    mimeType: 'application/json',
+    appProperties: { version: '1.0', type: 'bundle' }
+  };
+  const form = new FormData();
+  form.append('metadata', new Blob([JSON.stringify(metadata)], { type: 'application/json' }));
+  form.append('file', new Blob([payload], { type: 'application/json' }));
+  const patchUrl = `https://www.googleapis.com/upload/drive/v3/files/${fileEntry.id}?uploadType=multipart&fields=id,name,webViewLink`;
+  const uploadResp = await fetch(patchUrl, { method: 'PATCH', headers: new Headers({ Authorization: 'Bearer ' + accessToken }), body: form });
+  if (!uploadResp.ok) {
+    const errorText = await uploadResp.text();
+    throw new Error(`Failed to update documents.json: ${errorText}`);
+  }
+}
+
+// Initialize cloud on index page: load Google APIs, set token from storage if present, update UI and start auto-sync
+export async function initCloudOnIndex() {
+  try {
+    const initialized = await initGoogleAuth();
+    if (!initialized) return false;
+    // If we have a saved token and gapi has none, set it
+    const hasToken = !!(gapi.client?.getToken());
+    if (!hasToken) {
+      const saved = localStorage.getItem('googleAuthToken');
+      if (saved) {
+        try {
+          const parsed = JSON.parse(saved);
+          if (parsed?.access_token) gapi.client.setToken(parsed);
+        } catch {}
+      }
+    }
+    await updateCloudStatus();
+    startAutoSync();
+    return true;
+  } catch (e) {
+    console.error('initCloudOnIndex failed:', e);
+    return false;
   }
 }

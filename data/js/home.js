@@ -1,4 +1,5 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, listFolders, saveFolder, deleteFolder, getFolder } from './idb.js';
+import { isCloudConnected, removeDocumentFromCloud } from './cloud.js';
 import { initAiCommandBar } from './ai-command.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
@@ -834,11 +835,25 @@ async function handleDocAction(doc, action) {
       doc.completed = true;
       await saveDocument(doc);
       break;
-    case 'delete':
-      if (confirm('Are you sure you want to delete this document?')) {
-        await deleteDocument(doc.id);
+    case 'delete': {
+      // Detect cloud connectivity via gapi token or stored settings
+      let connected = false;
+      try { connected = !!(await isCloudConnected()); } catch (e) { connected = false; }
+      if (!connected) {
+        const settingConnected = await getSetting('googleDriveEnabled', false);
+        const storedToken = !!localStorage.getItem('googleAuthToken');
+        connected = !!settingConnected || storedToken;
+      }
+
+      if (!connected) {
+        if (confirm('Are you sure you want to delete this document?')) {
+          await deleteDocument(doc.id);
+        }
+      } else {
+        await showDeleteOptionsModal(doc);
       }
       break;
+    }
   }
   await renderDocs();
   await renderDeadlines();
@@ -959,6 +974,155 @@ function createDocCard(doc){
   });
 
   return node;
+}
+
+// Delete Options Modal logic
+let pendingDeleteDoc = null;
+async function showDeleteOptionsModal(doc) {
+  pendingDeleteDoc = doc;
+  const modal = document.getElementById('deleteOptionsModal');
+  const desc = document.getElementById('deleteOptionsDescription');
+  const closeBtn = document.getElementById('closeDeleteOptionsModal');
+  const deleteLocalBtn = document.getElementById('deleteLocalBtn');
+  const removeCloudBtn = document.getElementById('removeCloudBtn');
+  const deletePermanentBtn = document.getElementById('deletePermanentBtn');
+
+  if (!modal) return;
+  if (desc) {
+    const name = (doc?.title || 'this item');
+    desc.textContent = `Choose how you want to delete "${name}".`;
+  }
+
+  // Cleanup previous handlers to avoid duplicates
+  closeBtn?.replaceWith(closeBtn.cloneNode(true));
+  deleteLocalBtn?.replaceWith(deleteLocalBtn.cloneNode(true));
+  removeCloudBtn?.replaceWith(removeCloudBtn.cloneNode(true));
+  deletePermanentBtn?.replaceWith(deletePermanentBtn.cloneNode(true));
+
+  const closeBtn2 = document.getElementById('closeDeleteOptionsModal');
+  const deleteLocalBtn2 = document.getElementById('deleteLocalBtn');
+  const removeCloudBtn2 = document.getElementById('removeCloudBtn');
+  const deletePermanentBtn2 = document.getElementById('deletePermanentBtn');
+
+  function resetActionButtons(){
+    // Restore default labels and states
+    if (deleteLocalBtn2){
+      deleteLocalBtn2.textContent = 'Delete locally';
+      deleteLocalBtn2.classList.remove('loading');
+      deleteLocalBtn2.removeAttribute('aria-busy');
+      deleteLocalBtn2.disabled = false;
+    }
+    if (removeCloudBtn2){
+      removeCloudBtn2.textContent = 'Remove from cloud';
+      removeCloudBtn2.classList.remove('loading');
+      removeCloudBtn2.removeAttribute('aria-busy');
+      removeCloudBtn2.disabled = false;
+    }
+    if (deletePermanentBtn2){
+      deletePermanentBtn2.textContent = 'Delete Permanently';
+      deletePermanentBtn2.classList.remove('loading');
+      deletePermanentBtn2.removeAttribute('aria-busy');
+      deletePermanentBtn2.disabled = false;
+    }
+  }
+
+  // Ensure buttons look fresh when the modal opens
+  resetActionButtons();
+
+  function closeModal(){
+    resetActionButtons();
+    modal.hidden = true;
+    pendingDeleteDoc = null;
+  }
+
+  // Simple loading-state helpers for buttons with a spinner
+  function beginLoading(btn, text){
+    if (!btn) return;
+    btn._originalText = btn.textContent;
+    btn.classList.add('loading');
+    btn.setAttribute('aria-busy', 'true');
+    btn.disabled = true;
+    btn.innerHTML = `<span class="spinner"></span>${text || btn._originalText}`;
+    // Disable sibling actions while loading
+    deleteLocalBtn2 && (deleteLocalBtn2.disabled = true);
+    removeCloudBtn2 && (removeCloudBtn2.disabled = true);
+    deletePermanentBtn2 && (deletePermanentBtn2.disabled = true);
+  }
+  function endLoading(btn){
+    if (!btn) return;
+    btn.classList.remove('loading');
+    btn.removeAttribute('aria-busy');
+    btn.disabled = false;
+    if (btn._originalText) btn.textContent = btn._originalText;
+    // Re-enable sibling actions
+    deleteLocalBtn2 && (deleteLocalBtn2.disabled = false);
+    removeCloudBtn2 && (removeCloudBtn2.disabled = false);
+    deletePermanentBtn2 && (deletePermanentBtn2.disabled = false);
+  }
+
+  closeBtn2?.addEventListener('click', closeModal);
+  modal.hidden = false;
+
+  deleteLocalBtn2?.addEventListener('click', async () => {
+    if (!pendingDeleteDoc) return;
+    // Add tombstone so remote copy won't resurrect locally
+    const tombstones = await getSetting('locallyDeletedDocIds', []);
+    if (!tombstones.includes(pendingDeleteDoc.id)) {
+      tombstones.push(pendingDeleteDoc.id);
+      await setSetting('locallyDeletedDocIds', tombstones);
+    }
+    await deleteDocument(pendingDeleteDoc.id);
+    closeModal();
+    await renderDocs();
+  });
+
+  removeCloudBtn2?.addEventListener('click', async () => {
+    if (!pendingDeleteDoc) return;
+    beginLoading(removeCloudBtn2, 'Removing…');
+    // Track cloud exclusion for future syncs
+    const excluded = await getSetting('cloudExcludedDocIds', []);
+    if (!excluded.includes(pendingDeleteDoc.id)) {
+      excluded.push(pendingDeleteDoc.id);
+      await setSetting('cloudExcludedDocIds', excluded);
+    }
+    try {
+      await removeDocumentFromCloud(pendingDeleteDoc.id);
+    } catch (e) {
+      console.error('Remove from cloud failed', e);
+      alert('Failed to remove from cloud. Please try syncing again.');
+      endLoading(removeCloudBtn2);
+      return;
+    }
+    closeModal();
+  });
+
+  deletePermanentBtn2?.addEventListener('click', async () => {
+    if (!pendingDeleteDoc) return;
+    beginLoading(deletePermanentBtn2, 'Deleting…');
+    // Ensure tombstone present and cloud exclusion
+    let tombstones = await getSetting('locallyDeletedDocIds', []);
+    if (!tombstones.includes(pendingDeleteDoc.id)) {
+      tombstones.push(pendingDeleteDoc.id);
+    }
+    await setSetting('locallyDeletedDocIds', tombstones);
+
+    let excluded = await getSetting('cloudExcludedDocIds', []);
+    if (!excluded.includes(pendingDeleteDoc.id)) {
+      excluded.push(pendingDeleteDoc.id);
+    }
+    await setSetting('cloudExcludedDocIds', excluded);
+
+    try {
+      await removeDocumentFromCloud(pendingDeleteDoc.id);
+    } catch (e) {
+      console.error('Permanent cloud removal failed', e);
+      // Continue with local delete even if cloud removal fails
+    }
+    await deleteDocument(pendingDeleteDoc.id);
+    closeModal();
+    await renderDocs();
+    // No need to endLoading because modal closes; if early return occurred, we handled it above.
+  });
 }
 
 // Folder colors

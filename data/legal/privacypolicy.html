@@ -3,6 +3,7 @@
 <head>
 <meta charset="utf-8" />
 <meta name="viewport" content="width=device-width,initial-scale=1" />
+<meta name="policy-version" content="2025-11-02">
 <title>Buddy Docs: Privacy Policy</title>
 <link rel="shortcut icon" href="../assets/docslogo.svg" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@300;400;600&display=swap" rel="stylesheet">
@@ -31,7 +32,7 @@
 <body>
 <main>
   <h1>Buddy Docs: Privacy Policy</h1>
-  <small>Effective date: <strong>2025-11-01</strong></small>
+  <small>Effective date: <strong>2025-11-02</strong></small>
 
   <h2>Summary</h2>
   <p>Buddy Docs is designed with your privacy as one of our top priorities and can be used entirely locally without any sign‑in. All documents are stored locally in your browser's IndexedDB. Google Drive sync is an optional backup feature that allows you to access your documents across devices. If you choose to connect your Google account, Buddy Docs interacts directly with your Google Drive to open, edit, and save files you've created with our product. We do not store, copy, or process your files on any servers. All operations occur client‑side within your web browser. If you opt in to cloud saving, authentication is handled via Google OAuth; otherwise, no Google sign‑in or Google API access occurs.</p>
@@ -66,6 +67,10 @@
     <li>All documents remain stored locally in IndexedDB; Google Drive serves as a backup and sync mechanism.</li>
     <li><i style="color: #ac2800;">Note: Google Drive sync is currently in beta. While functional, you may occasionally experience sync issues. We recommend keeping important work backed up locally.</i></li>
   </ul>
+
+  <h2>Activity (Writing statistics)</h2>
+  <p>The Activity feature is optional and is turned off by default. When you manually enable it in Settings, Buddy Docs computes writing statistics (weekly, monthly, yearly), comparisons to previous periods, and a total word count across your documents. These statistics are computed entirely client‑side from your local documents and their autosaved snapshots (versions) and are stored locally in your browser's IndexedDB. No Activity data is sent to any server.</p>
+  <p>If you enable Cloud (Google Drive) features, your underlying documents and app settings (including the Activity enabled setting) are saved to your own Google Drive. Activity statistics themselves are still computed on your device and are not uploaded separately; instead, the source data they rely on (documents and settings) may be backed up to your Google Drive for your convenience.</p>
 
   <h2>Data retention</h2>
   <p>As Buddy Docs does not store your files on any of our servers, the primary retention of your documents is governed by your Google Drive settings and policies. We do not retain copies of your files. Any operational metadata (such as recent file lists or user preferences) that might be stored locally within your browser (e.g., IndexedDB or localStorage) is entirely under your control and can be cleared by you at any time through your browser's settings. This ensures that you have full command over any residual data on your local device.</p>

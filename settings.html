@@ -48,7 +48,11 @@
       </button>
       <button class="nav-tab" data-tab="cloud">
         <span class="material-symbols-outlined">cloud</span>
-        <span>Cloud (WIP)</span>
+        <span>Cloud (Beta)</span>
+      </button>
+      <button class="nav-tab" data-tab="activity">
+        <span class="material-symbols-outlined">joystick</span>
+        <span>Activity</span>
       </button>
       <button class="nav-tab" data-tab="data">
         <span class="material-symbols-outlined">database</span>
@@ -376,6 +380,76 @@
               <li>Delete the folder called BuddyDocs</li>
             </ol>
             <p>Now you're signed out, and your documents are gone from cloud.</p>
+          </div>
+        </div>
+      </section>
+
+      <section id="activity" class="settings-pane">
+        <h2>Activity</h2>
+        <div class="row">
+          <label class="tile toggle-row">
+            <span>Enable Activity tracking</span>
+            <input id="activityEnabled" class="toggle" type="checkbox" />
+          </label>
+        </div>
+        <div id="activityDisabledNote" class="row" style="display:none;">
+          <div class="tile">
+            <p class="help-text">Activity is off. Turn it on to see weekly, monthly, and yearly writing stats, comparisons to previous periods, and your total word count.</p>
+          </div>
+        </div>
+        <div id="activityContent" style="display:none;">
+          <div class="row">
+            <div class="tile" style="flex:1">
+              <h3 style="margin-top:0">Weekly</h3>
+              <div class="stats-line">
+                <div><strong id="weeklyWords">0</strong> words written</div>
+                <div class="muted" id="weeklyCompare">– vs last week</div>
+              </div>
+              <div class="stats-line">
+                <div><strong id="weeklyDone">0</strong> documents completed</div>
+                <div class="muted" id="weeklyDoneCompare">– vs last week</div>
+              </div>
+            </div>
+            <div class="tile" style="flex:1">
+              <h3 style="margin-top:0">Monthly</h3>
+              <div class="stats-line">
+                <div><strong id="monthlyWords">0</strong> words written</div>
+                <div class="muted" id="monthlyCompare">– vs last month</div>
+              </div>
+              <div class="stats-line">
+                <div><strong id="monthlyDone">0</strong> documents completed</div>
+                <div class="muted" id="monthlyDoneCompare">– vs last month</div>
+              </div>
+            </div>
+            <div class="tile" style="flex:1">
+              <h3 style="margin-top:0">Yearly</h3>
+              <div class="stats-line">
+                <div><strong id="yearlyWords">0</strong> words written</div>
+                <div class="muted" id="yearlyCompare">– vs last year</div>
+              </div>
+              <div class="stats-line">
+                <div><strong id="yearlyDone">0</strong> documents completed</div>
+                <div class="muted" id="yearlyDoneCompare">– vs last year</div>
+              </div>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="tile" style="flex:1">
+              <h3 style="margin-top:0">Total Word Count</h3>
+              <p style="font-size:24px;margin:8px 0"><strong id="totalWordCount">0</strong></p>
+              <p class="help-text">Sum of words across all documents (local IndexedDB; if Cloud is enabled, your documents and settings are also backed up to your Google Drive).</p>
+            </div>
+          </div>
+
+          <div class="row">
+            <div class="tile">
+              <p class="help-text">Notes:</p>
+              <ul class="help-text">
+                <li>Writing activity is calculated locally using your documents and their autosaved snapshots.</li>
+                <li>Comparisons are against the immediately previous period (last 7 days, last 30 days, last 365 days).</li>
+              </ul>
+            </div>
           </div>
         </div>
       </section>
