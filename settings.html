@@ -46,6 +46,10 @@
         <span class="material-symbols-outlined">integration_instructions</span>
         <span>Integrations</span>
       </button>
+      <button class="nav-tab" data-tab="notifications">
+        <span class="material-symbols-outlined">notifications</span>
+        <span>Notifications</span>
+      </button>
       <button class="nav-tab" data-tab="cloud">
         <span class="material-symbols-outlined">cloud</span>
         <span>Cloud (Beta)</span>
@@ -76,21 +80,21 @@
                 <option value="light">Light</option>
                 <option value="dark">Dark</option>
                 <option value="system">System</option>
-                <option value="pretty-pink">Pretty Pink (Light)</option>
-                <option value="dark-pink">Dark Pink (Dark)</option>
+                <option value="pretty-pink">Pink (Light)</option>
+                <option value="dark-pink">Pink (Dark)</option>
+                <option value="leaf">Green (Light)</option>
+                <option value="forest">Green (Dark)</option>
+                <option value="baby-blue">Blue (Light)</option>
+                <option value="blueberries">Blue (Dark)</option>
                 <option value="dr-pepper">Dr. Pepper (Dark)</option>
-                <option value="forest">Forest (Dark)</option>
-                <option value="leaf">Leaf (Light)</option>
+                <option value="halloween">Premium (Dark)</option>
                 <option value="pj">P&J (Dark)</option>
-                <option value="baby-blue">Baby Blue (Light)</option>
-                <option value="blueberries">Blueberries (Dark)</option>
                 <option value="cream">Cream (Light)</option>
-                <option value="halloween">Halloween (Dark)</option>
                 <option value="autumn">Autumn (Dark)</option>
                 <option value="bronze">Bronze (Light)</option>
-                <option value="silver">Silver (Light)</option>
                 <option value="gold">Gold (Light)</option>
-                <option value="black">Black (Dark)</option>
+                <option value="silver">Silver</option>
+                <option value="black">Black</option>
               </select>
             </label>
           </div>
@@ -122,6 +126,40 @@
             </label>
           </div>
           <button id="switchToClassic" class="btn secondary">Switch to classic themes</button>
+        </div>
+
+        <!-- Font Settings (appears for both theme types) -->
+        <div class="row">
+          <label class="tile">
+            <span>Default Font</span>
+            <select id="defaultFontSelect" class="input">
+              <option value="Inter Tight" selected>Inter Tight (Default)</option>
+              <option value="System UI">System UI</option>
+              <option value="Inter">Inter</option>
+              <option value="Roboto">Roboto</option>
+              <option value="Poppins">Poppins</option>
+              <option value="DM Sans">DM Sans</option>
+              <option value="Open Sans">Open Sans</option>
+              <option value="Nunito">Nunito</option>
+              <option value="Lato">Lato</option>
+              <option value="Figtree">Figtree</option>
+              <option value="Noto Sans">Noto Sans</option>
+              <option value="IBM Plex Sans">IBM Plex Sans</option>
+              <option value="Cossette Titre">Cossette Titre</option>
+              <option value="OpenDyslexic">OpenDyslexic</option>
+              <option value="Custom">Custom…</option>
+            </select>
+          </label>
+        </div>
+        <div id="customFontRow" class="row" style="display: none;">
+          <label class="tile">
+            <span>Custom Font Name</span>
+            <input id="customFontName" class="input" type="text" placeholder="e.g., My Sans" />
+          </label>
+          <label class="tile">
+            <span>Import Font File</span>
+            <input id="fontFileInput" class="input" type="file" accept=".ttf,.otf,.woff,.woff2" />
+          </label>
         </div>
       </section>
 
@@ -327,6 +365,43 @@
         </div>
       </section>
 
+      <section id="notifications" class="settings-pane">
+        <h2>Notifications</h2>
+        <div class="row">
+          <label class="tile toggle-row">
+            <span>Enable Notifications</span>
+            <input id="notificationsEnabled" class="toggle" type="checkbox" />
+          </label>
+        </div>
+        <div id="notificationSettings" style="display: none;">
+          <div class="row">
+            <div class="tile">
+              <h3 style="margin-top:0">Reminder Strategy</h3>
+              <label class="toggle-row">
+                <span>Smart Reminders (Recommended)</span>
+                <input id="useSmartReminders" class="toggle" type="checkbox" checked />
+              </label>
+              <p class="help-text">Automatically adjusts reminder times based on urgency: 15 min for very urgent, 1 hour for urgent, 4 hours for soon, 1 day for upcoming.</p>
+            </div>
+          </div>
+          <div id="customReminderSection" style="display: none;">
+            <div class="row">
+              <label class="tile">
+                <span>Custom Reminder Time (minutes before due date)</span>
+                <input id="reminderTime" class="input" type="number" min="1" max="1440" value="15" />
+                <p class="help-text">Get notified this many minutes before a document is due. Range: 1 minute to 24 hours.</p>
+              </label>
+            </div>
+          </div>
+          <div class="row">
+            <div class="tile">
+              <p class="help-text"><strong>Note:</strong> Notifications require your browser's permission. You'll be prompted to allow notifications when you enable this feature. As of now, notifications are only displaying if Buddy Docs is open or running in the background.</p>
+              <p class="help-text">Notifications work best when Buddy Docs is open or running in the background. The app checks for reminders every minute.</p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <section id="cloud" class="settings-pane">
         <h2>Google Drive Integration</h2>
         
@@ -459,9 +534,9 @@
         
         <div class="about-section">
           <div class="about-logo">
-            <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">map</span>
-            <h3>Wiremap</h3>
-            <p class="version">Version 0.9.4L</p>
+            <span class="material-symbols-outlined" style="font-size: 48px; color: var(--primary);">note_stack</span>
+            <h3>Typeset</h3>
+            <p class="version">Version 0.9.5</p>
           </div>
 
           <div class="about-content">
@@ -469,55 +544,39 @@
               <h4>Updates</h4>
               <div class="updates-container">
                 <div class="update-entry">
-                  <span class="update-version"><b>v0.9.4L</b></span>
-                  <span class="update-date">Oct 27, 2025</span>
+                  <span class="update-version"><b>v0.9.5 (Typeset)</b></span>
+                  <span class="update-date">Nov 16, 2025</span>
                   <ul class="update-changes">
-                    <li>Added a Privacy Policy (needed for the cloud feature)</li>
-                    <li>Optimization in some pages (hopefully it works better, my PC so good that I don't see a difference)</li>
-                    <li>Added a bit more on the Review feature</li>
-                    <li>I'm working on getting ready to verify my app! hopefully it doesn't turn into a month long task</li>
-                    <li>Fixed deadlines & notes in the calendar, stuff should render correctly now :)</li>
-                    <li>Pin select image to be the thumbnail for a gallery</li>
-                    <li>Folders can in addition to having an emoji, have an image as the thumbnail</li>
-                    <li>Privacy policy banner in index.html</li>
+                    <li>fixed the update log dates</li>
+                    <li>very cool and bold highlight feature in the editor</li>
+                    <li>tables exist in the editor now</li>
+                    <li>subscript & superscript in the editor</li>
+                    <li>unlocking or viewing locked elements should now go quicker (about 8X faster) by decreasing the scrypt stuff (since 3-5 seconds is not that fast)</li>
+                    <li>filler content goes away in the editor</li>
+                    <li>deleted an old txt file</li>
+                    <li>more templates and improvements to that</li>
+                    <li>notifications</li>
+                    <li>choose default font (including OpenDyslexic!)</li>
+                    <li><strong>DEPRECATION / REMOVED:</strong> Lists and Boards are not a thing anymore!! All your boards will sadly be deleted, and lists will be converted into a regular document.</li>
                   </ul>
                 </div>
                 <div class="update-entry">
-                  <span class="update-version"><b>v0.9.4</b></span>
-                  <span class="update-date">Oct 26, 2025</span>
+                  <span class="update-version">v0.9.4S</span>
+                  <span class="update-date">Nov 2, 2025</span>
                   <ul class="update-changes">
-                    <li>Added a cool onboarding, to make stuff easier to configure, since some in class didn't recognize that the profile picture button was the key to open settings.</li>
-                    <li>Reading time in editor (for view mode)</li>
-                    <li>Pin a select image as the thumbnail cover</li>
-                    <li>New document type: board (BETA)</li>
+                    <li>choose delete options (local, cloud, or permanent)</li>
+                    <li>activity feature (for safely it's disabled by default)</li>
+                    <li>update to privacy policy (about activity feature)</li>
+                    <li>update banner for whenever the privacy policy has been updated</li>
                   </ul>
                 </div>
                 <div class="update-entry">
-                  <span class="update-version">v0.9.3</span>
-                  <span class="update-date">Oct 25, 2025</span>
+                  <span class="update-version">v0.9.4M</span>
+                  <span class="update-date">Nov 1, 2025</span>
                   <ul class="update-changes">
-                    <li>New Data tab in settings</li>
-                    <li>Export/Import data as either .zip or .bluecore</li>
-                    <li>Delete Data (with Settings, Documents, Folders, and Locked Data & Password as options)</li>
-                    <li>Working on Google Drive API for cloud saving, the next couple hours / days, we recommend you AVOID the Cloud tab if it's marked as "undone"</li>
-                  </ul>
-                </div>
-                <div class="update-entry">
-                  <span class="update-version">v0.9.2 (Wiremap)</span>
-                  <span class="update-date">Oct 24, 2025</span>
-                  <ul class="update-changes">
-                    <li>Added this about page (hi)</li>
-                    <li>Removed the Toggle Theme button</li>
-                  </ul>
-                </div>
-                <div class="update-entry">
-                  <span class="update-version">v0.9.1</span>
-                  <span class="update-date">Oct 15, 2024</span>
-                  <ul class="update-changes">
-                    <li>Folders and subfolders</li>
-                    <li>More classic themes</li>
-                    <li>Improved the grammar checker, now called Review</li>
-                    <li>Text in thumbnails render correctly now</li>
+                    <li>fixed gallery thumbnail logic</li>
+                    <li>cloud feature now saves and loads everything correctly! :D</li>
+                    <li>i should probably change the welcome message image soon</li>
                   </ul>
                 </div>
               </div>

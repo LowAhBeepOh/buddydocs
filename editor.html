@@ -185,6 +185,23 @@
         <button data-cmd="italic" class="icon-btn" title="Italic"><span class="material-symbols-outlined">format_italic</span></button>
         <button data-cmd="underline" class="icon-btn" title="Underline"><span class="material-symbols-outlined">format_underlined</span></button>
         <button data-cmd="strikeThrough" class="icon-btn" title="Strikethrough"><span class="material-symbols-outlined">strikethrough_s</span></button>
+        <button id="subBtn" class="icon-btn" title="Subscript"><span class="material-symbols-outlined">subscript</span></button>
+        <button id="supBtn" class="icon-btn" title="Superscript"><span class="material-symbols-outlined">superscript</span></button>
+        <span class="sep"></span>
+        <div class="highlight-dropdown-container">
+          <button id="highlightBtn" class="icon-btn" title="Text highlight"><span class="material-symbols-outlined">format_color_fill</span></button>
+          <div id="highlightMenu" class="highlight-menu" hidden>
+            <button class="highlight-option" data-color="none" title="No highlight">None</button>
+            <button class="highlight-option" data-color="yellow" title="Yellow" style="background-color: rgb(245, 245, 6); color: #000000;"></button>
+            <button class="highlight-option" data-color="lightblue" title="Light Blue" style="background-color: rgb(11, 194, 255); color: #000000;"></button>
+            <button class="highlight-option" data-color="magenta" title="Magenta" style="background-color: rgb(255, 17, 184); color: #ffffff;"></button>
+            <button class="highlight-option" data-color="red" title="Red" style="background-color: rgb(255, 0, 0); color: #ffffff;"></button>
+            <button class="highlight-option" data-color="green" title="Green" style="background-color: rgb(37, 255, 37); color: #000000;"></button>
+            <button class="highlight-option" data-color="orange" title="Orange" style="background-color: rgb(255, 149, 11); color: #000000;"></button>
+          </div>
+        </div>
+        <span class="sep"></span>
+        <button id="insertTableBtn" class="icon-btn" title="Insert table"><span class="material-symbols-outlined">table_chart</span></button>
         <span class="sep"></span>
         <button data-cmd="justifyLeft" class="icon-btn" title="Align left"><span class="material-symbols-outlined">format_align_left</span></button>
         <button data-cmd="justifyCenter" class="icon-btn" title="Align center"><span class="material-symbols-outlined">format_align_center</span></button>
@@ -291,9 +308,6 @@
           <select id="docType">
             <option value="document">Document</option>
             <option value="essay">Essay</option>
-            <option value="list">List</option>
-            <option value="gallery">Gallery</option>
-            <option value="board">Board</option>
           </select>
         </label>
         <label>
@@ -301,9 +315,38 @@
           <input id="dueDate" type="date"/>
         </label>
         <label>
+          <span>Due time</span>
+          <input id="dueTime" type="time"/>
+        </label>
+        <label>
           <span>Tags</span>
           <input id="tags" type="text" placeholder="comma, separated"/>
         </label>
+      </div>
+    </div>
+  </div>
+
+  <!-- Insert Table Modal -->
+  <div id="insertTableModal" class="modal-backdrop" hidden>
+    <div class="modal-card">
+      <div class="modal-head">
+        <h3>Insert Table</h3>
+        <button class="icon-btn" id="closeTableModal" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="modal-body">
+        <div id="tablePreview" class="table-preview" aria-hidden="true"></div>
+        <label>
+          <span>Rows</span>
+          <input id="tableRows" type="number" min="1" max="50" value="3" />
+        </label>
+        <label>
+          <span>Columns</span>
+          <input id="tableColumns" type="number" min="1" max="20" value="3" />
+        </label>
+      </div>
+      <div class="modal-foot">
+        <button id="cancelTableBtn" class="icon-btn">Cancel</button>
+        <button id="insertTableConfirmBtn" class="icon-btn" style="background: var(--primary); color: white;">Insert</button>
       </div>
     </div>
   </div>

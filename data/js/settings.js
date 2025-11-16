@@ -1,5 +1,5 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
-import { applyDynamicTheme, applyClassicTheme } from './theme.js';
+import { applyDynamicTheme, applyClassicTheme, initAppFont, ensureWebFontLoaded } from './theme.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
 import { getVersions } from './version-history.js';
@@ -28,7 +28,7 @@ async function hashSecret(secret) {
   }
   const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
 
-  const N = 16384, r = 8, p = 1, dkLen = 32; // Reasonable defaults for browsers
+  const N = 2048, r = 8, p = 1, dkLen = 32; // Optimized for even faster verification
   const pwBytes = new TextEncoder().encode(secret);
   const out = await scrypt(pwBytes, saltBytes, N, r, p, dkLen);
   // Convert to hex string
@@ -63,6 +63,16 @@ async function loadSettings() {
     dynamicThemeSection.style.display = 'none';
     const theme = await getSetting('theme', 'light');
     document.getElementById('themeSelect').value = theme;
+  }
+
+  const appFontFamily = await getSetting('appFontFamily', 'Inter Tight');
+  const defaultFontSelect = document.getElementById('defaultFontSelect');
+  const customFontRow = document.getElementById('customFontRow');
+  const customFontNameInput = document.getElementById('customFontName');
+  if (defaultFontSelect) defaultFontSelect.value = appFontFamily;
+  if (customFontRow) customFontRow.style.display = appFontFamily === 'Custom' ? 'grid' : 'none';
+  if (customFontNameInput && appFontFamily === 'Custom') {
+    customFontNameInput.value = await getSetting('customFontName', '');
   }
 
   const displayName = await getSetting('displayName', 'Buddy');
@@ -202,6 +212,33 @@ async function loadSettings() {
     preview.textContent = initials;
   }
 
+  // Load notification settings
+  const notificationsEnabled = await getSetting('notificationsEnabled', false);
+  const useSmartReminders = await getSetting('useSmartReminders', true);
+  const reminderTime = await getSetting('reminderTime', 15);
+  
+  const notificationsEnabledEl = document.getElementById('notificationsEnabled');
+  const notificationSettingsDiv = document.getElementById('notificationSettings');
+  const useSmartRemindersEl = document.getElementById('useSmartReminders');
+  const customReminderSectionEl = document.getElementById('customReminderSection');
+  const reminderTimeEl = document.getElementById('reminderTime');
+  
+  if (notificationsEnabledEl) {
+    notificationsEnabledEl.checked = !!notificationsEnabled;
+  }
+  if (useSmartRemindersEl) {
+    useSmartRemindersEl.checked = !!useSmartReminders;
+  }
+  if (reminderTimeEl) {
+    reminderTimeEl.value = reminderTime;
+  }
+  if (notificationSettingsDiv) {
+    notificationSettingsDiv.style.display = notificationsEnabled ? 'block' : 'none';
+  }
+  if (customReminderSectionEl) {
+    customReminderSectionEl.style.display = useSmartReminders ? 'none' : 'block';
+  }
+
   // No need to apply theme here, initTheme in theme.js handles it.
 }
 
@@ -209,8 +246,22 @@ async function verifyCurrentPassword(secret) {
   const storedHash = await getSetting('secretHash');
   if (!storedHash) return true; // No password set yet
   
-  const inputHash = await hashSecret(secret);
-  return inputHash === storedHash;
+  const saltBase64 = await getSetting('secretSalt', null);
+  if (!saltBase64) return false; // No salt, can't verify
+  
+  const saltBytes = Uint8Array.from(atob(saltBase64), c => c.charCodeAt(0));
+  const pwBytes = new TextEncoder().encode(secret);
+  
+  // Try both N=2048 (new), N=4096, and N=16384 (old) for backward compatibility
+  for (const N of [2048, 4096, 16384]) {
+    const r = 8, p = 1, dkLen = 32;
+    const out = await scrypt(pwBytes, saltBytes, N, r, p, dkLen);
+    const inputHash = Array.from(out).map(b => b.toString(16).padStart(2, '0')).join('');
+    if (inputHash === storedHash) {
+      return true;
+    }
+  }
+  return false;
 }
 
 async function resetPassword() {
@@ -305,6 +356,9 @@ async function saveSettings() {
     applyClassicTheme(theme);
   }
 
+  const appFontFamily = document.getElementById('defaultFontSelect')?.value || 'Inter Tight';
+  const customFontName = document.getElementById('customFontName')?.value.trim() || '';
+
   const displayName = document.getElementById('displayName').value.trim() || 'Buddy';
   const initials = document.getElementById('initials').value.trim().slice(0,3).toUpperCase() || 'BD';
   const profilePicture = document.getElementById('profilePreview').style.backgroundImage;
@@ -338,6 +392,11 @@ async function saveSettings() {
   const musicFilterValue = document.getElementById('musicFilterValue').value;
   const activityEnabled = document.getElementById('activityEnabled')?.checked || false;
 
+  // Get notification settings
+  const notificationsEnabled = document.getElementById('notificationsEnabled')?.checked || false;
+  const useSmartReminders = document.getElementById('useSmartReminders')?.checked || true;
+  const reminderTime = Number(document.getElementById('reminderTime')?.value || 15);
+
   const settingsToSave = [
     setSetting('displayName', displayName),
     setSetting('initials', initials),
@@ -357,7 +416,19 @@ async function saveSettings() {
     setSetting('musicFilterType', musicFilterType),
     setSetting('musicFilterValue', musicFilterValue),
     setSetting('activityEnabled', activityEnabled),
+    setSetting('notificationsEnabled', notificationsEnabled),
+    setSetting('useSmartReminders', useSmartReminders),
+    setSetting('reminderTime', reminderTime),
+    setSetting('appFontFamily', appFontFamily),
   ];
+
+  if (appFontFamily === 'Custom') {
+    settingsToSave.push(setSetting('customFontName', customFontName));
+    if (pendingCustomFontData) {
+      settingsToSave.push(setSetting('customFontData', pendingCustomFontData));
+      settingsToSave.push(setSetting('customFontFormat', pendingCustomFontFormat || 'ttf'));
+    }
+  }
 
   if (aiProvider === 'openai') {
     if (!aiModel) {
@@ -425,6 +496,7 @@ async function saveSettings() {
 
   alert('Settings saved');
   loadSettings();
+  await initAppFont();
 }
 
 function handleProfilePicture(e) {
@@ -822,6 +894,144 @@ loadSettings().then(async () => {
   }
   document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
   document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+
+  const defaultFontSelect = document.getElementById('defaultFontSelect');
+  const customFontRow = document.getElementById('customFontRow');
+  if (defaultFontSelect) {
+    defaultFontSelect.addEventListener('change', async (e) => {
+      const val = e.target.value;
+      if (customFontRow) customFontRow.style.display = val === 'Custom' ? 'grid' : 'none';
+      let stack = '';
+      if (val === 'System UI') {
+        stack = "system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji'";
+      } else if (val === 'Custom') {
+        const savedName = await getSetting('customFontName', 'Custom Font');
+        const savedFmt = await getSetting('customFontFormat', 'ttf');
+        const savedData = await getSetting('customFontData', '');
+        if (savedData) {
+          const bytes = Uint8Array.from(atob(savedData), c => c.charCodeAt(0));
+          const mime = savedFmt === 'woff2' ? 'font/woff2' : savedFmt === 'woff' ? 'font/woff' : savedFmt === 'otf' ? 'font/otf' : 'font/ttf';
+          const url = URL.createObjectURL(new Blob([bytes], { type: mime }));
+          let style = document.getElementById('bd-custom-font-preview');
+          if (!style) {
+            style = document.createElement('style');
+            style.id = 'bd-custom-font-preview';
+            document.head.appendChild(style);
+          }
+          const cssFmt = savedFmt === 'ttf' ? 'truetype' : savedFmt === 'otf' ? 'opentype' : savedFmt;
+          style.textContent = `@font-face{font-family:'${savedName}';src:url('${url}') format('${cssFmt}');font-weight:400;font-style:normal;font-display:swap}`;
+          root.style.setProperty('--bd-font-family', `'${savedName}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
+          return;
+        }
+        const name = document.getElementById('customFontName')?.value.trim() || savedName || 'Custom Font';
+        root.style.setProperty('--bd-font-family', `'${name}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
+        return;
+      } else {
+        ensureWebFontLoaded(val);
+        stack = `'${val}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+      }
+      root.style.setProperty('--bd-font-family', stack);
+    });
+  }
+
+  const fontFileInput = document.getElementById('fontFileInput');
+  const customFontNameInput = document.getElementById('customFontName');
+  if (customFontNameInput) {
+    customFontNameInput.addEventListener('input', (e) => {
+      const name = e.target.value.trim();
+      if (name) {
+        root.style.setProperty('--bd-font-family', `'${name}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
+      }
+    });
+  }
+  if (fontFileInput) {
+    fontFileInput.addEventListener('change', async (e) => {
+      const file = e.target.files?.[0];
+      if (!file) return;
+      const ext = (file.name.split('.').pop() || '').toLowerCase();
+      pendingCustomFontFormat = ext;
+      const reader = new FileReader();
+      reader.onload = () => {
+        const buf = reader.result;
+        const arr = new Uint8Array(buf);
+        let bin = '';
+        for (let i = 0; i < arr.length; i++) bin += String.fromCharCode(arr[i]);
+        pendingCustomFontData = btoa(bin);
+        const name = document.getElementById('customFontName')?.value.trim() || 'Custom Font';
+        pendingCustomFontName = name;
+        const mime = ext === 'woff2' ? 'font/woff2' : ext === 'woff' ? 'font/woff' : ext === 'otf' ? 'font/otf' : 'font/ttf';
+        const url = URL.createObjectURL(new Blob([arr], { type: mime }));
+        let style = document.getElementById('bd-custom-font-preview');
+        if (!style) {
+          style = document.createElement('style');
+          style.id = 'bd-custom-font-preview';
+          document.head.appendChild(style);
+        }
+        const cssFmt = ext === 'ttf' ? 'truetype' : ext === 'otf' ? 'opentype' : ext;
+        style.textContent = `@font-face{font-family:'${name}';src:url('${url}') format('${cssFmt}');font-weight:400;font-style:normal;font-display:swap}`;
+        root.style.setProperty('--bd-font-family', `'${name}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
+      };
+      reader.readAsArrayBuffer(file);
+    });
+  }
+
+  // Toggle notification settings visibility and request permission
+  const notificationsEnabledToggle = document.getElementById('notificationsEnabled');
+  if (notificationsEnabledToggle) {
+    notificationsEnabledToggle.addEventListener('change', async (e) => {
+      const notificationSettings = document.getElementById('notificationSettings');
+      if (notificationSettings) {
+        notificationSettings.style.display = e.target.checked ? 'block' : 'none';
+      }
+      
+      // Import notification manager and handle enable/disable
+      if (e.target.checked) {
+        try {
+          const { notificationManager } = await import('./notifications.js');
+          const success = await notificationManager.enableNotifications();
+          if (!success) {
+            e.target.checked = false;
+            notificationSettings.style.display = 'none';
+            alert('Notification permission was denied. Please enable notifications in your browser settings.');
+          }
+        } catch (error) {
+          console.error('Error enabling notifications:', error);
+          e.target.checked = false;
+          notificationSettings.style.display = 'none';
+        }
+      } else {
+        try {
+          const { notificationManager } = await import('./notifications.js');
+          await notificationManager.disableNotifications();
+        } catch (error) {
+          console.error('Error disabling notifications:', error);
+        }
+      }
+    });
+  }
+
+  // Toggle between smart and custom reminder times
+  const useSmartRemindersToggle = document.getElementById('useSmartReminders');
+  if (useSmartRemindersToggle) {
+    useSmartRemindersToggle.addEventListener('change', async (e) => {
+      const customReminderSection = document.getElementById('customReminderSection');
+      if (customReminderSection) {
+        customReminderSection.style.display = e.target.checked ? 'none' : 'block';
+      }
+      
+      try {
+        const { notificationManager } = await import('./notifications.js');
+        if (e.target.checked) {
+          await notificationManager.useSmartReminderTimes();
+        } else {
+          const reminderTime = Number(document.getElementById('reminderTime')?.value || 15);
+          await notificationManager.setCustomReminderTime(reminderTime);
+        }
+      } catch (error) {
+        console.error('Error updating reminder times:', error);
+      }
+    });
+  }
 
   document.getElementById('musicPlayerEnabled').checked = musicPlayerEnabled;
   document.getElementById('musicFilterType').value = musicFilterType;
@@ -1259,6 +1469,10 @@ async function exportDataAsBluecore() {
 }
 
 let isOverwriteImport = false;
+
+let pendingCustomFontData = '';
+let pendingCustomFontFormat = '';
+let pendingCustomFontName = '';
 
 async function handleFileImport(event) {
   const file = event.target.files[0];

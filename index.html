@@ -81,25 +81,11 @@
             <p>Create slides</p>
           </div>
         </a>
-        <a class="card new quick-action-link" href="editor.html?type=list" data-type="list">
-          <span class="material-symbols-outlined">checklist</span>
-          <div>
-            <strong>List</strong>
-            <p>To-dos and bullets</p>
-          </div>
-        </a>
         <a class="card new quick-action-link" href="editor.html?type=gallery" data-type="gallery">
           <span class="material-symbols-outlined">photo_library</span>
           <div>
             <strong>Gallery</strong>
             <p>Collect images</p>
-          </div>
-        </a>
-        <a class="card new quick-action-link" href="board.html" data-type="board">
-          <span class="material-symbols-outlined">dashboard</span>
-          <div>
-            <strong>Board (BETA)</strong>
-            <p>Freeform corkboard</p>
           </div>
         </a>
         <a id="openTemplatesModal" class="card new" href="#">
@@ -114,19 +100,37 @@
 
     <!-- Templates Modal -->
     <div id="templatesModal" class="modal-backdrop" hidden>
-      <div class="modal-card">
+      <div class="modal-card templates-modal">
         <div class="modal-head">
-          <h3>Choose a Template</h3>
+          <div>
+            <h3>Choose a Template</h3>
+            <p class="modal-subtitle">Pick a template to get started quickly</p>
+          </div>
           <button id="closeTemplatesModal" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
         </div>
         <div class="modal-body-with-sidebar">
           <div class="template-sidebar">
             <nav>
-              <button class="active" data-category="All">All</button>
-              <button data-category="Study">Study</button>
-              <button data-category="Log">Log</button>
-              <button data-category="Creative">Creative</button>
-              <button data-category="Personal">Personal</button>
+              <button class="active" data-category="All">
+                <span class="material-symbols-outlined">apps</span>
+                All Templates
+              </button>
+              <button data-category="Study">
+                <span class="material-symbols-outlined">school</span>
+                Study
+              </button>
+              <button data-category="Log">
+                <span class="material-symbols-outlined">event_note</span>
+                Logs
+              </button>
+              <button data-category="Creative">
+                <span class="material-symbols-outlined">palette</span>
+                Creative
+              </button>
+              <button data-category="Personal">
+                <span class="material-symbols-outlined">person</span>
+                Personal
+              </button>
             </nav>
           </div>
           <div class="templates-grid-container">

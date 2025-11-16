@@ -24,7 +24,7 @@
 .meta-panel{display:none}
 .meta-panel label{display:grid; gap:6px}
 .page{display:flex; justify-content:center}
-.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6}
+.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6; font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji' !important}
 #docTitle{min-width:200px; border:1px dashed transparent; padding:2px 8px; border-radius:8px; font-size:18px; line-height:1.2; margin:0}
 #docTitle:focus{outline:none; border-color:var(--primary); background:color-mix(in hsl, var(--primary) 8%, var(--surface))}
 .toolbar{display:none}
@@ -56,6 +56,152 @@
 .modal-body{display:grid; gap:10px; padding:14px}
 .modal-body label{display:grid; gap:6px}
 .modal-foot{display:flex; justify-content:flex-end; gap:8px; padding:10px 14px; border-top:1px solid var(--border)}
+
+/* Insert Table Modal */
+#insertTableModal .modal-card{ 
+  width: 480px;
+  height: auto;
+  overflow: hidden;
+}
+#insertTableModal .modal-head{ 
+  padding: 12px 16px; 
+  border-bottom: 1px solid var(--border);
+  background: var(--surface);
+}
+#insertTableModal .modal-head h3{
+  font-size: 18px;
+  font-weight: 600;
+  color: var(--text);
+  margin: 0;
+}
+#insertTableModal .modal-head .icon-btn{
+  width: 32px;
+  height: 32px;
+  padding: 0;
+  border-radius: 6px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--muted);
+  transition: all 0.15s ease;
+}
+#insertTableModal .modal-head .icon-btn:hover{
+  background: var(--error);
+  color: white;
+}
+#insertTableModal .modal-body{ 
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+#insertTableModal .modal-body label{ 
+  display: block;
+}
+#insertTableModal .modal-body label > span{
+  display: block;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text);
+  margin-bottom: 8px;
+}
+#insertTableModal .modal-body input[type="number"]{
+  width: 100%;
+  height: 44px;
+  padding: 0 16px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--text);
+  font-size: 15px;
+  font-weight: 500;
+  transition: all 0.15s ease;
+  box-sizing: border-box;
+}
+#insertTableModal .modal-body input[type="number"]:focus{
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+#insertTableModal .modal-foot{ 
+  display: flex; 
+  justify-content: flex-end; 
+  gap: 12px; 
+  padding: 16px;
+  border-top: 1px solid var(--border);
+  background: var(--surface);
+}
+#insertTableModal .modal-foot .icon-btn{
+  height: 40px;
+  padding: 0 20px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 600;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-width: 80px;
+}
+#insertTableModal .modal-foot .icon-btn:not([style]){
+  background: transparent;
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+#insertTableModal .modal-foot .icon-btn:not([style]):hover{
+  background: var(--bg);
+  border-color: var(--muted);
+}
+#insertTableModal .modal-foot .icon-btn[style]{
+  background: var(--primary) !important;
+  color: white !important;
+  border: 1px solid var(--primary) !important;
+}
+#insertTableModal .modal-foot .icon-btn[style]:hover{
+  background: #2563eb !important;
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+.table-preview{ 
+  display: grid; 
+  grid-template-columns: repeat(3, 1fr); 
+  gap: 8px; 
+  padding: 12px;
+  background: var(--bg);
+  border-radius: 8px;
+  border: 1px solid var(--border);
+}
+.table-preview-cell{ 
+  border: 1px solid var(--border);
+  border-radius: 6px; 
+  padding: 12px 8px; 
+  text-align: center; 
+  font-size: 13px; 
+  color: var(--muted); 
+  background: var(--surface);
+  transition: all 0.15s ease;
+  min-height: 36px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 500;
+}
+.table-preview-cell.header{ 
+  font-weight: 600; 
+  background: var(--primary); 
+  color: white;
+  border-color: var(--primary);
+}
+.table-preview-cell:hover{
+  background: var(--bg);
+  color: var(--text);
+  border-color: var(--primary);
+}
 
 /* Word Count Popup */
 .word-count-popup {
@@ -322,75 +468,6 @@
   gap: 8px;
   align-items: center;
 }
-
-.ai-chatbot-input input {
-  flex: 1;
-  padding: 8px 12px;
-  border: 1px solid var(--border);
-  border-radius: 0;
-  background: var(--surface);
-  color: var(--text);
-  font-size: 14px;
-}
-
-.ai-chatbot-input input:focus { outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
-
-/* Hide send button */
-.send-btn { display: none; }
-
-/* Resize handle flush to content */
-.ai-chatbot-resize-handle { position: absolute; left: 0; top: 0; bottom: 0; width: 6px; cursor: col-resize; background: transparent; }
-.ai-chatbot-resize-handle:hover { background: color-mix(in hsl, var(--primary) 20%, transparent); }
-
-/* ensure the column holding chatbot has no extra padding */
-.editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
-
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
-
-/* Mode selector */
-.ai-chatbot-mode { padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in hsl, var(--primary) 6%, var(--surface)); }
-.ai-chatbot-mode select { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
-
-/* Edit proposal card */
-.message.edit-proposal .message-content { background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px dashed var(--border); }
-.edit-actions { display: flex; gap: 8px; margin-top: 8px; }
-.edit-btn { padding: 6px 10px; border-radius: 6px; border: 1px solid var(--border); background: var(--surface); color: var(--text); cursor: pointer; }
-.edit-btn:hover { background: color-mix(in hsl, var(--primary) 8%, var(--surface)); }
-.edit-status { font-weight: 600; }
-.edit-status.accepted { color: #22c55e; }
-.edit-status.denied { color: #f59e0b; }
-.edit-status.error { color: #ef4444; }
 
 .ai-chatbot-input input {
   flex: 1;
@@ -1172,7 +1249,7 @@ body {
 .meta-panel{display:none}
 .meta-panel label{display:grid; gap:6px}
 .page{display:flex; justify-content:center}
-.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6}
+.editor{width:850px; min-height:1000px; background:var(--surface); border:1px solid var(--border); border-radius:14px; box-shadow:var(--shadow); padding:48px; line-height:1.6; font-family: 'Inter Tight', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Segoe UI Emoji', 'Segoe UI Symbol', 'Noto Color Emoji' !important}
 #docTitle{min-width:200px; border:1px dashed transparent; padding:2px 8px; border-radius:8px; font-size:18px; line-height:1.2; margin:0}
 #docTitle:focus{outline:none; border-color:var(--primary); background:color-mix(in hsl, var(--primary) 8%, var(--surface))}
 .toolbar{display:none}
@@ -1805,6 +1882,65 @@ body {
   color: var(--primary);
 }
 
+/* Highlight dropdown */
+.highlight-dropdown-container{ position: relative; }
+
+#highlightMenu{
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  box-shadow: var(--shadow);
+  padding: 10px;
+  display: grid;
+  grid-template-columns: repeat(6, 28px);
+  gap: 10px;
+  min-width: 208px;
+  z-index: 200;
+}
+
+#highlightMenu[hidden]{ display: none !important; }
+
+.highlight-option{
+  width: 28px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  cursor: pointer;
+  padding: 0;
+}
+
+.highlight-option:hover{ border-color: var(--primary); transform: translateY(-1px); }
+.highlight-option:focus-visible{ outline: 2px solid color-mix(in hsl, var(--primary) 45%, transparent); outline-offset: 2px; }
+
+.highlight-option[data-color="none"]{
+  grid-column: 1 / -1;
+  width: auto;
+  height: auto;
+  padding: 6px 8px;
+  border-style: dashed;
+  background: transparent;
+  color: var(--muted);
+  font-weight: 600;
+  text-align: left;
+}
+
+/* small arrow pointing to the trigger */
+#highlightMenu::before{
+  content: "";
+  position: absolute;
+  top: -6px;
+  left: 14px;
+  width: 10px;
+  height: 10px;
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  border-top: 1px solid var(--border);
+  transform: rotate(45deg);
+}
+
 /* Edit proposal operations list */
 .ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
 .op-item{ display:flex; align-items:center; gap:8px; color:var(--text); font-size:12px; }
@@ -1870,4 +2006,16 @@ body {
   color: var(--muted);
   font-size: 14px;
   line-height: 1.4;
+}
+
+/* Editor table styling */
+.editor-table{ border-collapse: collapse; width: 100%; margin: 12px 0; }
+.editor-table th, .editor-table td{ border:1px solid var(--border); padding:8px; text-align:left; }
+.editor-table thead th{ background: color-mix(in hsl, var(--primary) 8%, var(--surface)); }
+.editor-table tbody tr:nth-child(odd) td{ background: color-mix(in hsl, var(--gray) 18%, transparent); }
+
+/* Placeholder paragraph (initial content) */
+.editor p.placeholder{
+  opacity: 0.6;
+  color: var(--muted);
 }

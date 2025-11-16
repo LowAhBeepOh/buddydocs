@@ -3,9 +3,13 @@ import { isCloudConnected, removeDocumentFromCloud } from './cloud.js';
 import { initAiCommandBar } from './ai-command.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
+import { notificationManager } from './notifications.js';
 
 // Current folder navigation
 let currentFolderId = null;
+
+// Cache for scrypt module to avoid repeated imports
+let scryptModule = null;
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
@@ -18,24 +22,36 @@ async function requireAuth(){
   try {
     // Prefer scrypt if salt is available; fallback to SHA-256 for legacy hashes
     const saltStr = await getSetting('secretSalt', '');
-    let hashHex = '';
+    const stored = await getSetting('secretHash', '');
+    
     if (saltStr && saltStr.length > 0) {
-      const { scrypt } = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+      // Cache the scrypt module import to avoid repeated CDN requests
+      if (!scryptModule) {
+        scryptModule = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+      }
+      const { scrypt } = scryptModule;
       const enc = new TextEncoder();
       const passwordBytes = enc.encode(input);
       const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-      const N = 16384, r = 8, p = 1, dkLen = 32;
-      const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
-      hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+      
+      // Try with new N=2048 first, then fall back to N=4096 and N=16384 for backward compatibility
+      for (const N of [2048, 4096, 16384]) {
+        const r = 8, p = 1, dkLen = 32;
+        const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
+        const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+        if (stored && hashHex === stored) {
+          return true;
+        }
+      }
+      return false;
     } else {
       const enc = new TextEncoder();
       const data = enc.encode(input);
       const digest = await crypto.subtle.digest('SHA-256', data);
       const bytes = Array.from(new Uint8Array(digest));
-      hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+      const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+      return stored && hashHex === stored;
     }
-    const stored = await getSetting('secretHash', '');
-    return stored && hashHex === stored;
   } catch {
     return false;
   }
@@ -184,12 +200,17 @@ async function getDynamicGreeting(date = new Date(), deadlines = []) {
   });
   
   if (urgentDeadlines.length > 0) {
-    const hoursLeft = Math.ceil((new Date(urgentDeadlines[0].dueDate) - now) / (1000 * 60 * 60));
-    const minutesLeft = Math.ceil(((new Date(urgentDeadlines[0].dueDate) - now) % (1000 * 60 * 60)) / (1000 * 60));
+    const diffMs = new Date(urgentDeadlines[0].dueDate) - now;
+    const hoursLeft = Math.floor(diffMs / (1000 * 60 * 60));
+    const minutesLeft = Math.ceil((diffMs % (1000 * 60 * 60)) / (1000 * 60));
     
     let timeLeft = '';
-    if (hoursLeft > 1) {
+    if (hoursLeft > 1 && minutesLeft === 0) {
       timeLeft = `${hoursLeft} hours`;
+    } else if (hoursLeft > 1) {
+      timeLeft = `${hoursLeft} hours and ${minutesLeft} minutes`;
+    } else if (hoursLeft === 1 && minutesLeft === 0) {
+      timeLeft = `1 hour`;
     } else if (hoursLeft === 1) {
       timeLeft = `1 hour and ${minutesLeft} minutes`;
     } else {
@@ -632,17 +653,59 @@ function createWelcomeScreen() {
 
 function dueBadge(d){
   if (!d.dueDate) return '';
-  const today = startOfDay(new Date());
-  const dd = startOfDay(new Date(d.dueDate));
-  const diffDays = Math.round((dd - today) / (1000*60*60*24));
+  const now = new Date();
+  const dueDate = new Date(d.dueDate);
+  const timeDiff = dueDate - now;
+  const daysDiff = Math.round(timeDiff / (1000*60*60*24));
+  
   let cls = 'blue', label = '';
-  if (diffDays < 0){ cls = 'gray'; label = `${Math.abs(diffDays)}d ago`; }
-  else if (diffDays === 0){ cls = 'red'; label = 'Today'; }
-  else if (diffDays === 1){ cls = 'orange'; label = 'Tomorrow'; }
-  else if (diffDays <= 3){ cls = 'yellow'; label = `${diffDays}d`; }
-  else if (diffDays <= 7){ cls = 'green'; label = `${diffDays}d`; }
-  else if (diffDays <= 14){ cls = 'blue'; label = `${diffDays}d`; }
-  else { cls = 'blue'; label = `${diffDays}d`; }
+  
+  // If less than 24 hours away, show hours and minutes
+  if (timeDiff > 0 && timeDiff < 24 * 60 * 60 * 1000) {
+    const hours = Math.floor(timeDiff / (1000 * 60 * 60));
+    const minutes = Math.floor((timeDiff % (1000 * 60 * 60)) / (1000 * 60));
+    if (hours > 0) {
+      label = `${hours}h ${minutes}m`;
+    } else {
+      label = `${minutes}m`;
+    }
+    cls = 'red';
+  }
+  // If less than 1 hour away, show only minutes
+  else if (timeDiff > 0 && timeDiff < 60 * 60 * 1000) {
+    const minutes = Math.ceil(timeDiff / (1000 * 60));
+    label = `${minutes}m`;
+    cls = 'red';
+  }
+  // Otherwise use day-based display
+  else if (daysDiff < 0){ 
+    cls = 'gray'; 
+    label = `${Math.abs(daysDiff)}d ago`; 
+  }
+  else if (daysDiff === 0){ 
+    cls = 'red'; 
+    label = 'Today'; 
+  }
+  else if (daysDiff === 1){ 
+    cls = 'orange'; 
+    label = 'Tomorrow'; 
+  }
+  else if (daysDiff <= 3){ 
+    cls = 'yellow'; 
+    label = `${daysDiff}d`; 
+  }
+  else if (daysDiff <= 7){ 
+    cls = 'green'; 
+    label = `${daysDiff}d`; 
+  }
+  else if (daysDiff <= 14){ 
+    cls = 'blue'; 
+    label = `${daysDiff}d`; 
+  }
+  else { 
+    cls = 'blue'; 
+    label = `${daysDiff}d`; 
+  }
   return `<span class="badge ${cls}">Due ${label}</span>`;
 }
 
@@ -871,8 +934,6 @@ function createDocCard(doc){
     targetHref = `gallery.html?id=${encodeURIComponent(doc.id)}`;
   } else if (doc.type === 'presentation') {
     targetHref = `slides.html?id=${encodeURIComponent(doc.id)}`;
-  } else if (doc.type === 'board') {
-    targetHref = `board.html?id=${encodeURIComponent(doc.id)}`;
   } else {
     targetHref = `editor.html?id=${encodeURIComponent(doc.id)}`;
   }
@@ -1277,27 +1338,6 @@ function hydrateDocCardPreview(card){
         <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
       </div>`;
       thumb.style.padding = '0';
-    } else if (doc.type === 'board') {
-      const hasItems = Array.isArray(doc.content) && doc.content.length > 0;
-      const bgUrl = 'data/assets/textures/corkboard1.png';
-      thumb.style.padding = '0';
-      thumb.innerHTML = `
-        <div style="position:absolute; inset:0; background:${hasItems?`url('${bgUrl}') center / cover`:'var(--surface)'};"></div>
-        <div style="position:absolute; inset:0; padding:8px;">
-          ${hasItems ? doc.content
-            .filter(it => it.type === 'note' || it.type === 'link' || it.type === 'shape')
-            .slice(0,3)
-            .map((it, i) => {
-              const bg = it.bg || (it.type==='shape' ? '#FFD78A' : '#FFF3A4');
-              const rot = it.rotation || (i === 0 ? -4 : i === 1 ? 3 : 1);
-              const text = (it.text || it.href || '');
-              return `<div style="position:absolute; left:${8 + i*58}px; top:${10 + i*8}px; width:80px; height:56px; background:${bg}; color:#333; border-radius:6px; box-shadow:0 2px 6px rgba(0,0,0,.2); transform:rotate(${rot}deg); display:flex; align-items:center; justify-content:center; font-size:10px; overflow:hidden;">${text ? text.slice(0,22) : ''}</div>`;
-            }).join('')
-            : `<div style="position:absolute; inset:0; display:flex; align-items:center; justify-content:center; color:var(--muted);">
-                 <span class="material-symbols-outlined" style="font-size:40px;">dashboard</span>
-               </div>`}
-        </div>
-      `;
     } else {
       const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
       if (content) {
@@ -1477,7 +1517,6 @@ async function renderDeadlines() {
     `;
     ul.appendChild(li);
   }
-  
   // Update greeting when deadlines change
   await renderGreeting();
 }
@@ -1499,16 +1538,25 @@ function renderTemplates(category = 'All') {
     return;
   }
 
+  // Sort templates by title for consistent ordering
+  filteredTemplates.sort((a, b) => a.title.localeCompare(b.title));
+
   for (const template of filteredTemplates) {
     const card = document.createElement('a');
     card.className = 'card template-card';
     card.href = `editor.html?template=${encodeURIComponent(template.key)}`;
+    card.setAttribute('data-icon', template.icon || '📄');
 
+    // Render preview using raw HTML snippet (safe since templates are authored locally)
+    const previewHtml = template.content.substring(0, 600);
     card.innerHTML = `
-      <strong>${template.title}</strong>
-      <div class="preview">${template.content.substring(0, 150)}...</div>
+      <strong data-icon="${template.icon || '📄'}">${template.title}</strong>
+      <div class="preview">${previewHtml}</div>
       <div class="info">
         <p>${template.description}</p>
+      </div>
+      <div class="meta">
+        <span class="badge">${template.category}</span>
       </div>
     `;
     grid.appendChild(card);
@@ -1807,8 +1855,27 @@ function setupFolderModal() {
   });
 }
 
+// Migrate list documents to regular documents and delete all board documents
+async function migrateListsAndDeleteBoards() {
+  const allDocs = await listDocuments();
+  const listDocs = allDocs.filter(d => d.type === 'list');
+  const boardDocs = allDocs.filter(d => d.type === 'board');
+  
+  // Convert lists to documents
+  for (const doc of listDocs) {
+    doc.type = 'document';
+    await saveDocument(doc);
+  }
+  
+  // Delete all board documents
+  for (const doc of boardDocs) {
+    await deleteDocument(doc.id);
+  }
+}
+
 // Initialize everything when DOM is ready
 async function initialize() {
+  await migrateListsAndDeleteBoards();
   await renderGreeting();
   await renderDocs();
   await renderDeadlines();
@@ -1819,6 +1886,13 @@ async function initialize() {
   setupTemplatesModal();
   setupFolderModal();
   setupMoveToFolderModal();
+  
+  // Initialize notification system
+  try {
+    await notificationManager.initialize();
+  } catch (error) {
+    console.warn('Failed to initialize notifications:', error);
+  }
   
   // Setup new folder button
   const newFolderBtn = document.getElementById('newFolderBtn');

@@ -290,6 +290,7 @@
 
     let currentDoc = { id:null, title:'Untitled', type:'gallery', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
     let gallerySessionUnlocked = false; // unlock state for locked images on this page only
+    let scryptModule = null; // Cache for scrypt module to avoid repeated imports
     
     const titleEl = document.getElementById('docTitle');
     const typeEl = document.getElementById('docType');
@@ -826,24 +827,36 @@
       if (input == null) return false;
       try {
         const saltStr = await getSetting('secretSalt', '');
-        let hashHex = '';
+        const stored = await getSetting('secretHash', '');
+        
         if (saltStr && saltStr.length > 0) {
-          const { scrypt } = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+          // Cache the scrypt module import to avoid repeated CDN requests
+          if (!scryptModule) {
+            scryptModule = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+          }
+          const { scrypt } = scryptModule;
           const enc = new TextEncoder();
           const passwordBytes = enc.encode(input);
           const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-          const N = 16384, r = 8, p = 1, dkLen = 32;
-          const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
-          hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+          
+          // Try with new N=2048 first, then fall back to N=4096 and N=16384 for backward compatibility
+          for (const N of [2048, 4096, 16384]) {
+            const r = 8, p = 1, dkLen = 32;
+            const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
+            const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+            if (stored && hashHex === stored) {
+              return true;
+            }
+          }
+          return false;
         } else {
           const enc = new TextEncoder();
           const data = enc.encode(input);
           const digest = await crypto.subtle.digest('SHA-256', data);
           const bytes = Array.from(new Uint8Array(digest));
-          hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+          const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+          return stored && hashHex === stored;
         }
-        const stored = await getSetting('secretHash', '');
-        return stored && hashHex === stored;
       } catch {
         return false;
       }

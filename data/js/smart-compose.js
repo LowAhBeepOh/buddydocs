@@ -34,6 +34,9 @@ class SmartCompose {
     this.requireSeenProperNouns = true; // gate unseen capitalized names
     // Maximum n-gram order to learn/use
     this.maxNgramOrder = 4;
+    // Ghost text cleanup interval (every 3 seconds)
+    this.ghostTextCleanupInterval = null;
+    this.GHOST_CLEANUP_MS = 3000; // 3 seconds
     
     this.init();
   }
@@ -159,6 +162,7 @@ class SmartCompose {
     await this.loadTrainingAssets();
     this.setupEventListeners();
     this.createGhostElement();
+    this.startGhostTextCleanup();
   }
 
   async loadPhrases() {
@@ -338,7 +342,9 @@ class SmartCompose {
       const w2 = contextWords.slice(-1).join(' ');
       const w3 = contextWords.slice(-2).join(' ');
       const w4 = contextWords.slice(-3).join(' ');
-      let p2 = 0, p3 = 0;
+      let p2 = 0, p3 = 0, p4 = 0;
+      
+      // Calculate raw probabilities
       const map2 = this.ngramModel[w2];
       if (map2) {
         const total2 = Object.values(map2).reduce((a,b)=>a+b,0) || 1;
@@ -349,7 +355,7 @@ class SmartCompose {
         const total3 = Object.values(map3).reduce((a,b)=>a+b,0) || 1;
         p3 = (map3[candidate] || 0) / total3;
       }
-      let p4 = 0;
+      
       if (this.maxNgramOrder >= 4) {
         const map4 = this.ngramModel[w4];
         if (map4) {
@@ -357,27 +363,32 @@ class SmartCompose {
           p4 = (map4[candidate] || 0) / total4;
         }
       }
-      // Interpolation
-      const lambda4 = 0.5, lambda3 = 0.3, lambda2 = 0.2;
+      
+      // Improved interpolation weights - favor longer context
+      const lambda4 = 0.55, lambda3 = 0.35, lambda2 = 0.1;
       let p = (this.maxNgramOrder >= 4 ? lambda4 * p4 : 0) + lambda3 * p3 + lambda2 * p2;
-      // POS transition small boost
+      
+      // POS transition bonus for valid sequences
       try {
         const prevPOS = this.getPOS(contextWords[contextWords.length-1] || '');
         const nextPOS = this.getPOS(candidate);
-        if (prevPOS && nextPOS && this.posTransitions[prevPOS]?.includes(nextPOS)) p += 0.02;
+        if (prevPOS && nextPOS && this.posTransitions[prevPOS]?.includes(nextPOS)) p += 0.05;
       } catch(_){}
+      
       return Math.max(0, Math.min(1, p));
     };
 
-    // Candidates from last bigram context
+    // Candidates from last bigram context (improved extraction)
     const context2 = words.slice(-1).join(' ');
     const context3 = words.slice(-2).join(' ');
     const context4 = words.slice(-3).join(' ');
+    
     const maps = [
       this.ngramModel[context4] || {},
       this.ngramModel[context3] || {},
       this.ngramModel[context2] || {}
     ];
+    
     const candidateCounts = {};
     for (const m of maps) {
       for (const [w, c] of Object.entries(m)) {
@@ -387,6 +398,7 @@ class SmartCompose {
 
     const baseCandidates = Object.entries(candidateCounts)
       .filter(([w]) => this._isValidToken(w) && !recentSet.has(w))
+      .sort(([,a], [,b]) => b - a) // Sort by count for better initial ranking
       .slice(0, 400);
 
     const scored = baseCandidates.map(([w]) => {
@@ -400,19 +412,33 @@ class SmartCompose {
     for (const cand of scored) {
       // Proper-noun gating: if capitalized and unseen in document, skip
       if (this.requireSeenProperNouns && /^[A-Z][a-z]+$/.test(cand.word) && !docWords.has(cand.word.toLowerCase())) continue;
+      
       let completion = ' ' + cand.word;
-      // Optional short continuation if both steps are confident
-      if (this.maxContinuationWords > 1) {
+      
+      // Improved continuation logic: only add second word if both are very confident
+      if (this.maxContinuationWords > 1 && cand.confidence >= 0.75) { // Raised threshold from implicit
         const nextCtx = [...words.slice(-1), cand.word];
         const contMap = this.ngramModel[nextCtx.slice(-2).join(' ')] || {};
-        const contCandidates = Object.keys(contMap)
-          .filter(w => this._isValidToken(w) && !recentSet.has(w))
-          .map(w => ({ w, p: scoreNext(nextCtx, w) }))
-          .filter(x => x.p >= this.confidenceThreshold)
-          .sort((a,b)=> b.p - a.p);
-        if (contCandidates[0]) completion += ' ' + contCandidates[0].w;
+        
+        if (Object.keys(contMap).length > 0) {
+          const total = Object.values(contMap).reduce((a,b)=>a+b,0) || 1;
+          const contCandidates = Object.entries(contMap)
+            .map(([w, c]) => ({ w, p: (c / total), raw: c }))
+            .filter(x => this._isValidToken(x.w) && !recentSet.has(x.w) && x.raw >= 2) // Require at least 2 occurrences
+            .sort((a,b)=> b.p - a.p)
+            .slice(0, 3);
+          
+          if (contCandidates[0] && contCandidates[0].p >= this.confidenceThreshold) {
+            completion += ' ' + contCandidates[0].w;
+          }
+        }
       }
-      suggestions.push({ phrase: words.slice(-1).join(' '), completions: [completion], score: Math.round(cand.confidence * 100) });
+      
+      suggestions.push({ 
+        phrase: words.slice(-1).join(' '), 
+        completions: [completion], 
+        score: Math.round(cand.confidence * 100) 
+      });
     }
 
     return suggestions;
@@ -433,20 +459,52 @@ class SmartCompose {
       const preview = `${contextPhrase} ${this.normalizeText(completion)}`.trim();
 
       let penalty = 0;
-      if (recentCompletionSet.has(completion)) penalty += 15;
-      if (normalizedFirstWord && recentWordSet.has(normalizedFirstWord)) penalty += 5;
-      if (repetitionRegex.test(completion)) penalty += 10;
-      if (this.lastAcceptedPhrase && suggestion.phrase === this.lastAcceptedPhrase) penalty += 8;
-      if (this.lastAcceptedCompletion && completion === this.lastAcceptedCompletion) penalty += 12;
-      if (multiRepeatRegex.test(preview)) penalty += 15;
-      // Penalize long completions
-      if (completion.split(' ').length > this.maxContinuationWords) penalty += 10;
-      // Basic gibberish guard
+      if (recentCompletionSet.has(completion)) penalty += 20; // increased from 15
+      if (normalizedFirstWord && recentWordSet.has(normalizedFirstWord)) penalty += 8; // increased from 5
+      if (repetitionRegex.test(completion)) penalty += 20; // increased from 10
+      if (this.lastAcceptedPhrase && suggestion.phrase === this.lastAcceptedPhrase) penalty += 12; // increased from 8
+      if (this.lastAcceptedCompletion && completion === this.lastAcceptedCompletion) penalty += 20; // increased from 12
+      if (multiRepeatRegex.test(preview)) penalty += 25; // increased from 15
+      // Penalize long completions more aggressively
+      if (completion.split(' ').length > this.maxContinuationWords) penalty += 15; // increased from 10
+      // Basic gibberish guard - stronger penalty
       const firstToken = (this.normalizeText(completion).split(' ').filter(Boolean)[0] || '');
-      if (!this._isValidToken(firstToken)) penalty += 50;
-      // No domain-specific penalties; rely on general language statistics only
+      if (!this._isValidToken(firstToken)) penalty += 80; // increased from 50
+      
+      // Additional penalties for poor quality suggestions
+      // Penalize completions that are too short or single characters
+      if (completion.trim().length <= 1) penalty += 50;
+      // Penalize very common words that add little value
+      const trivialWords = new Set(['a', 'an', 'the', 'is', 'are', 'was', 'be', 'do']);
+      if (trivialWords.has(normalizedFirstWord)) penalty += 5;
+      
+      // Penalize completions that would create grammatically incorrect sequences
+      try {
+        const prevWords = this.normalizeText(this._lastContextText || contextPhrase).split(' ').filter(Boolean);
+        const prevWord = prevWords[prevWords.length - 1] || '';
+        const prevPOS = this.getPOS(prevWord);
+        const nextPOS = this.getPOS(normalizedFirstWord);
+        
+        // Apply stricter POS constraints - penalize unlikely transitions
+        if (prevPOS && nextPOS) {
+          // Check if transition is explicitly disallowed
+          const disallowedTransitions = {
+            'NN': ['DET', 'PRP'],  // Noun shouldn't be followed by determiner or pronoun
+            'VB': ['NN'],           // Verb shouldn't always be followed by noun
+          };
+          
+          if (disallowedTransitions[prevPOS] && disallowedTransitions[prevPOS].includes(nextPOS)) {
+            penalty += 15;
+          }
+          
+          // Bonus for excellent POS transitions instead
+          if (this.posTransitions[prevPOS]?.includes(nextPOS)) {
+            // This will be handled in posBoost below
+          }
+        }
+      } catch(_) { /* ignore POS analysis errors */ }
 
-      // POS-aware small boost: if the POS of the next word is plausible after the previous POS
+      // POS-aware boost: if the POS of the next word is plausible after the previous POS
       let posBoost = 0;
       try {
         const prevWords = this.normalizeText(this._lastContextText || contextPhrase).split(' ').filter(Boolean);
@@ -454,7 +512,7 @@ class SmartCompose {
         const prevPOS = this.getPOS(prevWord);
         const nextPOS = this.getPOS(normalizedFirstWord);
         if (prevPOS && nextPOS && this.posTransitions[prevPOS]) {
-          if (this.posTransitions[prevPOS].includes(nextPOS)) posBoost = 3;
+          if (this.posTransitions[prevPOS].includes(nextPOS)) posBoost = 8; // increased from 3
         }
       } catch (_) { /* ignore POS boost errors */ }
 
@@ -571,6 +629,50 @@ class SmartCompose {
     this.currentSuggestion = null;
     this.currentSuggestions = [];
     this.currentSuggestionIndex = 0;
+  }
+
+  startGhostTextCleanup() {
+    // Start periodic cleanup of orphaned ghost text elements
+    if (this.ghostTextCleanupInterval) {
+      clearInterval(this.ghostTextCleanupInterval);
+    }
+    this.ghostTextCleanupInterval = setInterval(() => {
+      this.cleanupGhostText();
+    }, this.GHOST_CLEANUP_MS);
+  }
+
+  cleanupGhostText() {
+    // Remove all visible ghost text elements that are not the current suggestion
+    try {
+      if (this.ghostElement && this.ghostElement.style.display === 'none') {
+        // Current ghost element is hidden, safe to keep
+        return;
+      }
+
+      // Check if there are orphaned ghost text elements in the DOM
+      const ghostElements = this.editor.querySelectorAll('.smart-compose-ghost');
+      for (const ghost of ghostElements) {
+        if (ghost !== this.ghostElement) {
+          // Remove any orphaned ghost elements
+          ghost.remove();
+        }
+      }
+
+      // If current suggestion is null but ghost is visible, hide it
+      if (!this.currentSuggestion && this.ghostElement && this.ghostElement.style.display !== 'none') {
+        this.ghostElement.style.display = 'none';
+      }
+    } catch (error) {
+      // Silently handle any errors during cleanup
+      console.debug('Ghost text cleanup error:', error);
+    }
+  }
+
+  stopGhostTextCleanup() {
+    if (this.ghostTextCleanupInterval) {
+      clearInterval(this.ghostTextCleanupInterval);
+      this.ghostTextCleanupInterval = null;
+    }
   }
 
   acceptSuggestion() {
@@ -820,6 +922,19 @@ class SmartCompose {
     } else {
       this.enable();
     }
+  }
+
+  destroy() {
+    // Clean up resources when Smart Compose is destroyed
+    this.stopGhostTextCleanup();
+    this.hideSuggestion();
+    if (this.ghostElement && this.ghostElement.parentNode) {
+      this.ghostElement.remove();
+    }
+    this.ghostElement = null;
+    this.phrases = {};
+    this.userFrequencies = {};
+    this.ngramModel = {};
   }
 
   // Method to add custom phrases programmatically

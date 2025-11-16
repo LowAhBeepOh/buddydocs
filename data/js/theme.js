@@ -35,6 +35,7 @@ export function generateDynamicTheme(hue, mode, scheme) {
     // Alias tokens used by components
     '--text-primary': `hsl(${hue}, 10%, ${isLight ? 10 : 90}%)`,
     '--text-secondary': `hsl(${hue}, 8%, ${isLight ? 45 : 65}%)`,
+    '--bg-image': 'none',
   };
 
   let accentHue2 = hue;
@@ -52,9 +53,19 @@ export function generateDynamicTheme(hue, mode, scheme) {
   }
 
   if (scheme === 'expressive') {
-    // Only primary and a warm accent
-    theme['--secondary'] = `hsl(${accentHue2}, ${baseSat - 10}%, ${isLight ? 60 : 55}%)`;
-  } else if (scheme !== 'normal') {
+    theme['--bg'] = `hsl(${hue}, ${isLight ? 30 : 24}%, ${baseLight}%)`;
+    theme['--surface'] = `hsl(${hue}, ${isLight ? 20 : 16}%, ${isLight ? 94 : 14}%)`;
+    theme['--primary'] = `hsl(${hue}, ${Math.min(baseSat + 15, 95)}%, ${isLight ? 52 : 66}%)`;
+    theme['--secondary'] = `hsl(${accentHue2}, ${Math.min(baseSat + 5, 90)}%, ${isLight ? 58 : 58}%)`;
+    theme['--bg-image'] = 'none';
+  } else if (scheme === 'vivid') {
+    theme['--primary'] = `hsl(${hue}, ${Math.min(baseSat + 10, 90)}%, ${isLight ? 50 : 65}%)`;
+    theme['--secondary'] = `hsl(${accentHue2}, ${baseSat - 15}%, ${isLight ? 60 : 55}%)`;
+    const g1 = `hsl(${hue}, 22%, ${isLight ? 98 : 12}%)`;
+    const g2 = `hsl(${accentHue2}, 18%, ${isLight ? 94 : 14}%)`;
+    theme['--bg-image'] = `linear-gradient(135deg, ${g1}, ${g2})`;
+  } else {
+    theme['--bg-image'] = 'none';
     theme['--secondary'] = `hsl(${accentHue2}, ${baseSat - 15}%, ${isLight ? 60 : 55}%)`;
   }
 
@@ -131,6 +142,8 @@ export async function initTheme() {
       await setSetting('useDynamicTheme', false); // Switch off dynamic theme
     });
   }
+
+  await initAppFont();
 }
 
 initTheme();
@@ -144,4 +157,86 @@ export async function applyEditorPrefs() {
   if (!await getSetting('useDynamicTheme', false)) {
     root.style.setProperty('--border', highContrast ? '#8f8d9f' : getComputedStyle(root).getPropertyValue('--border'));
   }
+}
+
+let customFontStyleEl;
+export async function initAppFont() {
+  const family = await getSetting('appFontFamily', 'Inter Tight');
+  if (family === 'Custom') {
+    const name = await getSetting('customFontName', 'Custom Font');
+    const fmt = await getSetting('customFontFormat', 'ttf');
+    const data = await getSetting('customFontData', '');
+    if (data) {
+      const bytes = Uint8Array.from(atob(data), c => c.charCodeAt(0));
+      const mime = fmt === 'woff2' ? 'font/woff2' : fmt === 'woff' ? 'font/woff' : fmt === 'otf' ? 'font/otf' : 'font/ttf';
+      const blob = new Blob([bytes], { type: mime });
+      const url = URL.createObjectURL(blob);
+      if (!customFontStyleEl) {
+        customFontStyleEl = document.createElement('style');
+        customFontStyleEl.id = 'bd-custom-font-style';
+        document.head.appendChild(customFontStyleEl);
+      }
+      const cssFmt = fmt === 'ttf' ? 'truetype' : fmt === 'otf' ? 'opentype' : fmt;
+      customFontStyleEl.textContent = `@font-face{font-family:'${name}';src:url('${url}') format('${cssFmt}');font-weight:400;font-style:normal;font-display:swap}`;
+      root.style.setProperty('--bd-font-family', `'${name}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
+      return;
+    }
+  }
+  let stack = '';
+  if (family === 'System UI') {
+    stack = `system-ui, -apple-system, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif, 'Apple Color Emoji', 'Noto Color Emoji'`;
+  } else if (family === 'OpenDyslexic') {
+    await ensureWebFontLoaded('OpenDyslexic');
+    stack = `'OpenDyslexic','OpenDyslexicRegular','OpenDyslexic3', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+  } else {
+    await ensureWebFontLoaded(family);
+    stack = `'${family}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
+  }
+  root.style.setProperty('--bd-font-family', stack);
+}
+
+function gfFamilyParam(name){
+  const map = {
+    'Inter Tight': 'Inter+Tight',
+    'Inter': 'Inter',
+    'Roboto': 'Roboto',
+    'Poppins': 'Poppins',
+    'DM Sans': 'DM+Sans',
+    'Open Sans': 'Open+Sans',
+    'Nunito': 'Nunito',
+    'Lato': 'Lato',
+    'Figtree': 'Figtree',
+    'Noto Sans': 'Noto+Sans',
+    'IBM Plex Sans': 'IBM+Plex+Sans',
+    'Cossette Titre': 'Cossette+Titre',
+  };
+  return map[name] || name.replace(/\s+/g, '+');
+}
+
+function gfLinkHref(name){
+  const fam = gfFamilyParam(name);
+  return `https://fonts.googleapis.com/css2?family=${fam}:wght@400;500;700&display=swap`;
+}
+
+export async function ensureWebFontLoaded(name){
+  if (!name || name === 'System UI' || name === 'Custom') return;
+  const id = `bd-font-${gfFamilyParam(name).toLowerCase()}`;
+  if (document.getElementById(id)) return;
+  if (name === 'OpenDyslexic') {
+    const style = document.createElement('style');
+    style.id = id;
+    style.textContent = `
+      @font-face{font-family:'OpenDyslexic';src:url('data/assets/fonts/OpenDyslexic-Regular.otf') format('opentype');font-weight:400;font-style:normal;font-display:swap}
+      @font-face{font-family:'OpenDyslexic';src:url('data/assets/fonts/OpenDyslexic-Italic.otf') format('opentype');font-weight:400;font-style:italic;font-display:swap}
+      @font-face{font-family:'OpenDyslexic';src:url('data/assets/fonts/OpenDyslexic-Bold.otf') format('opentype');font-weight:700;font-style:normal;font-display:swap}
+      @font-face{font-family:'OpenDyslexic';src:url('data/assets/fonts/OpenDyslexic-Bold-Italic.otf') format('opentype');font-weight:700;font-style:italic;font-display:swap}
+    `;
+    document.head.appendChild(style);
+    return;
+  }
+  const link = document.createElement('link');
+  link.id = id;
+  link.rel = 'stylesheet';
+  link.href = gfLinkHref(name);
+  document.head.appendChild(link);
 }

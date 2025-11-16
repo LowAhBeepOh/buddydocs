@@ -11,6 +11,7 @@ const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
 const typeEl = document.getElementById('docType');
 const dueEl = document.getElementById('dueDate');
+const dueTimeEl = document.getElementById('dueTime');
 const tagsEl = document.getElementById('tags');
 
 let currentDoc = { id:null, title:'Untitled', type:'document', content:'', dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now(), pages: [] };
@@ -20,12 +21,53 @@ let autoCorrectEnabled = false;
 // View mode state & reading speed (words per minute)
 let isViewMode = false;
 const READING_WPM = 190;
+let lastEditorRange = null;
+let placeholderActive = false;
 
 function getParam(name){
   const u = new URL(location.href);
   return u.searchParams.get(name);
 }
 
+/**
+ * Combine date and time inputs into a single ISO datetime string
+ */
+function updateDueDateTime() {
+  const date = dueEl.value;
+  const time = dueTimeEl.value;
+  
+  if (!date) {
+    currentDoc.dueDate = null;
+  } else if (time) {
+    // Combine date and time into ISO string
+    currentDoc.dueDate = `${date}T${time}:00`;
+  } else {
+    // Just date, set to start of day
+    currentDoc.dueDate = `${date}T00:00:00`;
+  }
+}
+
+/**
+ * Parse ISO datetime and populate date/time inputs
+ */
+function populateDueDateTimeInputs(isoDateTime) {
+  if (!isoDateTime) {
+    dueEl.value = '';
+    dueTimeEl.value = '';
+    return;
+  }
+  
+  // Parse ISO datetime (format: YYYY-MM-DDTHH:mm:ss or YYYY-MM-DD)
+  const dateMatch = isoDateTime.match(/^(\d{4}-\d{2}-\d{2})/);
+  const timeMatch = isoDateTime.match(/T(\d{2}:\d{2})/);
+  
+  if (dateMatch) {
+    dueEl.value = dateMatch[1];
+  }
+  if (timeMatch) {
+    dueTimeEl.value = timeMatch[1];
+  }
+}
 
 function applyFontFamily(font) {
   if (!editor) return;
@@ -66,21 +108,7 @@ function updateToolbarForType(type) {
   const blockFormatSelect = document.getElementById('blockFormat');
   const imageInput = document.getElementById('imageInput');
   
-  if (type === 'list') {
-    // For list type, hide everything except basic formatting and list buttons
-    imageBtn.style.display = 'none';
-    linkBtn.style.display = 'none';
-    imageInput.style.display = 'none';
-    
-    // Show only paragraph and list options in block format
-    Array.from(blockFormatSelect.options).forEach(option => {
-      const value = option.value;
-      if (!['p', 'h2', 'h3'].includes(value)) {
-        option.style.display = 'none';
-      }
-    });
-
-  } else if (type === 'document') {
+  if (type === 'document') {
     // For document type, show everything
     imageBtn.style.display = '';
     linkBtn.style.display = '';
@@ -97,12 +125,118 @@ function updateToolbarForType(type) {
     location.href = `gallery.html${id ? '?id=' + id : ''}`;
     return;
   }
-  // If it's board type, redirect to board.html
-  if (type === 'board') {
-    const id = getParam('id');
-    location.href = `board.html${id ? '?id=' + id : ''}`;
-    return;
+}
+
+// Apply subscript
+function applySubscript() {
+  document.execCommand('subscript', false);
+}
+
+// Apply superscript
+function applySuperscript() {
+  document.execCommand('superscript', false);
+}
+
+// Apply highlight color
+function applyHighlight(color) {
+  if (color === 'none') {
+    document.execCommand('removeFormat', false);
+  } else {
+    const colorMap = {
+      'yellow': { bg: 'rgba(255, 255, 0, 1)', text: '#000000' },
+      'lightblue': { bg: 'rgba(91, 230, 255, 1)', text: '#000000' },
+      'magenta': { bg: 'rgba(255, 31, 199, 1)', text: '#ffffff' },
+      'red': { bg: 'rgba(255, 0, 0, 1)', text: '#ffffff' },
+      'green': { bg: 'rgba(47, 235, 22, 1)', text: '#000000' },
+      'orange': { bg: 'rgba(255, 155, 25, 1)', text: '#000000' }
+    };
+    
+    const colors = colorMap[color];
+    if (!colors) return;
+
+    // Get the current selection
+    const selection = window.getSelection();
+    if (!selection.rangeCount || selection.toString().length === 0) return;
+
+    const range = selection.getRangeAt(0);
+    const span = document.createElement('span');
+    span.style.backgroundColor = colors.bg;
+    span.style.color = colors.text;
+    span.style.borderRadius = '3px';
+    span.style.padding = '2px 4px';
+    span.style.display = 'inline-block';
+
+    try {
+      range.surroundContents(span);
+    } catch (e) {
+      // If surroundContents fails (e.g., selection spans multiple elements),
+      // use extractContents and insertNode instead
+      try {
+        const contents = range.extractContents();
+        span.appendChild(contents);
+        range.insertNode(span);
+      } catch (err) {
+        // Fallback: just apply background color via execCommand
+        document.execCommand('backColor', false, colors.bg);
+        document.execCommand('foreColor', false, colors.text);
+      }
+    }
   }
+}
+
+// Insert table
+function insertTable(rows, cols) {
+  const table = document.createElement('table');
+  table.className = 'editor-table';
+  const thead = document.createElement('thead');
+  const headRow = document.createElement('tr');
+  for (let j = 0; j < cols; j++) {
+    const th = document.createElement('th');
+    th.textContent = `Header ${j + 1}`;
+    headRow.appendChild(th);
+  }
+  thead.appendChild(headRow);
+  table.appendChild(thead);
+
+  const tbody = document.createElement('tbody');
+  for (let i = 1; i < rows; i++) {
+    const tr = document.createElement('tr');
+    for (let j = 0; j < cols; j++) {
+      const td = document.createElement('td');
+      td.contentEditable = 'true';
+      tr.appendChild(td);
+    }
+    tbody.appendChild(tr);
+  }
+  table.appendChild(tbody);
+
+  const selection = window.getSelection();
+  let targetRange = null;
+
+  function isRangeInEditor(r) {
+    const node = r?.startContainer;
+    return !!(node && editor && (editor === node || editor.contains(node)));
+  }
+
+  if (lastEditorRange && isRangeInEditor(lastEditorRange)) {
+    targetRange = lastEditorRange;
+  } else if (selection?.rangeCount && isRangeInEditor(selection.getRangeAt(0))) {
+    targetRange = selection.getRangeAt(0);
+  }
+
+  if (!targetRange) {
+    targetRange = document.createRange();
+    targetRange.selectNodeContents(editor);
+    targetRange.collapse(false);
+  }
+
+  targetRange.insertNode(table);
+  // Place caret after table
+  targetRange.setStartAfter(table);
+  targetRange.collapse(true);
+  selection.removeAllRanges();
+  selection.addRange(targetRange);
+  editor.focus();
 }
 
 function bindToolbar(){
@@ -192,6 +326,128 @@ function bindToolbar(){
       editor.focus();
     });
   }
+
+  // Subscript and Superscript buttons
+  const subBtn = document.getElementById('subBtn');
+  const supBtn = document.getElementById('supBtn');
+  if (subBtn) {
+    subBtn.addEventListener('click', () => {
+      applySubscript();
+      editor.focus();
+    });
+  }
+  if (supBtn) {
+    supBtn.addEventListener('click', () => {
+      applySuperscript();
+      editor.focus();
+    });
+  }
+
+  // Highlight color dropdown
+  const highlightBtn = document.getElementById('highlightBtn');
+  const highlightMenu = document.getElementById('highlightMenu');
+  if (highlightBtn && highlightMenu) {
+    highlightBtn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const isOpen = highlightMenu.hasAttribute('hidden');
+      if (isOpen) {
+        highlightMenu.removeAttribute('hidden');
+      } else {
+        highlightMenu.setAttribute('hidden', '');
+      }
+    });
+
+    // Highlight color options
+    highlightMenu.addEventListener('click', (e) => {
+      const option = e.target.closest('.highlight-option');
+      if (!option) return;
+      const color = option.dataset.color;
+      applyHighlight(color);
+      highlightMenu.setAttribute('hidden', '');
+      editor.focus();
+    });
+
+    // Close menu when clicking outside
+    document.addEventListener('click', (e) => {
+      if (!highlightBtn.contains(e.target) && !highlightMenu.contains(e.target)) {
+        highlightMenu.setAttribute('hidden', '');
+      }
+    });
+  }
+
+  // Insert table button
+  const insertTableBtn = document.getElementById('insertTableBtn');
+  const insertTableModal = document.getElementById('insertTableModal');
+  const closeTableModal = document.getElementById('closeTableModal');
+  const cancelTableBtn = document.getElementById('cancelTableBtn');
+  const insertTableConfirmBtn = document.getElementById('insertTableConfirmBtn');
+
+  if (insertTableBtn && insertTableModal) {
+    insertTableBtn.addEventListener('click', () => {
+      // preserve caret inside editor for insertion
+      const sel = window.getSelection();
+      if (sel?.rangeCount) {
+        const r = sel.getRangeAt(0);
+        if (editor && (editor === r.startContainer || editor.contains(r.startContainer))) {
+          lastEditorRange = r.cloneRange();
+        } else {
+          lastEditorRange = null;
+        }
+      }
+      insertTableModal.removeAttribute('hidden');
+      const rowsEl = document.getElementById('tableRows');
+      const colsEl = document.getElementById('tableColumns');
+      renderTablePreview(parseInt(rowsEl.value)||3, parseInt(colsEl.value)||3);
+      rowsEl.addEventListener('input', () => renderTablePreview(parseInt(rowsEl.value)||3, parseInt(colsEl.value)||3));
+      colsEl.addEventListener('input', () => renderTablePreview(parseInt(rowsEl.value)||3, parseInt(colsEl.value)||3));
+    });
+
+    closeTableModal?.addEventListener('click', () => {
+      insertTableModal.setAttribute('hidden', '');
+    });
+
+    cancelTableBtn?.addEventListener('click', () => {
+      insertTableModal.setAttribute('hidden', '');
+    });
+
+    insertTableConfirmBtn?.addEventListener('click', () => {
+      const rows = parseInt(document.getElementById('tableRows').value) || 3;
+      const cols = parseInt(document.getElementById('tableColumns').value) || 3;
+      insertTable(rows, cols);
+      insertTableModal.setAttribute('hidden', '');
+    });
+
+    // Close modal when clicking on backdrop
+    insertTableModal.addEventListener('click', (e) => {
+      if (e.target === insertTableModal) {
+        insertTableModal.setAttribute('hidden', '');
+      }
+    });
+  }
+}
+
+// Update table preview in modal
+function renderTablePreview(rows, cols) {
+  const preview = document.getElementById('tablePreview');
+  if (!preview) return;
+  preview.innerHTML = '';
+  const grid = document.createElement('div');
+  grid.style.display = 'grid';
+  grid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
+  grid.style.gap = '6px';
+  for (let j = 0; j < cols; j++) {
+    const cell = document.createElement('div');
+    cell.className = 'table-preview-cell header';
+    cell.textContent = `Header ${j + 1}`;
+    preview.appendChild(cell);
+  }
+  for (let i = 1; i < Math.max(2, rows); i++) {
+    for (let j = 0; j < cols; j++) {
+      const cell = document.createElement('div');
+      cell.className = 'table-preview-cell';
+      preview.appendChild(cell);
+    }
+  }
 }
 
 function bindMeta(){
@@ -207,7 +463,8 @@ function bindMeta(){
     currentDoc.type = typeEl.value;
     updateToolbarForType(typeEl.value);
   });
-  dueEl.addEventListener('change', () => currentDoc.dueDate = dueEl.value || null);
+  dueEl.addEventListener('change', () => updateDueDateTime());
+  dueTimeEl.addEventListener('change', () => updateDueDateTime());
   tagsEl.addEventListener('change', () => currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean));
 }
 
@@ -309,7 +566,7 @@ async function loadOrCreate(){
   
   titleEl.textContent = currentDoc.title || 'Untitled';
   typeEl.value = currentDoc.type || 'document';
-  if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
+  if (currentDoc.dueDate) populateDueDateTimeInputs(currentDoc.dueDate);
   if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
   
   // Load first page content
@@ -319,6 +576,8 @@ async function loadOrCreate(){
   } else {
     editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
   }
+  // Setup placeholder behavior (clear on first interaction)
+  setupPlaceholderBehavior();
   
   // Update toolbar for current document type
   updateToolbarForType(currentDoc.type);
@@ -339,10 +598,33 @@ async function loadOrCreate(){
 function placeholderForType(type){
   switch(type){
     case 'essay': return `<h1>Essay title</h1><h3>Subtitle</h3><p>Start with an introduction...</p>`;
-    case 'list': return `<h2>List</h2><ul><li>First item</li><li>Second item</li></ul>`;
     case 'gallery': return `<h2>Gallery</h2><p>Insert images with the image button.</p>`;
-    default: return `<h1>Untitled Document</h1><p>Start typing...</p>`;
+    default: return `<p class="placeholder">Start typing...</p>`;
   }
+}
+
+// Setup and clear initial placeholder on first user interaction
+function setupPlaceholderBehavior(){
+  if (!editor) return;
+  placeholderActive = !!editor.querySelector('p.placeholder');
+  if (!placeholderActive) return;
+
+  const clear = (e) => {
+    if (!placeholderActive) return;
+    if (e?.type === 'keydown'){
+      const ignore = ['Shift','Control','Alt','Meta','CapsLock','Tab','Escape','ArrowLeft','ArrowRight','ArrowUp','ArrowDown'];
+      if (ignore.includes(e.key)) return;
+    }
+    editor.innerHTML = '';
+    placeholderActive = false;
+    editor.removeEventListener('focus', clear);
+    editor.removeEventListener('click', clear);
+    editor.removeEventListener('keydown', clear);
+  };
+
+  editor.addEventListener('focus', clear);
+  editor.addEventListener('click', clear);
+  editor.addEventListener('keydown', clear);
 }
 
 async function saveNow(){

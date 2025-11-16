@@ -534,10 +534,8 @@ async function syncToGoogleDrive(forceFullSync = false) {
       } else if (base.type === 'gallery') {
         base.content = Array.isArray(doc.content) ? doc.content : [];
         base.thumbnailSrc = doc.thumbnailSrc || '';
-      } else if (base.type === 'board') {
-        base.content = Array.isArray(doc.content) ? doc.content : [];
       } else {
-        // Standard document, list, essay, etc.
+        // Standard document, essay, etc.
         base.pages = Array.isArray(doc.pages) ? doc.pages : [];
         base.content = typeof doc.content === 'string'
           ? doc.content
@@ -1069,8 +1067,6 @@ async function saveToGoogleDrive(folderId, doc) {
     } else if (base.type === 'gallery') {
       base.content = Array.isArray(doc.content) ? doc.content : [];
       base.thumbnailSrc = doc.thumbnailSrc || '';
-    } else if (base.type === 'board') {
-      base.content = Array.isArray(doc.content) ? doc.content : [];
     } else {
       base.pages = Array.isArray(doc.pages) ? doc.pages : [];
       base.content = typeof doc.content === 'string'

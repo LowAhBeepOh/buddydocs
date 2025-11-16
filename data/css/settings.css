@@ -27,7 +27,7 @@
   background: transparent;
   cursor: pointer;
   text-align: left;
-  font-family: 'Inter Tight', sans-serif;
+  font-family: var(--bd-font-family);
   font-size: 14px;
   color: var(--muted);
   transition: background 0.2s ease, color 0.2s ease;

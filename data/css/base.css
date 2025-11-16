@@ -38,15 +38,15 @@
 .privacy-banner-dismiss {
   background-color: var(--primary);
   color: white;
-  font-family: 'Inter Tight', Inter, Roboto, -apple-system, Helvetica, Arial, sans-serif;
+  font-family: var(--bd-font-family);
   border: none;
   border-radius: 4px;
   padding: 6px 12px;
   cursor: pointer;
   font-weight: 700;
   transition: background-color 0.2s;
-  display: inline-block; /* ensure anchors render like buttons */
-  text-decoration: none; /* remove underline for anchors */
+  display: inline-block;
+  text-decoration: none;
 }
 
 .privacy-banner-dismiss:hover {
@@ -408,6 +408,7 @@ body{
   font-family: var(--bd-font-family);
   color:var(--text);
   background:var(--bg);
+  background-image: var(--bg-image, none);
 
   --note-default-bg: #E6E4F4;
   --note-default-border: #C9C5E0;
@@ -464,6 +465,7 @@ img{max-width:100%;display:block}
   display:flex; align-items:center; justify-content:space-between;
   gap:12px; padding:16px 16px; background:var(--bg);
   border-bottom:2px solid var(--border);
+  background-image: var(--bg-image, none);
 }
 .topbar .left{display:flex; align-items:center; gap:16px}
 .topbar .right{
@@ -650,8 +652,8 @@ img{max-width:100%;display:block}
 }
 .templates-grid{
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
-  gap: 12px;
+  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+  gap: 14px;
 }
 
 /* Template preview cards */
@@ -724,6 +726,33 @@ img{max-width:100%;display:block}
   }
 }
 
+/* Templates Modal Enhancements */
+.templates-modal {
+  max-width: 1800px;
+}
+
+.modal-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px;
+  border-bottom: 1px solid var(--border);
+  gap: 16px;
+}
+
+.modal-head h3 {
+  margin: 0 0 4px 0;
+  font-size: 20px;
+  font-weight: 700;
+}
+
+.modal-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 500;
+}
+
 /* New styles for template modal with sidebar */
 .modal-body-with-sidebar {
   display: flex;
@@ -733,10 +762,10 @@ img{max-width:100%;display:block}
 }
 
 .template-sidebar {
-  width: 220px;
+  width: 200px;
   background: var(--bg);
   border-right: 1px solid var(--border);
-  padding: 16px;
+  padding: 12px;
   overflow-y: auto;
   flex-shrink: 0;
 }
@@ -744,44 +773,161 @@ img{max-width:100%;display:block}
 .template-sidebar nav {
   display: flex;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 
 .template-sidebar button {
   width: 100%;
-  padding: 10px 12px;
-  border-radius: 8px;
+  padding: 12px 14px;
+  border-radius: 10px;
   border: none;
   background: transparent;
   color: var(--muted);
   text-align: left;
   font-weight: 600;
   cursor: pointer;
-  transition: background 0.2s, color 0.2s;
+  transition: background 0.2s, color 0.2s, transform 0.1s;
   font-size: 14px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.template-sidebar button .material-symbols-outlined {
+  font-size: 20px;
+  flex-shrink: 0;
 }
 
 .template-sidebar button:hover {
-  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  background: color-mix(in hsl, var(--primary) 12%, var(--surface));
   color: var(--text);
+  transform: translateX(2px);
 }
 
 .template-sidebar button.active {
-  background: var(--primary);
+  background: color-mix(in hsl, var(--primary) 100%, transparent);
   color: white;
+  font-weight: 700;
 }
 
 .templates-grid-container {
   flex: 1;
-  padding: 16px;
+  padding: 20px 24px;
   overflow-y: auto;
 }
 
 .templates-grid .empty-state {
   color: var(--muted);
   text-align: center;
-  padding: 40px;
+  padding: 60px 40px;
   font-size: 14px;
+}
+
+/* Enhanced Template Cards */
+.template-card {
+  display: flex;
+  flex-direction: column;
+  padding: 16px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--surface);
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  color: var(--text);
+  text-decoration: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+}
+
+.template-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, var(--primary), var(--secondary));
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.template-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: var(--primary);
+}
+
+.template-card:hover::before {
+  opacity: 1;
+}
+
+.template-card strong {
+  font-size: 16px;
+  font-weight: 700;
+  margin-bottom: 8px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.template-card strong::before {
+  content: attr(data-icon);
+  font-size: 20px;
+}
+
+.template-card .preview {
+  border: 1px dashed var(--border);
+  border-radius: 8px;
+  padding: 12px;
+  font-size: 12px;
+  line-height: 1.55;
+  height: 140px;
+  overflow: hidden;
+  color: var(--muted);
+  background: color-mix(in hsl, var(--bg) 50%, var(--surface));
+  margin-bottom: 12px;
+}
+
+.template-card .preview h1, .template-card .preview h2 {
+  font-size: 13px;
+  font-weight: 600;
+  margin: 0 0 6px;
+  color: var(--text);
+}
+
+.template-card .preview p {
+  margin: 0 0 4px;
+  font-size: 11px;
+}
+
+.template-card .info {
+  margin-top: auto;
+}
+
+.template-card .info p {
+  font-size: 12px;
+  color: var(--muted);
+  margin: 0;
+  line-height: 1.4;
+}
+
+/* Category badge */
+.template-card .meta {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.template-card .badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 8px;
+  font-size: 11px;
+  border-radius: 999px;
+  background: var(--gray);
+  color: color-mix(in hsl, var(--text) 92%, black 8%);
 }
 
 /* Adjustments for template cards inside the new grid */
