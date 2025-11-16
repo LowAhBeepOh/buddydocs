@@ -1,5 +1,6 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
-import { applyDynamicTheme, applyClassicTheme, initAppFont, ensureWebFontLoaded } from './theme.js';
+import { applyDynamicTheme, applyClassicTheme, initAppFont } from './theme.js';
+import * as themeModule from './theme.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
 import { getVersions } from './version-history.js';
@@ -927,7 +928,7 @@ loadSettings().then(async () => {
         root.style.setProperty('--bd-font-family', `'${name}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`);
         return;
       } else {
-        ensureWebFontLoaded(val);
+        themeModule.ensureWebFontLoaded(val);
         stack = `'${val}', system-ui, Inter, Roboto, -apple-system, Helvetica, Arial, 'Apple Color Emoji', 'Noto Color Emoji', sans-serif`;
       }
       root.style.setProperty('--bd-font-family', stack);
