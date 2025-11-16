@@ -1,5 +1,4 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
-import { applyDynamicTheme, applyClassicTheme, initAppFont } from './theme.js';
 import * as themeModule from './theme.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
@@ -350,11 +349,11 @@ async function saveSettings() {
     await setSetting('dynamicThemeHue', Number(hue));
     await setSetting('dynamicThemeMode', mode);
     await setSetting('dynamicThemeScheme', scheme);
-    applyDynamicTheme(Number(hue), mode, scheme);
+    themeModule.applyDynamicTheme(Number(hue), mode, scheme);
   } else {
     const theme = document.getElementById('themeSelect').value;
     await setSetting('theme', theme);
-    applyClassicTheme(theme);
+    themeModule.applyClassicTheme(theme);
   }
 
   const appFontFamily = document.getElementById('defaultFontSelect')?.value || 'Inter Tight';
@@ -497,7 +496,7 @@ async function saveSettings() {
 
   alert('Settings saved');
   loadSettings();
-  await initAppFont();
+  await themeModule.initAppFont();
 }
 
 function handleProfilePicture(e) {
@@ -1062,7 +1061,7 @@ loadSettings().then(async () => {
     document.getElementById('dynamic-theme-section').style.display = 'none';
     // Apply classic theme preview on switch back
     const theme = document.getElementById('themeSelect').value;
-    applyClassicTheme(theme);
+    themeModule.applyClassicTheme(theme);
   });
 
   // Dynamic theme live preview
@@ -1550,7 +1549,7 @@ function livePreviewDynamicTheme() {
   const hue = document.getElementById('hueSlider').value;
   const mode = document.querySelector('#themeMode button.active').dataset.value;
   const scheme = document.getElementById('colorScheme').value;
-  applyDynamicTheme(Number(hue), mode, scheme);
+  themeModule.applyDynamicTheme(Number(hue), mode, scheme);
 }
 
 // Live previews
