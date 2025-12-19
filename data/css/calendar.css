@@ -13,11 +13,18 @@
   align-items: center;
   justify-content: center;
   gap: 16px;
-  padding: 12px 0;
-  border-bottom: 1px solid var(--border);
+  padding: 16px 24px;
+  border: 1px solid var(--border);
   background: var(--surface);
-  border-radius: 12px;
-  margin-bottom: 8px;
+  border-radius: 24px;
+  margin-bottom: 16px;
+  box-shadow: var(--shadow-1);
+  transition: all var(--speed-normal) var(--ease-spring);
+}
+
+.calendar-head:hover {
+  box-shadow: var(--shadow-2);
+  transform: translateY(-2px);
 }
 
 .calendar-head h2 {
@@ -48,25 +55,30 @@
 .calendar-grid .day {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
+  border-radius: 18px;
   padding: 12px;
   min-height: 140px;
   display: grid;
   gap: 8px;
   align-content: start;
-  transition: all 0.2s ease;
+  transition: all var(--speed-normal) var(--ease-spring);
+  box-shadow: var(--shadow-1);
 }
 
 .calendar-grid .day:hover {
   border-color: var(--primary);
-  box-shadow: 0 2px 8px rgba(5, 80, 255, 0.1);
+  box-shadow: var(--shadow-2);
+  transform: translateY(-4px) scale(1.02);
+  z-index: 5;
 }
 
 .calendar-grid .day.today {
   background: var(--primary);
   color: white;
   border-color: var(--primary);
-  box-shadow: 0 0 8px 2px var(--primary);
+  box-shadow: var(--shadow-3);
+  transform: scale(1.05);
+  z-index: 6;
 }
 
 .calendar-grid .day.today .date,
@@ -99,14 +111,14 @@
   align-items: center;
   gap: 6px;
   font-size: 12px;
-  transition: background-color 0.2s ease;
-  border-radius: 6px;
+  transition: all var(--speed-fast) var(--ease-spring);
+  border-radius: 8px;
+  padding: 4px 8px;
 }
 
 .calendar-grid .item:hover {
   background: color-mix(in hsl, var(--primary) 15%, var(--surface));
-  padding: 4px 6px;
-  margin: -4px -6px;
+  transform: translateX(4px);
 }
 
 .calendar-grid .item .dot {
@@ -120,19 +132,26 @@
 .calendar-side {
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 12px;
-  padding: 20px;
+  border-radius: 24px;
+  padding: 24px;
   height: fit-content;
   max-height: calc(100vh - 200px);
   overflow-y: auto;
   position: sticky;
   top: 100px;
+  box-shadow: var(--shadow-1);
+  transition: all var(--speed-normal) var(--ease-spring);
+}
+
+.calendar-side:hover {
+  box-shadow: var(--shadow-2);
 }
 
 .calendar-side h3 {
-  margin: 0 0 16px 0;
-  font-size: 18px;
-  font-weight: 600;
+  margin: 0 0 20px 0;
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--primary);
 }
 
 .deadline-list {
@@ -140,19 +159,23 @@
   padding: 0;
   margin: 0;
   display: grid;
-  gap: 8px;
+  gap: 12px;
 }
 
 .calendar-side .deadline-list li {
-  padding: 12px;
-  border-radius: 8px;
-  transition: background-color 0.2s ease;
-  border: 1px solid transparent;
+  padding: 16px;
+  border-radius: 16px;
+  transition: all var(--speed-normal) var(--ease-spring);
+  border: 1px solid var(--border);
+  background: var(--surface);
+  box-shadow: var(--shadow-1);
 }
 
 .calendar-side .deadline-list li:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-  border-color: var(--border);
+  background: color-mix(in hsl, var(--primary) 4%, var(--surface));
+  border-color: var(--primary);
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: var(--shadow-2);
 }
 
 /* Responsive design */
@@ -250,15 +273,14 @@
 /* Modal for notes */
 .modal {
   position: fixed;
-  z-index: 100;
-  left: 0;
-  top: 0;
-  width: 100%;
-  height: 100%;
-  background-color: rgba(0,0,0,0.5);
+  z-index: 1000;
+  inset: 0;
+  background-color: rgba(0,0,0,0.35);
   display: none;
   align-items: center;
   justify-content: center;
+  backdrop-filter: blur(4px);
+  animation: fadeIn var(--speed-normal) var(--ease-out-expo);
 }
 
 .modal:not([hidden]) {
@@ -267,14 +289,15 @@
 
 .modal-content {
   background: var(--surface);
-  padding: 24px;
-  border-radius: 12px;
-  width: 90%;
-  max-width: 500px;
+  padding: 28px;
+  border-radius: 28px;
+  width: min(500px, 92vw);
   position: relative;
   display: grid;
-  gap: 16px;
-  transition: background-color 0.3s ease;
+  gap: 20px;
+  box-shadow: var(--shadow-4);
+  animation: slideUpScale var(--speed-normal) var(--ease-spring);
+  border: 1px solid var(--border);
 }
 
 .modal-content[data-color="red"] { background-color: color-mix(in hsl, var(--note-red-bg) 50%, var(--surface)); }

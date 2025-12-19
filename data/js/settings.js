@@ -239,6 +239,12 @@ async function loadSettings() {
     customReminderSectionEl.style.display = useSmartReminders ? 'none' : 'block';
   }
 
+  // Initial indicator update
+  setTimeout(() => {
+    updateNavIndicator();
+    updateSegmentedIndicator();
+  }, 100);
+
   // No need to apply theme here, initTheme in theme.js handles it.
 }
 
@@ -337,7 +343,19 @@ async function resetPassword() {
   }
 }
 
+let hasUnsavedChanges = false;
+
+function markChanges() {
+  hasUnsavedChanges = true;
+  const bar = document.getElementById('saveBar');
+  if (bar) bar.style.display = 'flex';
+}
+
 async function saveSettings() {
+  const bar = document.getElementById('saveBar');
+  if (bar) bar.style.display = 'none';
+  hasUnsavedChanges = false;
+
   const useDynamicTheme = document.getElementById('dynamic-theme-section').style.display === 'block';
 
   await setSetting('useDynamicTheme', useDynamicTheme);
@@ -587,6 +605,9 @@ function handleTabSwitching() {
         }
       });
 
+      // Update indicator position
+      updateNavIndicator(true);
+
       // Lazy init Activity tab on demand
       if (targetPaneId === 'activity') {
         lazyInitActivityTab();
@@ -595,6 +616,55 @@ function handleTabSwitching() {
         lazyInitCloudTab();
       }
     });
+  });
+
+  // Initial indicator setup
+  window.addEventListener('resize', updateNavIndicator);
+  setTimeout(updateNavIndicator, 100);
+}
+
+function updateNavIndicator(morph = false) {
+  const activeTab = document.querySelector('.nav-tab.active');
+  const indicator = document.querySelector('.nav-indicator');
+  if (!activeTab || !indicator) return;
+
+  if (morph) {
+    indicator.classList.remove('morphing');
+    void indicator.offsetWidth;
+    indicator.classList.add('morphing');
+  }
+
+  const tabRect = activeTab.getBoundingClientRect();
+  const navRect = activeTab.parentElement.getBoundingClientRect();
+
+  // Handle both vertical and horizontal layouts
+  if (window.innerWidth <= 800) {
+    indicator.style.width = `${tabRect.width}px`;
+    indicator.style.height = `${tabRect.height}px`;
+    indicator.style.transform = `translateX(${tabRect.left - navRect.left}px)`;
+    indicator.style.top = `${tabRect.top - navRect.top}px`;
+    indicator.style.left = `0`;
+  } else {
+    indicator.style.width = `calc(100% - 24px)`;
+    indicator.style.height = `${tabRect.height}px`;
+    indicator.style.transform = `translateY(${tabRect.top - navRect.top - 24}px)`; // -24 for padding
+    indicator.style.left = `12px`;
+    indicator.style.top = `24px`;
+  }
+}
+
+function updateSegmentedIndicator() {
+  const controls = document.querySelectorAll('.segmented-control');
+  controls.forEach(control => {
+    const activeBtn = control.querySelector('button.active');
+    const indicator = control.querySelector('.segmented-indicator');
+    if (!activeBtn || !indicator) return;
+
+    const btnRect = activeBtn.getBoundingClientRect();
+    const controlRect = control.getBoundingClientRect();
+
+    indicator.style.width = `${btnRect.width}px`;
+    indicator.style.transform = `translateX(${btnRect.left - controlRect.left - 4}px)`;
   });
 }
 
@@ -878,6 +948,15 @@ loadSettings().then(async () => {
       if (tab.dataset.tab === 'activity') lazyInitActivityTab();
     });
   });
+  // Add event listeners for unsaved changes
+  const inputs = document.querySelectorAll('.settings-pane input, .settings-pane select');
+  inputs.forEach(input => {
+    input.addEventListener('change', markChanges);
+    if (input.type === 'text' || input.type === 'password' || input.type === 'number') {
+      input.addEventListener('input', markChanges);
+    }
+  });
+
   // Add event listeners
   document.getElementById('saveSettings').addEventListener('click', saveSettings);
   
@@ -1085,6 +1164,7 @@ loadSettings().then(async () => {
           activeButton.classList.remove('active');
         }
         btn.classList.add('active');
+        updateSegmentedIndicator();
         livePreviewDynamicTheme();
       });
     });

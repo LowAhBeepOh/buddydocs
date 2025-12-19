@@ -67,6 +67,23 @@
   /* Provide alias tokens used by feature CSS */
   --text-primary: var(--text);
   --text-secondary: var(--muted);
+
+  /* Spring-like Easings */
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1);
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-in-out-soft: cubic-bezier(0.4, 0, 0.2, 1);
+  --ease-elastic: cubic-bezier(0.68, -0.6, 0.32, 1.6);
+  
+  /* M3 Elevations */
+  --shadow-1: 0 1px 2px rgba(0,0,0,0.1), 0 1px 3px rgba(0,0,0,0.08);
+  --shadow-2: 0 3px 6px rgba(0,0,0,0.12), 0 2px 4px rgba(0,0,0,0.08);
+  --shadow-3: 0 10px 20px rgba(0,0,0,0.15), 0 3px 6px rgba(0,0,0,0.1);
+  --shadow-4: 0 14px 28px rgba(0,0,0,0.2), 0 10px 10px rgba(0,0,0,0.15);
+  
+  /* Transition Speeds */
+  --speed-fast: 150ms;
+  --speed-normal: 250ms;
+  --speed-slow: 450ms;
 }
 
 :root{
@@ -80,8 +97,8 @@
   --gray:#E6E4F4;
   --success:#85F485;
   --error:#F48585;
-  --radius:12px;
-  --shadow:0 6px 24px rgba(17,15,23,0.08);
+  --radius:16px; /* Slightly more rounded for M3 */
+  --shadow: var(--shadow-2);
 }
 
 [data-theme="dark"]{
@@ -495,20 +512,40 @@ img{max-width:100%;display:block}
 
 .card-row{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px}
 .card{
-  background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px;
-  display:flex; align-items:center; gap:12px; box-shadow:var(--shadow);
+  background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px;
+  display:flex; align-items:center; gap:16px; box-shadow:var(--shadow-1);
   color:inherit; text-decoration:none;
   font-family: var(--bd-font-family);
+  transition: all var(--speed-normal) var(--ease-spring);
 }
-.card.new span.material-symbols-outlined{color:var(--primary)}
+.card:hover {
+  transform: translateY(-4px) scale(1.02);
+  box-shadow: var(--shadow-3);
+  border-color: var(--primary);
+}
+.card:active {
+  transform: translateY(-2px) scale(0.98);
+}
+.card.new span.material-symbols-outlined{color:var(--primary); font-size: 28px; transition: transform var(--speed-normal) var(--ease-spring);}
+.card.new:hover span.material-symbols-outlined { transform: rotate(10deg) scale(1.1); }
 .card p{margin:0; color:var(--muted); font-size:12px}
 
-.section-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:24px 0 8px}
-.link{color:var(--primary); text-decoration:none; font-weight:600}
+.section-head{display:flex; align-items:center; justify-content:space-between; gap:8px; margin:32px 0 12px}
+.link{color:var(--primary); text-decoration:none; font-weight:700; transition: color var(--speed-fast) var(--ease-out-expo);}
+.link:hover { color: var(--secondary); text-decoration: underline; }
 
-.doc-grid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px}
+.doc-grid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px}
 .doc-card{
-  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:14px; padding:12px; display:block; color:inherit; box-shadow:var(--shadow)
+  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:12px; display:block; color:inherit; box-shadow:var(--shadow-1);
+  transition: all var(--speed-normal) var(--ease-spring);
+}
+.doc-card:hover {
+  transform: translateY(-6px) scale(1.02);
+  box-shadow: var(--shadow-3);
+  border-color: var(--primary);
+}
+.doc-card:active {
+  transform: translateY(-2px) scale(0.98);
 }
 .doc-card .doc-link {
   display: block;
@@ -539,18 +576,39 @@ img{max-width:100%;display:block}
 .doc-card .menu-container{position:absolute; top:8px; right:8px}
 
 /* Dropdown menu styles */
-.dropdown-menu{
+.dropdown-menu {
   position: fixed; 
   inset: auto auto auto auto; 
   margin: 0;
-  background: color-mix(in hsl, var(--surface) 85%, white 15%);
+  background: color-mix(in hsl, var(--surface) 95%, white 5%);
   border: 1px solid var(--border); 
-  border-radius: 10px;
-  box-shadow: 0 12px 24px rgba(0,0,0,0.18), 0 2px 8px rgba(0,0,0,0.12);
-  backdrop-filter: blur(6px);
-  min-width: 180px;
-  padding: 6px; 
-  z-index: 1000; 
+  border-radius: 16px;
+  box-shadow: var(--shadow-4);
+  backdrop-filter: blur(20px);
+  min-width: 200px;
+  padding: 8px; 
+  z-index: 1000;
+  opacity: 0;
+  transform: scale(0.85) translateY(-12px);
+  pointer-events: none;
+  transform-origin: top center;
+  transition: opacity var(--speed-normal) var(--ease-out-expo),
+              transform var(--speed-normal) var(--ease-spring);
+}
+.dropdown-menu:not([hidden]) {
+  opacity: 1;
+  transform: scale(1) translateY(0);
+  pointer-events: auto;
+}
+.dropdown-menu[hidden] {
+  display: block !important;
+  opacity: 0;
+  transform: scale(0.85) translateY(-12px);
+  pointer-events: none;
+  visibility: hidden;
+  transition: opacity var(--speed-fast) var(--ease-out-expo),
+              transform var(--speed-fast) var(--ease-out-expo),
+              visibility 0s var(--speed-fast);
 }
 .dropdown-menu .menu-item{
   display:flex; align-items:center; gap:10px;
@@ -577,14 +635,41 @@ img{max-width:100%;display:block}
   background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
+  cursor: pointer;
+  transition: all var(--speed-fast) var(--ease-spring);
+  box-shadow: var(--shadow-1);
+}
+.avatar:hover {
+  transform: scale(1.1);
+  box-shadow: var(--shadow-2);
+}
+.avatar:active {
+  transform: scale(0.9);
 }
 
 .menu{
-  position:absolute; right:0; top:44px;
-  background:var(--surface); border:1px solid var(--border); border-radius:12px; box-shadow:var(--shadow);
-  padding:8px; min-width:220px; display:none; z-index:120
+  position:absolute; right:0; top:48px;
+  background:color-mix(in hsl, var(--surface) 95%, white 5%); 
+  border:1px solid var(--border); 
+  border-radius:16px; 
+  box-shadow:var(--shadow-4);
+  backdrop-filter: blur(20px);
+  padding:8px; min-width:220px; display:grid; z-index:120;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(12px) scale(0.85);
+  transform-origin: top right;
+  transition: opacity var(--speed-normal) var(--ease-out-expo),
+              transform var(--speed-normal) var(--ease-spring),
+              visibility 0s var(--speed-normal);
 }
-.menu.open{display:grid}
+.menu.open{
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0) scale(1);
+  transition: opacity var(--speed-normal) var(--ease-out-expo),
+              transform var(--speed-normal) var(--ease-spring);
+}
 .menu-item{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; color:inherit; text-decoration:none; background:transparent; border:none; text-align:left; cursor:pointer}
 .menu-item:hover{background:color-mix(in hsl, var(--primary) 10%, var(--surface))}
 

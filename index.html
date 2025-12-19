@@ -34,13 +34,9 @@
       <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" />
     </div>
     
-    <!-- AI Command Bar (middle) -->
-    <div id="aiCommandBar" class="ai-command-bar" hidden>
-      <div class="command-input-wrapper">
-        <span class="material-symbols-outlined">auto_awesome</span>
-        <input type="text" id="aiCommandInput" placeholder="Ask me anything..." />
-        <div id="aiCommandOutput" class="command-output" hidden></div>
-      </div>
+    <div class="search-container">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input id="search" class="search-input" type="search" placeholder="Search documents" />
     </div>
     
     <div class="right">
@@ -160,10 +156,12 @@
           <h3>Your Documents</h3>
         </div>
         <div class="filters">
+          <button id="viewModeBtn" class="icon-btn" title="Toggle List Mode">
+            <span class="material-symbols-outlined">view_list</span>
+          </button>
           <button id="newFolderBtn" class="icon-btn" title="New Folder">
             <span class="material-symbols-outlined">create_new_folder</span>
           </button>
-          <input id="search" class="input" type="search" placeholder="Search documents" />
         </div>
       </div>
       <div id="docGrid" class="doc-grid"></div>

@@ -19,6 +19,10 @@
     <div class="left">
       <a href="index.html" title="Home"><img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" /></a>
     </div>
+    <div class="search-container">
+      <span class="material-symbols-outlined search-icon">search</span>
+      <input id="search" class="search-input" type="search" placeholder="Search archived documents" />
+    </div>
     <div class="right">
       <a href="./" class="icon-btn" title="Home"><span class="material-symbols-outlined">home</span></a>
     </div>
@@ -28,9 +32,6 @@
     <section class="documents">
       <div class="section-head">
         <h3>Archived Documents</h3>
-        <div class="filters">
-          <input id="search" class="input" type="search" placeholder="Search archived documents" />
-        </div>
       </div>
       <div id="docGrid" class="doc-grid"></div>
     </section>
@@ -85,15 +86,25 @@
     function positionMenuNearButton(menuEl, buttonEl){
       const r = buttonEl.getBoundingClientRect();
       const margin = 8;
+      
+      const menuW = menuEl.offsetWidth || 180;
+      const menuH = menuEl.offsetHeight || 120;
+
       let top = r.bottom + margin;
-      let left = r.right - (menuEl.offsetWidth || 180);
-      const vw = window.innerWidth; const vh = window.innerHeight;
-      const w = menuEl.offsetWidth || 180; const h = menuEl.offsetHeight || 120;
-      if (left + w > vw - margin) left = vw - margin - w;
+      let left = r.right - menuW;
+
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+
+      if (left + menuW > vw - margin) left = vw - margin - menuW;
       if (left < margin) left = margin;
-      if (top + h > vh - margin) top = r.top - margin - h;
+      if (top + menuH > vh - margin) {
+        top = r.top - margin - menuH;
+      }
       if (top < margin) top = margin;
-      menuEl.style.left = `${left}px`; menuEl.style.top = `${top}px`;
+
+      menuEl.style.left = `${Math.round(left)}px`;
+      menuEl.style.top = `${Math.round(top)}px`;
     }
 
     function closeAllMenus(except) {
@@ -115,9 +126,30 @@
 
       const moreBtn = node.querySelector('.more');
       const menu = node.querySelector('.dropdown-menu');
-      function open(){ closeAllMenus(menu); menu.hidden = false; positionMenuNearButton(menu, moreBtn); }
-      function close(){ menu.hidden = true; }
+      
+      function open(){ 
+        closeAllMenus(menu); 
+        
+        if (menu.parentElement !== document.body) {
+          document.body.appendChild(menu);
+        }
+        
+        positionMenuNearButton(menu, moreBtn); 
+        
+        requestAnimationFrame(() => {
+          menu.hidden = false;
+        });
+        
+        window.addEventListener('resize', onWindowChange);
+        window.addEventListener('scroll', onWindowChange, true);
+      }
+      function close(){ 
+        menu.hidden = true; 
+        window.removeEventListener('resize', onWindowChange);
+        window.removeEventListener('scroll', onWindowChange, true);
+      }
       function onWindowChange(){ if (!menu.hidden) positionMenuNearButton(menu, moreBtn); }
+      
       moreBtn.addEventListener('click', (e)=>{ e.stopPropagation(); menu.hidden?open():close(); });
       menu.addEventListener('click', async (e)=>{
         e.stopPropagation();
@@ -137,6 +169,10 @@
     async function render(){
       const grid = document.getElementById('docGrid');
       const term = document.getElementById('search').value.trim().toLowerCase();
+      
+      // Clean up any detached dropdown menus from body before re-rendering
+      document.querySelectorAll('body > .dropdown-menu').forEach(m => m.remove());
+
       const items = await listDocuments({ search: term, onlyArchived: true });
       grid.innerHTML = '';
       for (const d of items){

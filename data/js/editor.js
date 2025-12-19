@@ -668,7 +668,7 @@ function toggleFileMenu(){
   // position the menu below the File button
   const r = btn.getBoundingClientRect();
   menu.style.left = `${r.left}px`;
-  menu.style.top = `${r.bottom + 6 + window.scrollY}px`;
+  menu.style.top = `${r.bottom + 6}px`;
   menu.removeAttribute('hidden');
   btn.setAttribute('aria-expanded','true');
   setTimeout(()=> document.addEventListener('click', onDocClick));
@@ -695,7 +695,7 @@ function toggleToolsMenu(){
   // position the menu below the Tools button
   const r = btn.getBoundingClientRect();
   menu.style.left = `${r.left}px`;
-  menu.style.top = `${r.bottom + 6 + window.scrollY}px`;
+  menu.style.top = `${r.bottom + 6}px`;
   menu.removeAttribute('hidden');
   btn.setAttribute('aria-expanded','true');
   setTimeout(()=> document.addEventListener('click', onDocClick));

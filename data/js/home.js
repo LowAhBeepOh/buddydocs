@@ -1,6 +1,5 @@
 import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, listFolders, saveFolder, deleteFolder, getFolder } from './idb.js';
 import { isCloudConnected, removeDocumentFromCloud } from './cloud.js';
-import { initAiCommandBar } from './ai-command.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
 import { notificationManager } from './notifications.js';
@@ -651,6 +650,27 @@ function createWelcomeScreen() {
     documentsSection.appendChild(welcomeContainer);
 }
 
+function timeAgo(date) {
+  if (!date) return '';
+  const now = new Date();
+  const past = new Date(date);
+  const diffInSeconds = Math.floor((now - past) / 1000);
+
+  if (diffInSeconds < 60) return `${diffInSeconds}s ago`;
+  const diffInMinutes = Math.floor(diffInSeconds / 60);
+  if (diffInMinutes < 60) return `${diffInMinutes}m ago`;
+  const diffInHours = Math.floor(diffInMinutes / 60);
+  if (diffInHours < 24) return `${diffInHours}h ago`;
+  const diffInDays = Math.floor(diffInHours / 24);
+  if (diffInDays < 7) return `${diffInDays}d ago`;
+  const diffInWeeks = Math.floor(diffInDays / 7);
+  if (diffInWeeks < 4) return `${diffInWeeks}w ago`;
+  const diffInMonths = Math.floor(diffInDays / 30);
+  if (diffInMonths < 12) return `${diffInMonths}mo ago`;
+  const diffInYears = Math.floor(diffInDays / 365);
+  return `${diffInYears}y ago`;
+}
+
 function dueBadge(d){
   if (!d.dueDate) return '';
   const now = new Date();
@@ -823,28 +843,18 @@ async function renderGreeting(){
 function positionMenuNearButton(menuEl, buttonEl){
   // Get button rect relative to viewport
   const r = buttonEl.getBoundingClientRect();
-  const menuRect = menuEl.getBoundingClientRect();
   const margin = 8;
-  let top = r.bottom + margin;
-  let left = r.right - menuRect.width; // align right edges
+  
+  // Use offsetWidth/Height to get size regardless of transforms
+  const menuW = menuEl.offsetWidth || 200;
+  const menuH = menuEl.offsetHeight || 160;
 
-  // Lazy measure if hidden
-  if (menuEl.hidden){
-    menuEl.style.visibility = 'hidden';
-    menuEl.hidden = false;
-    const m2 = menuEl.getBoundingClientRect();
-    menuEl.hidden = true;
-    menuEl.style.visibility = '';
-    // Use measured width/height
-    left = r.right - m2.width;
-  }
+  let top = r.bottom + margin;
+  let left = r.right - menuW; // align right edges
 
   // Clamp within viewport
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  // Recompute height if needed
-  const menuW = menuEl.offsetWidth || 180;
-  const menuH = menuEl.offsetHeight || 160;
 
   if (left + menuW > vw - margin) left = vw - margin - menuW;
   if (left < margin) left = margin;
@@ -947,9 +957,20 @@ function createDocCard(doc){
     location.href = targetHref;
   });
   
-  node.querySelector('.title').textContent = doc.title || 'Untitled';
-  node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
-  node.querySelector('.due').innerHTML = dueBadge(doc);
+  const isListMode = document.getElementById('docGrid').classList.contains('list-mode');
+  const meta = node.querySelector('.meta');
+  if (isListMode) {
+    meta.innerHTML = `
+      <strong class="title">${doc.title || 'Untitled'}</strong>
+      <span class="type">${(doc.type||'document').replace(/^./, c=>c.toUpperCase())}</span>
+      <span class="edited-time">${doc.updatedAt ? timeAgo(doc.updatedAt) : ''}</span>
+      <span class="due">${dueBadge(doc)}</span>
+    `;
+  } else {
+    node.querySelector('.title').textContent = doc.title || 'Untitled';
+    node.querySelector('.type').textContent = (doc.type||'document').replace(/^./, c=>c.toUpperCase());
+    node.querySelector('.due').innerHTML = dueBadge(doc);
+  }
   
   // Immediate preview for gallery: pinned image or random non-spoiler/non-locked fallback
   if (doc.type === 'gallery') {
@@ -1002,8 +1023,20 @@ function createDocCard(doc){
 
   function open(){
     closeAllMenus(menu);
-    menu.hidden = false;
+    
+    // Fix: Move to body to avoid transform issues from parent card
+    if (menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+    
+    // Position it first while hidden to get dimensions
     positionMenuNearButton(menu, moreBtn);
+    
+    // Use requestAnimationFrame to ensure the transition from hidden state triggers
+    requestAnimationFrame(() => {
+      menu.hidden = false;
+    });
+
     window.addEventListener('resize', onWindowChange);
     window.addEventListener('scroll', onWindowChange, true);
   }
@@ -1225,10 +1258,21 @@ function createFolderCard(folder) {
   
   const meta = document.createElement('div');
   meta.className = 'meta';
-  meta.innerHTML = `
-    <strong class="title">${folder.name || 'Untitled Folder'}</strong>
-    <span class="type">Folder</span>
-  `;
+  
+  const isListMode = document.getElementById('docGrid').classList.contains('list-mode');
+  if (isListMode) {
+    meta.innerHTML = `
+      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <span class="type">Folder</span>
+      <span class="edited-time">${folder.updatedAt ? timeAgo(folder.updatedAt) : ''}</span>
+      <span class="due"></span>
+    `;
+  } else {
+    meta.innerHTML = `
+      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <span class="type">Folder</span>
+    `;
+  }
   
   link.appendChild(thumb);
   link.appendChild(meta);
@@ -1264,8 +1308,20 @@ function createFolderCard(folder) {
   // Menu handlers
   function open() {
     closeAllMenus(menu);
-    menu.hidden = false;
+    
+    // Fix: Move to body to avoid transform issues from parent card
+    if (menu.parentElement !== document.body) {
+      document.body.appendChild(menu);
+    }
+    
+    // Position it first while hidden to get dimensions
     positionMenuNearButton(menu, moreBtn);
+    
+    // Use requestAnimationFrame to ensure the transition from hidden state triggers
+    requestAnimationFrame(() => {
+      menu.hidden = false;
+    });
+
     window.addEventListener('resize', onWindowChange);
     window.addEventListener('scroll', onWindowChange, true);
   }
@@ -1387,6 +1443,19 @@ async function renderDocs(){
   const grid = document.getElementById('docGrid');
   const term = document.getElementById('search').value;
   
+  // Apply view mode
+  const viewMode = await getSetting('viewMode', 'grid');
+  grid.classList.toggle('list-mode', viewMode === 'list');
+  const viewModeBtn = document.getElementById('viewModeBtn');
+  if (viewModeBtn) {
+    const icon = viewModeBtn.querySelector('.material-symbols-outlined');
+    if (icon) icon.textContent = viewMode === 'list' ? 'grid_view' : 'view_list';
+    viewModeBtn.title = viewMode === 'list' ? 'Switch to Grid View' : 'Switch to List Mode';
+  }
+
+  // Clean up any detached dropdown menus from body before re-rendering
+  document.querySelectorAll('body > .dropdown-menu').forEach(m => m.remove());
+
   // Get folders and documents
   const folders = await listFolders({ parentId: currentFolderId });
   const allDocs = await listDocuments({ search: term });
@@ -1873,6 +1942,20 @@ async function migrateListsAndDeleteBoards() {
   }
 }
 
+async function setupViewModeToggle() {
+  const viewModeBtn = document.getElementById('viewModeBtn');
+  if (!viewModeBtn) return;
+
+  viewModeBtn.addEventListener('click', async () => {
+    const docGrid = document.getElementById('docGrid');
+    const isListMode = docGrid.classList.contains('list-mode');
+    const newMode = isListMode ? 'grid' : 'list';
+    
+    await setSetting('viewMode', newMode);
+    await renderDocs();
+  });
+}
+
 // Initialize everything when DOM is ready
 async function initialize() {
   await migrateListsAndDeleteBoards();
@@ -1882,7 +1965,7 @@ async function initialize() {
   bindSearch();
   setupDragAndDrop();
   await setupDeadlinesToggle();
-  await initAiCommandBar();
+  await setupViewModeToggle();
   setupTemplatesModal();
   setupFolderModal();
   setupMoveToFolderModal();
