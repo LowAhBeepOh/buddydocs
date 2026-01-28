@@ -1,0 +1,69 @@
+<html>
+<head>
+<title>chihuahuaspin but in buddy docs</title>
+</head>
+<body>
+<br>
+<center>
+  <div style="position: relative; width: 200px">
+    <img src="spin.gif">
+    <div id="popup" style="position: absolute; top: 12px; right: 2px; width: 80px; background-color: rgb(170, 170, 170); color: rgb(255, 0, 0); padding: 5px; display: none;">
+      You are officially Ethan :-)
+    </div>
+  </div>
+</center>
+<br>
+<center>
+  <big>You have sat through <span id="spin">0 spins</span>!</big>
+</center>
+<script>
+var spins = 0;
+var popup = document.getElementById("popup");
+var spinText = document.getElementById("spin");
+
+function showPopup(message, duration) {
+  popup.textContent = message;
+  popup.style.display = "block";
+  setTimeout(function() {
+    popup.style.display = "none";
+  }, duration);
+}
+
+setInterval(function () {
+  spins = spins + 1;
+  spinText.textContent = spins + " spin" + (spins != 1 ? "s" : "");
+  
+  if (spins == 10) {
+    showPopup("You are officially Ethan :-)", 7000);
+  }
+  else if (spins == 67) {
+    showPopup("gulp not THAT number", 6000);
+  }
+  else if (spins == 213) {
+    showPopup("you are officially 2026 loabeepo", 7000);
+  }
+  else if (spins == 515) {
+    showPopup("you are officially 2017 loabeepo", 7000);
+  }
+  else if (spins == 420) {
+    showPopup("nice.", 5000);
+  }
+  else if (spins == 777) {
+    showPopup("JACKPOT!!! wait this isn't a casino", 8000);
+  }
+  else if (spins >= 1000 && spins <= 2000) {
+    if (spins == 1000 || spins == 1111 || spins == 1337 || spins == 1500 || spins == 1999 || spins == 2000) {
+      showPopup("LEAVE omd", 5000);
+    }
+  }
+  else if (spins == 2001) {
+    showPopup("ok you can stay actually", 6000);
+  }
+  else if (spins == 3000) {
+    showPopup("are you okay? blink twice if you need help", 8000);
+  }
+  
+}, 4205);
+</script>
+</body>
+</html>
