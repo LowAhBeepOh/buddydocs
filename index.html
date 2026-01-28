@@ -34,9 +34,10 @@
       <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs logo" />
     </div>
     
-    <div class="search-container">
+    <div class="search-container" id="searchContainer">
       <span class="material-symbols-outlined search-icon">search</span>
-      <input id="search" class="search-input" type="search" placeholder="Search documents" />
+      <input id="search" class="search-input" type="search" placeholder="Search documents" autocomplete="off" />
+      <button id="mobileSearchBtn" class="icon-btn mobile-only" title="Search"><span class="material-symbols-outlined">search</span></button>
     </div>
     
     <div class="right">
@@ -49,6 +50,17 @@
       </div>
     </div>
   </header>
+
+  <div id="searchView" class="search-view" hidden>
+    <div class="search-view-header">
+      <button id="closeSearchBtn" class="icon-btn" title="Back"><span class="material-symbols-outlined">arrow_back</span></button>
+      <input id="mobileSearchInput" class="search-input" type="search" placeholder="Search documents" autocomplete="off" />
+      <button id="clearSearchBtn" class="icon-btn" title="Clear" hidden><span class="material-symbols-outlined">close</span></button>
+    </div>
+    <div id="searchSuggestions" class="search-suggestions">
+      <!-- Recent searches or suggestions could go here -->
+    </div>
+  </div>
 
   <main class="container">
     <section class="greeting">
@@ -512,7 +524,7 @@
     }
   </script>
   <script type="module">
-    import { setSetting, getSetting } from './data/js/idb.js';
+    import { setSetting, getSetting, listDocuments, saveDocument } from './data/js/idb.js';
 
     const btn = document.getElementById('profileBtn');
     const menu = document.getElementById('profileMenu');
@@ -555,6 +567,154 @@
         window.addEventListener('scroll', closeMenu, true);
       } else {
         closeMenu();
+      }
+    });
+
+    // M3 Search View Logic
+    const searchView = document.getElementById('searchView');
+    const mobileSearchBtn = document.getElementById('mobileSearchBtn');
+    const closeSearchBtn = document.getElementById('closeSearchBtn');
+    const mobileSearchInput = document.getElementById('mobileSearchInput');
+    const mainSearchInput = document.getElementById('search');
+    const clearSearchBtn = document.getElementById('clearSearchBtn');
+
+    const searchSuggestions = document.getElementById('searchSuggestions');
+
+    async function requireAuth(){
+      const secretSet = await getSetting('secretSet', false);
+      if (!secretSet) return true;
+      const usePin = await getSetting('usePin', false);
+      const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
+      if (input == null) return false;
+      try {
+        const saltStr = await getSetting('secretSalt', '');
+        const stored = await getSetting('secretHash', '');
+        
+        if (saltStr && saltStr.length > 0) {
+          const { scrypt } = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
+          const enc = new TextEncoder();
+          const passwordBytes = enc.encode(input);
+          const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
+          
+          for (const N of [2048, 4096, 16384]) {
+            const r = 8, p = 1, dkLen = 32;
+            const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
+            const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
+            if (stored && hashHex === stored) return true;
+          }
+          return false;
+        } else {
+          const enc = new TextEncoder();
+          const data = enc.encode(input);
+          const digest = await crypto.subtle.digest('SHA-256', data);
+          const bytes = Array.from(new Uint8Array(digest));
+          const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
+          return stored && hashHex === stored;
+        }
+      } catch {
+        return false;
+      }
+    }
+
+    async function performSearch(term) {
+      if (!term) {
+        searchSuggestions.innerHTML = '<div class="search-empty">Type to search your documents</div>';
+        return;
+      }
+
+      const docs = await listDocuments({ search: term });
+      if (docs.length === 0) {
+        searchSuggestions.innerHTML = '<div class="search-empty">No documents found</div>';
+        return;
+      }
+
+      searchSuggestions.innerHTML = '';
+      docs.slice(0, 10).forEach(doc => {
+        const item = document.createElement('div');
+        item.className = 'search-result-item';
+        
+        // Thumbnail logic
+        let thumbContent = '';
+        if (doc.type === 'gallery') {
+          const src = pickRandomGalleryImage(doc);
+          if (src) thumbContent = `<div class="search-result-thumb ${doc.locked ? 'locked' : ''}"><img src="${src}" alt=""></div>`;
+          else thumbContent = `<span class="material-symbols-outlined">photo_library</span>`;
+        } else if (doc.type === 'presentation') {
+          thumbContent = `<span class="material-symbols-outlined">slideshow</span>`;
+        } else {
+          thumbContent = `<span class="material-symbols-outlined">description</span>`;
+        }
+
+        item.innerHTML = `
+          ${thumbContent}
+          <div class="search-result-info">
+            <div class="search-result-title">${doc.title || 'Untitled'}</div>
+            <div class="search-result-meta">${(doc.type || 'document').charAt(0).toUpperCase() + (doc.type || 'document').slice(1)}</div>
+          </div>
+        `;
+
+        item.addEventListener('click', async () => {
+          if (doc.locked) {
+            const ok = await requireAuth();
+            if (!ok) return;
+          }
+          
+          let targetHref;
+          if (doc.type === 'gallery') targetHref = `gallery.html?id=${encodeURIComponent(doc.id)}`;
+          else if (doc.type === 'presentation') targetHref = `slides.html?id=${encodeURIComponent(doc.id)}`;
+          else targetHref = `editor.html?id=${encodeURIComponent(doc.id)}`;
+          location.href = targetHref;
+        });
+        searchSuggestions.appendChild(item);
+      });
+    }
+
+    function openSearchView() {
+      searchView.hidden = false;
+      mobileSearchInput.value = mainSearchInput.value;
+      setTimeout(() => mobileSearchInput.focus(), 100);
+      document.body.style.overflow = 'hidden';
+      updateClearButton();
+      performSearch(mobileSearchInput.value);
+    }
+
+    function closeSearchView() {
+      searchView.hidden = true;
+      document.body.style.overflow = '';
+    }
+
+    function updateClearButton() {
+      if (mobileSearchInput.value.length > 0) {
+        clearSearchBtn.hidden = false;
+      } else {
+        clearSearchBtn.hidden = true;
+      }
+    }
+
+    mobileSearchBtn?.addEventListener('click', openSearchView);
+    closeSearchBtn?.addEventListener('click', closeSearchView);
+    
+    mobileSearchInput?.addEventListener('input', (e) => {
+      const term = e.target.value;
+      mainSearchInput.value = term;
+      mainSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      updateClearButton();
+      performSearch(term);
+    });
+
+    clearSearchBtn?.addEventListener('click', () => {
+      mobileSearchInput.value = '';
+      mainSearchInput.value = '';
+      mainSearchInput.dispatchEvent(new Event('input', { bubbles: true }));
+      mobileSearchInput.focus();
+      updateClearButton();
+    });
+
+    // Sync back from main search if needed (e.g. easter eggs)
+    mainSearchInput?.addEventListener('input', (e) => {
+      if (!searchView.hidden) {
+        mobileSearchInput.value = e.target.value;
+        updateClearButton();
       }
     });
 

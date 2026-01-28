@@ -8,6 +8,75 @@
   gap: 8px;
 }
 
+.deadline-list {
+  list-style: none;
+  padding: 0;
+  margin: 16px 0;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.deadline-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 12px 16px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  transition: all var(--speed-normal) var(--ease-spring);
+  cursor: pointer;
+  box-shadow: var(--shadow-1);
+}
+
+.deadline-item:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow: var(--shadow-2);
+  border-color: var(--primary);
+  background: color-mix(in hsl, var(--primary) 2%, var(--surface));
+}
+
+.deadline-item:active {
+  transform: scale(0.98);
+}
+
+.deadline-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.deadline-icon {
+  color: var(--primary);
+  font-size: 24px;
+  background: color-mix(in hsl, var(--primary) 10%, var(--surface));
+  padding: 8px;
+  border-radius: 12px;
+}
+
+.deadline-text {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.deadline-title {
+  font-size: 15px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.deadline-date {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.deadline-meta {
+  display: flex;
+  align-items: center;
+}
+
 .icon-btn {
   background: none;
   border: none;
@@ -118,28 +187,203 @@
   color: var(--text);
   font-family: var(--bd-font-family);
   padding: 8px 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.search-input::-webkit-search-decoration,
+.search-input::-webkit-search-cancel-button,
+.search-input::-webkit-search-results-button,
+.search-input::-webkit-search-results-decoration {
+  display: none;
 }
 
 .search-input::placeholder {
   color: var(--muted);
 }
 
+.mobile-only {
+  display: none !important;
+}
+
 @media (max-width: 768px) {
+  .mobile-only {
+    display: inline-flex !important;
+  }
+
   .topbar {
     grid-template-columns: auto 1fr auto;
     gap: 8px;
-    padding: 8px !important;
+    padding: 8px 12px !important;
+    height: 64px;
+    align-items: center;
   }
   
   .search-container {
-    margin: 0 8px;
-    height: 40px;
+    margin: 0;
+    height: 44px;
+    background: transparent;
+    border: none;
+    padding: 0;
+    justify-content: flex-end;
   }
-  
+
+  .search-container:hover, .search-container:focus-within {
+    background: transparent;
+    box-shadow: none;
+    border: none;
+  }
+
+  .search-container .search-icon, 
+  .search-container .search-input {
+    display: none;
+  }
+
   .logo {
-    width: 32px;
-    height: 32px;
+    width: 36px;
+    height: 36px;
   }
+
+  .avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 14px;
+  }
+}
+
+/* M3 Search View */
+.search-view {
+  position: fixed;
+  inset: 0;
+  background: var(--bg);
+  z-index: 3000;
+  display: flex;
+  flex-direction: column;
+  opacity: 0;
+  visibility: hidden;
+  transform: translateY(-10px);
+  transition: all var(--speed-normal) var(--ease-out-expo);
+}
+
+.search-view:not([hidden]) {
+  opacity: 1;
+  visibility: visible;
+  transform: translateY(0);
+  display: flex !important;
+}
+
+.search-view-header {
+  display: flex;
+  align-items: center;
+  padding: 8px 16px;
+  height: 64px;
+  gap: 12px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+
+.search-view-header .search-input {
+  flex: 1;
+  font-size: 18px;
+  padding: 12px 0;
+}
+
+.search-suggestions {
+  flex: 1;
+  padding: 8px 0;
+  overflow-y: auto;
+}
+
+.search-result-item {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 24px;
+  cursor: pointer;
+  transition: background var(--speed-fast) var(--ease-out-expo);
+}
+
+.search-result-item:hover {
+  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
+}
+
+.search-result-item .material-symbols-outlined,
+.search-result-thumb {
+  width: 40px;
+  height: 40px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: color-mix(in hsl, var(--bg) 80%, var(--surface));
+  color: var(--muted);
+  font-size: 24px;
+  flex-shrink: 0;
+  overflow: hidden;
+}
+
+.search-result-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.search-result-thumb.locked {
+  filter: blur(4px);
+  position: relative;
+}
+
+.search-result-thumb.locked::after {
+  content: 'lock';
+  font-family: 'Material Symbols Outlined';
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0,0,0,0.2);
+  color: white;
+  font-size: 18px;
+}
+
+.search-result-info {
+  display: flex;
+  flex-direction: column;
+}
+
+.search-result-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text);
+}
+
+.search-result-meta {
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.search-empty {
+  padding: 32px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 14px;
+}
+
+/* Animations */
+@keyframes slideUpFade {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.menu.open {
+  display: block !important;
+  animation: slideUpFade var(--speed-normal) var(--ease-spring);
 }
 
 /* Modal overlay styles (used by Templates modal) */

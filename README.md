@@ -35,3 +35,17 @@ Update 7th August 2025: The remake is very close to being made, so that the rema
 If there's a "dev" branch, write in that instead of "main".
 
 I typically use "main" as the GitHub Pages, and "dev" for actual coding. I will fix my naming soon okay? Thanks-
+
+## Folder structure
+
+- `index.html`: the main page of the app. (main page)
+- `editor.html`: the main document editor.
+- `slides.html`: the presentation/slides editor.
+- `gallery.html`: the image gallery collector.
+- `calendar.html`: the calendar view for deadlines.
+- `settings.html`: the settings page.
+- `archive.html`: the archive for documents.
+- `onboarding.html`: the onboarding page for new users.
+- `oauth2callback.html`: for Google Drive integration.
+- `r`: "redir"/"specials" folder for redirects and special event pages.
+- `data`: contains all the assets, css and js files.

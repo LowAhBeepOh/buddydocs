@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="nb">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Buddy Dokumenter - Velkommen</title>
+    <link rel="icon" href="../data/assets/docslogo.svg" type="image/svg+xml">
+    
+    <!-- Google Fonts & Material Icons -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+    
+    <link rel="stylesheet" href="../data/css/base.css">
+    <style>
+        :root {
+            --m3-primary: #0550FF;
+            --m3-on-primary: #ffffff;
+            --m3-surface: #ffffff;
+            --m3-on-surface: #110F17;
+            --m3-surface-variant: #E6E4F4;
+            --m3-on-surface-variant: #44474E;
+            --m3-outline: #74777F;
+            --m3-error: #BA1A1A;
+        }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: var(--bd-font-family);
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+            opacity: 0;
+            transition: opacity 0.5s ease;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body.loaded {
+            opacity: 1;
+        }
+
+        .header {
+            padding: 12px 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: var(--surface);
+            border-bottom: 1px solid var(--border);
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .logo-container {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .logo {
+            width: 28px;
+            height: 28px;
+        }
+
+        .logo-text {
+            font-weight: 600;
+            font-size: 18px;
+            letter-spacing: -0.2px;
+        }
+
+        .lang-toggle {
+            background: var(--gray);
+            padding: 4px 12px;
+            border-radius: 20px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            cursor: pointer;
+            transition: all var(--speed-fast) var(--ease-out-expo);
+            user-select: none;
+            border: 1px solid transparent;
+        }
+
+        .lang-toggle:hover {
+            background: var(--surface);
+            border-color: var(--border);
+            box-shadow: var(--shadow-1);
+        }
+
+        .lang-code {
+            font-size: 13px;
+            font-weight: 800;
+            color: var(--m3-primary);
+        }
+
+        .flag-icon {
+            width: 24px;
+            height: 16px;
+            border-radius: 3px;
+            display: block;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.15);
+        }
+
+        main {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 24px 16px;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+            box-sizing: border-box;
+            gap: 24px;
+        }
+
+        .hero-section {
+            text-align: center;
+            padding: 24px 0;
+            animation: fadeInDown 0.8s var(--ease-spring);
+        }
+
+        @keyframes fadeInDown {
+            from { transform: translateY(-20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        h1 {
+            font-size: 32px;
+            font-weight: 700;
+            margin: 0 0 12px 0;
+            color: var(--text);
+            letter-spacing: -0.5px;
+        }
+
+        .thanks-msg {
+            font-size: 16px;
+            color: var(--muted);
+            line-height: 1.5;
+            margin: 0;
+        }
+
+        .intro-msg {
+            font-size: 15px;
+            color: var(--muted);
+            line-height: 1.6;
+            margin: 16px 0 0 0;
+            font-weight: 500;
+        }
+
+        .try-out-msg {
+            font-size: 16px;
+            color: var(--m3-primary);
+            line-height: 1.5;
+            margin: 12px 0 0 0;
+            font-weight: 700;
+            background: color-mix(in hsl, var(--m3-primary) 8%, transparent);
+            padding: 8px 16px;
+            border-radius: 12px;
+            display: inline-block;
+        }
+
+        .card {
+            background: var(--surface);
+            padding: 24px;
+            border-radius: 28px;
+            border: 1px solid var(--border);
+            transition: transform 0.3s var(--ease-spring);
+            display: flex;
+            flex-direction: column;
+            align-items: stretch;
+            gap: 20px;
+        }
+
+        .wip-disclaimer {
+            background: color-mix(in hsl, #eb0c26 14%, #ffffff);
+            border: 1px dashed #eb0c26;
+            flex-direction: row;
+            align-items: flex-start;
+            gap: 16px;
+            padding: 20px;
+            font-weight: 600;
+        }
+
+        .wip-icon {
+            color: #eb0c26;
+            font-variation-settings: 'FILL' 1;
+        }
+
+        .wip-text {
+            font-size: 14px;
+            line-height: 1.5;
+            color: var(--text);
+        }
+
+        .card h2 {
+            margin: 0;
+            width: 100%;
+        }
+
+        .capabilities h2 {
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-weight: 600;
+        }
+
+        .cap-list {
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+        }
+
+        .cap-item {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px;
+            background: var(--bg);
+            border-radius: 20px;
+            border: 1px solid transparent;
+            transition: all 0.2s ease;
+        }
+
+        .cap-item:hover {
+            border-color: var(--border);
+            background: var(--surface);
+        }
+
+        .cap-icon {
+            color: var(--m3-primary);
+            font-size: 24px;
+            background: var(--surface);
+            padding: 10px;
+            border-radius: 14px;
+            box-shadow: var(--shadow-1);
+        }
+
+        .cap-text {
+            font-size: 15px;
+            font-weight: 500;
+        }
+
+        .socials-section h2 {
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .social-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 12px;
+        }
+
+        .social-btn {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 16px;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 20px;
+            text-decoration: none;
+            color: var(--text);
+            gap: 8px;
+            transition: all 0.2s var(--ease-out-expo);
+        }
+
+        .social-btn:hover {
+            background: var(--gray);
+            transform: translateY(-2px);
+        }
+
+        .social-btn span {
+            font-size: 13px;
+            font-weight: 600;
+        }
+
+        .social-icon {
+            width: 24px;
+            height: 24px;
+        }
+
+        .cta-container {
+            position: sticky;
+            bottom: 24px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 12px;
+            pointer-events: none;
+        }
+
+        .no-lang-note {
+            font-size: 12px;
+            color: var(--muted);
+            background: rgba(255, 255, 255, 0.9);
+            padding: 4px 12px;
+            border-radius: 12px;
+            backdrop-filter: blur(8px);
+            font-weight: 500;
+            text-align: center;
+            max-width: 80%;
+            box-shadow: var(--shadow-1);
+        }
+
+        .cta-button {
+            pointer-events: auto;
+            background: var(--m3-primary);
+            color: white;
+            border: none;
+            padding: 18px 48px;
+            border-radius: 20px;
+            font-size: 16px;
+            font-weight: 700;
+            cursor: pointer;
+            transition: all 0.3s var(--ease-spring);
+            text-decoration: none;
+            box-shadow: var(--shadow-3);
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .cta-button:hover {
+            transform: scale(1.05) translateY(-4px);
+            box-shadow: var(--shadow-4);
+            filter: brightness(1.1);
+        }
+
+        .cta-button:active {
+            transform: scale(0.95);
+        }
+
+        .footer {
+            padding: 48px 24px 100px 24px;
+            text-align: center;
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        [hidden] {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <header class="header">
+        <div class="logo-container">
+            <img src="../data/assets/docslogo.svg" alt="Buddy Docs" class="logo">
+            <span class="logo-text">Buddy Dokumenter</span>
+        </div>
+        <div class="lang-toggle" onclick="cycleLang()" id="lang-toggle" title="Switch language">
+            <span class="lang-code" id="current-lang-code">NN</span>
+            <div id="current-flag-container">
+                <svg class="flag-icon" viewBox="0 0 22 16"><rect width="22" height="16" fill="#ba0c2f"/><path d="M0 8h22M8 0v16" stroke="#fff" stroke-width="4"/><path d="M0 8h22M8 0v16" stroke="#00205b" stroke-width="2"/></svg>
+            </div>
+        </div>
+    </header>
+
+    <main id="content" hidden>
+        <section class="hero-section">
+            <h1 id="title">Velkommen!</h1>
+            <p class="thanks-msg" id="thanks">Takk for at du prøver ut Buddy Dokumenter!</p>
+            <p class="intro-msg" id="intro">Buddy Dokumenter er en gratis og lokal dokumentredigerer akkurat som Google Dokumenter / Word, som er optimalisert og tilpasset til elever, laget av elever.</p>
+            <p class="try-out-msg" id="try-out">Prøv det ut for et lite øyeblikk etter Grand Prix er ferdig, det er ingen hast!</p>
+        </section>
+
+        <div class="card wip-disclaimer">
+            <span class="material-symbols-outlined wip-icon">warning</span>
+            <div class="wip-text" id="wip">Vennligst merk at dette er en nettside under utvikling. Ting kan endre seg, forbedres eller inneholde feil.</div>
+        </div>
+        
+        <section class="card capabilities">
+            <h2 id="cap-title"><span class="material-symbols-outlined">explore</span> Hva du kan gjøre:</h2>
+            <div class="cap-list">
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">edit_note</span>
+                    <span class="cap-text" id="cap-1">Opprette og redigere dokumenter</span>
+                </div>
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">database</span>
+                    <span class="cap-text" id="cap-2">Lagre filer lokalt i nettleseren</span>
+                </div>
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">calendar_month</span>
+                    <span class="cap-text" id="cap-3">Holde oversikt over frister</span>
+                </div>
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">slideshow</span>
+                    <span class="cap-text" id="cap-4">Lage presentasjoner (Beta)</span>
+                </div>
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">palette</span>
+                    <span class="cap-text" id="cap-5">Tilpasse med ulike temaer</span>
+                </div>
+                <div class="cap-item">
+                    <span class="material-symbols-outlined cap-icon">photo_library</span>
+                    <span class="cap-text" id="cap-6">Organisere bilder i galleri</span>
+                </div>
+            </div>
+        </section>
+
+        <section class="card socials-section">
+            <h2 id="social-title">Kontakt & Sosiale medier</h2>
+            <div class="social-grid">
+                <a href="mailto:flexnorway.buddy@gmail.com" class="social-btn">
+                    <svg class="social-icon" viewBox="0 0 24 24"><path fill="currentColor" d="M20,4H4C2.9,4,2,4.9,2,6v12c0,1.1,0.9,2,2,2h16c1.1,0,2-0.9,2-2V6C22,4.9,21.1,4,20,4z M20,18H4V8l8,5l8-5V18z M12,11L4,6h16L12,11z"/></svg>
+                    <span>E-post</span>
+                </a>
+                <a href="https://discord.gg/HWD67d8NsH" target="_blank" rel="noopener noreferrer" class="social-btn">
+                    <svg class="social-icon" viewBox="0 0 255 255"><path fill="currentColor" d="M216.856339,16.5966031 C200.285002,8.84328665 182.566144,3.2084988 164.041564,0 C161.766523,4.11318106 159.108624,9.64549908 157.276099,14.0464379 C137.583995,11.0849896 118.072967,11.0849896 98.7430163,14.0464379 C96.9108417,9.64549908 94.1925838,4.11318106 91.8971895,0 C73.3526068,3.2084988 55.6133949,8.86399117 39.0420583,16.6376612 C5.61752293,67.146514 -3.4433191,116.400813 1.08711069,164.955721 C23.2560196,181.510915 44.7403634,191.567697 65.8621325,198.148576 C71.0772151,190.971126 75.7283628,183.341335 79.7352139,175.300261 C72.104019,172.400575 64.7949724,168.822202 57.8887866,164.667963 C59.7209612,163.310589 61.5131304,161.891452 63.2445898,160.431257 C105.36741,180.133187 151.134928,180.133187 192.754523,160.431257 C194.506336,161.891452 196.298154,163.310589 198.110326,164.667963 C191.183787,168.842556 183.854737,172.420929 176.223542,175.320965 C180.230393,183.341335 184.861538,190.991831 190.096624,198.16893 C211.238746,191.588051 232.743023,181.531619 254.911949,164.955721 C260.227747,108.668201 245.831087,59.8662432 216.856339,16.5966031 Z M85.4738752,135.09489 C72.8290281,135.09489 62.4592217,123.290155 62.4592217,108.914901 C62.4592217,94.5396472 72.607595,82.7145587 85.4738752,82.7145587 C98.3405064,82.7145587 108.709962,94.5189427 108.488529,108.914901 C108.508531,123.290155 98.3405064,135.09489 85.4738752,135.09489 Z M170.525237,135.09489 C157.88039,135.09489 147.510584,123.290155 147.510584,108.914901 C147.510584,94.5396472 157.658606,82.7145587 170.525237,82.7145587 C183.391518,82.7145587 193.761324,94.5189427 193.539891,108.914901 C193.539891,123.290155 183.391518,135.09489 170.525237,135.09489 Z"/></svg>
+                    <span>Discord</span>
+                </a>
+                <a href="https://www.tiktok.com/@buddywithapps" target="_blank" rel="noopener noreferrer" class="social-btn">
+                    <svg class="social-icon" viewBox="0 0 512 512"><path fill="currentColor" d="M412.19,118.66a109.27,109.27,0,0,1-9.45-5.5,132.87,132.87,0,0,1-24.27-20.62c-18.1-20.71-24.86-41.72-27.35-56.43h.1C349.14,23.9,350,16,350.13,16H267.69V334.78c0,4.28,0,8.51-.18,12.69,0,.52-.05,1-.08,1.56,0,.23,0,.47-.05.71,0,.06,0,.12,0,.18a70,70,0,0,1-35.22,55.56,68.8,68.8,0,0,1-34.11,9c-38.41,0-69.54-31.32-69.54-70s31.13-70,69.54-70a68.9,68.9,0,0,1,21.41,3.39l.1-83.94a153.14,153.14,0,0,0-118,34.52,161.79,161.79,0,0,0-35.3,43.53c-3.48,6-16.61,30.11-18.2,69.24-1,22.21,5.67,45.22,8.85,54.73v.2c2,5.6,9.75,24.71,22.38,40.82A167.53,167.53,0,0,0,115,470.66v-.2l.2.2C155.11,497.78,199.36,496,199.36,496c7.66-.31,33.32,0,62.46-13.81,32.32-15.31,50.72-38.12,50.72-38.12a158.46,158.46,0,0,0,27.64-45.93c7.46-19.61,9.95-43.13,9.95-52.53V176.49c1,.6,14.32,9.41,14.32,9.41s19.19,12.3,49.13,20.31c21.48,5.7,50.42,6.9,50.42,6.9V131.27C453.86,132.37,433.27,129.17,412.19,118.66Z"/></svg>
+                    <span>TikTok</span>
+                </a>
+            </div>
+        </section>
+
+        <div class="cta-container">
+            <div class="no-lang-note" id="no-lang-note">Norsk er førebels ikkje eit språk i appen. Tilrådd å bruke for bærbare datamaskiner og PC-ar.</div>
+            <a href="../index.html" class="cta-button" id="cta">
+                <span id="cta-text">Start no</span>
+                <span class="material-symbols-outlined">arrow_forward</span>
+            </a>
+        </div>
+    </main>
+
+    <footer class="footer">
+        &copy; 2026 Buddy Docs
+    </footer>
+
+    <script>
+        const translations = {
+            nb: {
+                title: "Velkommen!",
+                thanks: "Takk for at du prøver ut Buddy Dokumenter!",
+                intro: "Buddy Dokumenter er en gratis og lokal dokumentredigerer akkurat som Google Dokumenter / Word, som er optimalisert og tilpasset til elever, laget av elever.",
+                tryOut: "Prøv det ut for et lite øyeblikk etter Grand Prix er ferdig, det er ingen hast!",
+                wip: "Vennligst merk at dette er en nettside under utvikling. Ting kan endre seg, forbedres eller inneholde feil.",
+                capTitle: "Hva du kan gjøre:",
+                cap1: "Opprette og redigere dokumenter",
+                cap2: "Lagre filer lokalt i nettleseren",
+                cap3: "Holde oversikt over frister",
+                cap4: "Lage presentasjoner (Beta)",
+                cap5: "Tilpasse med ulike temaer",
+                cap6: "Organisere bilder i galleri",
+                socialTitle: "Kontakt & Sosiale medier",
+                email: "E-post",
+                cta: "Start nå",
+                logo: "Buddy Dokumenter",
+                noLangNote: "Norsk er foreløpig ikke et språk i appen. Anbefalt å bruke for bærbare datamaskiner og PC-er."
+            },
+            nn: {
+                title: "Velkomen!",
+                thanks: "Takk for at du prøver ut Buddy Dokumenter!",
+                intro: "Buddy Dokumenter er ein gratis og lokal dokumentredigerer akkurat som Google Dokument / Word, som er optimalisert og tilpassa til elever, laga av elevar.",
+                tryOut: "Prøv det ut for et lite øyeblikk etter Grand Prix er ferdig, det er ingen hast!",
+                wip: "Ver venleg og merk at dette er ei nettside under utvikling. Ting kan endre seg, forbetrast eller innehalde feil.",
+                capTitle: "Kva du kan gjere:",
+                cap1: "Opprette og redigere dokument",
+                cap2: "Lagre filer lokalt i nettlesaren",
+                cap3: "Halde oversikt over fristar",
+                cap4: "Lage presentasjonar (Beta)",
+                cap5: "Tilpasse med ulike tema",
+                cap6: "Organisere bilete i galleri",
+                socialTitle: "Kontakt & Sosiale medium",
+                email: "E-post",
+                cta: "Start no",
+                logo: "Buddy Dokumenter",
+                noLangNote: "Norsk er førebels ikkje eit språk i appen. Tilrådd å bruke for bærbare datamaskiner og PC-ar."
+            },
+            en: {
+                title: "Welcome!",
+                thanks: "Thanks for trying out Buddy Docs!",
+                intro: "Buddy Docs is a free and local document editor just like Google Docs / Word, which is optimized and adjusted to pupils, made by pupils.",
+                tryOut: "Try it out after Grand Prix is finished, no stress!",
+                wip: "Please note that this website is still in progress. Features may change, improve, or contain bugs.",
+                capTitle: "What you can do:",
+                cap1: "Create and edit documents",
+                cap2: "Save files locally in your browser",
+                cap3: "Keep track of deadlines",
+                cap4: "Create presentations (Beta)",
+                cap5: "Customize with various themes",
+                cap6: "Organize images in a gallery",
+                socialTitle: "Contact & Social Media",
+                email: "Email",
+                cta: "Start now",
+                logo: "Buddy Docs",
+                noLangNote: "Norwegian is currently not a language in the app. Recommended to use for laptops and PCs."
+            }
+        };
+
+        const flags = {
+            nb: `<svg class="flag-icon" viewBox="0 0 22 16"><rect width="22" height="16" fill="#ba0c2f"/><path d="M0 8h22M8 0v16" stroke="#fff" stroke-width="4"/><path d="M0 8h22M8 0v16" stroke="#00205b" stroke-width="2"/></svg>`,
+            nn: `<svg class="flag-icon" viewBox="0 0 22 16"><rect width="22" height="16" fill="#ba0c2f"/><path d="M0 8h22M8 0v16" stroke="#fff" stroke-width="4"/><path d="M0 8h22M8 0v16" stroke="#00205b" stroke-width="2"/></svg>`,
+            en: `<svg class="flag-icon" viewBox="0 0 60 30"><clipPath id="s-en"><path d="M0,0 v30 h60 v-30 z"/></clipPath><path d="M0,0 v30 h60 v-30 z" fill="#012169"/><path d="M0,0 L60,30 M60,0 L0,30" stroke="#fff" stroke-width="6"/><path d="M0,0 L60,30 M60,0 L0,30" clip-path="url(#s-en)" stroke="#C8102E" stroke-width="4"/><path d="M30,0 v30 M0,15 h60" stroke="#fff" stroke-width="10"/><path d="M30,0 v30 M0,15 h60" stroke="#C8102E" stroke-width="6"/></svg>`
+        };
+
+        let currentLang = 'nn';
+
+        function cycleLang() {
+            const order = ['nn', 'nb', 'en'];
+            const nextIdx = (order.indexOf(currentLang) + 1) % order.length;
+            setLang(order[nextIdx]);
+        }
+
+        function setLang(lang) {
+            currentLang = lang;
+            const t = translations[lang];
+            document.getElementById('title').innerText = t.title;
+            document.getElementById('thanks').innerText = t.thanks;
+            document.getElementById('intro').innerText = t.intro;
+            document.getElementById('try-out').innerText = t.tryOut;
+            document.getElementById('wip').innerText = t.wip;
+            document.getElementById('no-lang-note').innerText = t.noLangNote;
+            document.getElementById('cap-title').innerHTML = `<span class="material-symbols-outlined">explore</span> ${t.capTitle}`;
+            document.getElementById('cap-1').innerText = t.cap1;
+            document.getElementById('cap-2').innerText = t.cap2;
+            document.getElementById('cap-3').innerText = t.cap3;
+            document.getElementById('cap-4').innerText = t.cap4;
+            document.getElementById('cap-5').innerText = t.cap5;
+            document.getElementById('cap-6').innerText = t.cap6;
+            document.getElementById('social-title').innerText = t.socialTitle;
+            document.querySelector('.social-btn span').innerText = t.email;
+            document.getElementById('cta-text').innerText = t.cta;
+            document.querySelector('.logo-text').innerText = t.logo;
+            document.documentElement.lang = lang;
+
+            // Update toggle UI
+            document.getElementById('current-lang-code').innerText = lang.toUpperCase();
+            document.getElementById('current-flag-container').innerHTML = flags[lang];
+            
+            localStorage.setItem('buddy-docs-r-lang', lang);
+        }
+
+        // URL parameter check
+        const urlParams = new URLSearchParams(window.location.search);
+        const rd = urlParams.get('rd');
+
+        if (rd === 'mgp') {
+            document.getElementById('content').hidden = false;
+            document.body.classList.add('loaded');
+            
+            // Initial language (default to NN if no saved preference)
+            const savedLang = localStorage.getItem('buddy-docs-r-lang') || 'nn';
+            setLang(savedLang);
+        } else {
+            // Redirect back to main app
+            window.location.href = '../index.html';
+        }
+    </script>
+</body>
+</html>

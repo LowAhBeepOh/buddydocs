@@ -1577,12 +1577,18 @@ async function renderDeadlines() {
   
   for (const { d } of items) {
     const li = document.createElement('li');
+    li.className = 'deadline-item';
     li.innerHTML = `
-      <div>
-        <strong>${d.title || 'Untitled'}</strong>
-        <div class="muted">${new Date(d.dueDate).toDateString()}</div>
+      <div class="deadline-info">
+        <span class="material-symbols-outlined deadline-icon">event</span>
+        <div class="deadline-text">
+          <strong class="deadline-title">${d.title || 'Untitled'}</strong>
+          <div class="deadline-date">${new Date(d.dueDate).toDateString()}</div>
+        </div>
       </div>
-      ${dueBadge(d)}
+      <div class="deadline-meta">
+        ${dueBadge(d)}
+      </div>
     `;
     ul.appendChild(li);
   }
