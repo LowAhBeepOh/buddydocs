@@ -12,23 +12,16 @@
 .welcome-content {
   display: flex;
   align-items: center;
-  gap: 64px;
-  max-width: 1200px;
+  justify-content: center;
+  max-width: 800px;
   width: 100%;
-}
-
-.welcome-left {
-  flex: 0 0 60%;
-  max-width: 60%;
-  display: flex;
-  flex-direction: column;
-  gap: 24px;
 }
 
 .welcome-text {
   width: 100%;
   background: transparent;
   padding: 20px 22px;
+  text-align: center;
 }
 
 .welcome-text h1 {
@@ -48,51 +41,19 @@
 
 .welcome-text .features {
   text-align: left;
+  display: inline-block;
   color: var(--text);
   font-size: 15px;
   line-height: 1.6;
   list-style: disc inside;
   padding-left: 0;
-  margin: 0;
+  margin: 0 auto;
 }
 
 .welcome-text .features li {
   margin: 6px 0;
 }
 
-.welcome-right {
-  flex: 0 0 40%;
-  max-width: 40%;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.welcome-image {
-  width: 100%;
-  max-width: 360px;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  object-fit: contain;
-  border-radius: 12px;
-}
-
-.welcome-image-placeholder {
-  width: 100%;
-  max-width: 360px;
-  height: auto;
-  aspect-ratio: 1 / 1;
-  background: linear-gradient(135deg, var(--primary), var(--secondary));
-  border-radius: 12px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 64px;
-  color: #fff;
-}
-
 @media (max-width: 900px) {
   .welcome-content { flex-direction: column; gap: 32px; }
-  .welcome-left, .welcome-right { flex: none; max-width: 100%; width: 100%; }
-  .welcome-image, .welcome-image-placeholder { max-width: 280px; }
 }

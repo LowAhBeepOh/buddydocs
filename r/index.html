@@ -13,6 +13,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
     
     <link rel="stylesheet" href="../data/css/base.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     <style>
         :root {
             --m3-primary: #0550FF;
@@ -437,7 +438,9 @@
         &copy; 2026 Buddy Docs
     </footer>
 
-    <script>
+    <script type="module">
+        import { tx, STORES, setSetting } from '../data/js/idb.js';
+
         const translations = {
             nb: {
                 title: "Velkommen!",
@@ -455,6 +458,7 @@
                 socialTitle: "Kontakt & Sosiale medier",
                 email: "E-post",
                 cta: "Start nå",
+                ctaImporting: "Importerer...",
                 logo: "Buddy Dokumenter",
                 noLangNote: "Norsk er foreløpig ikke et språk i appen. Anbefalt å bruke for bærbare datamaskiner og PC-er."
             },
@@ -474,6 +478,7 @@
                 socialTitle: "Kontakt & Sosiale medium",
                 email: "E-post",
                 cta: "Start no",
+                ctaImporting: "Importerer...",
                 logo: "Buddy Dokumenter",
                 noLangNote: "Norsk er førebels ikkje eit språk i appen. Tilrådd å bruke for bærbare datamaskiner og PC-ar."
             },
@@ -493,6 +498,7 @@
                 socialTitle: "Contact & Social Media",
                 email: "Email",
                 cta: "Start now",
+                ctaImporting: "Importing...",
                 logo: "Buddy Docs",
                 noLangNote: "Norwegian is currently not a language in the app. Recommended to use for laptops and PCs."
             }
@@ -506,7 +512,7 @@
 
         let currentLang = 'nn';
 
-        function cycleLang() {
+        window.cycleLang = function() {
             const order = ['nn', 'nb', 'en'];
             const nextIdx = (order.indexOf(currentLang) + 1) % order.length;
             setLang(order[nextIdx]);
@@ -541,6 +547,57 @@
             localStorage.setItem('buddy-docs-r-lang', lang);
         }
 
+        async function importData(storeName, data) {
+            const store = await tx(storeName, 'readwrite');
+            // We don't overwrite by default for MGP import to avoid losing user data, 
+            // but the user might want exclusive content to be added.
+            for (const record of data) {
+                await new Promise((resolve, reject) => {
+                    const r = store.put(record);
+                    r.onsuccess = () => resolve();
+                    r.onerror = () => reject(r.error);
+                });
+            }
+        }
+
+        async function handleMgpImport() {
+            const cta = document.getElementById('cta');
+            const ctaText = document.getElementById('cta-text');
+            const originalText = ctaText.innerText;
+            
+            try {
+                cta.style.pointerEvents = 'none';
+                cta.style.opacity = '0.7';
+                ctaText.innerText = translations[currentLang].ctaImporting;
+
+                const response = await fetch('../data/mgp_data.zip');
+                if (!response.ok) throw new Error('MGP data not found');
+
+                const blob = await response.blob();
+                const zip = await JSZip.loadAsync(blob);
+
+                for (const filename in zip.files) {
+                    const storeName = filename.replace('.json', '');
+                    if (Object.values(STORES).includes(storeName)) {
+                        const fileData = await zip.files[filename].async('string');
+                        const data = JSON.parse(fileData);
+                        await importData(storeName, data);
+                    }
+                }
+                
+                // Set a flag that MGP content was imported
+                localStorage.setItem('mgp_imported', 'true');
+                
+                // Mark onboarding as completed so they don't see it when they start
+                await setSetting('onboardingCompleted', true);
+            } catch (error) {
+                console.error('MGP Import failed:', error);
+                // We still proceed even if import fails, just don't show exclusive content
+            } finally {
+                window.location.href = '../index.html';
+            }
+        }
+
         // URL parameter check
         const urlParams = new URLSearchParams(window.location.search);
         const rd = urlParams.get('rd');
@@ -552,6 +609,12 @@
             // Initial language (default to NN if no saved preference)
             const savedLang = localStorage.getItem('buddy-docs-r-lang') || 'nn';
             setLang(savedLang);
+
+            // Add event listener for MGP import
+            document.getElementById('cta').addEventListener('click', (e) => {
+                e.preventDefault();
+                handleMgpImport();
+            });
         } else {
             // Redirect back to main app
             window.location.href = '../index.html';

@@ -601,9 +601,6 @@ function createWelcomeScreen() {
     const welcomeContent = document.createElement('div');
     welcomeContent.className = 'welcome-content';
 
-    const leftSide = document.createElement('div');
-    leftSide.className = 'welcome-left';
-
     const welcomeText = document.createElement('div');
     welcomeText.className = 'welcome-text';
     welcomeText.innerHTML = `
@@ -623,26 +620,7 @@ function createWelcomeScreen() {
         </ul>
     `;
 
-    const rightSide = document.createElement('div');
-    rightSide.className = 'welcome-right';
-
-    const welcomeImage = document.createElement('img');
-    welcomeImage.src = 'data/assets/welcomeCanvasImage.png';
-    welcomeImage.alt = 'Welcome to Buddy Docs';
-    welcomeImage.className = 'welcome-image';
-
-    welcomeImage.addEventListener('error', () => {
-        const placeholder = document.createElement('div');
-        placeholder.className = 'welcome-image-placeholder';
-        placeholder.textContent = '📚';
-        rightSide.replaceChild(placeholder, welcomeImage);
-    });
-
-    rightSide.appendChild(welcomeImage);
-
-    leftSide.appendChild(welcomeText);
-    welcomeContent.appendChild(leftSide);
-    welcomeContent.appendChild(rightSide);
+    welcomeContent.appendChild(welcomeText);
     welcomeContainer.appendChild(welcomeContent);
 
     // Instead of appending to grid, append to the documents section
@@ -1514,7 +1492,7 @@ async function renderDocs(){
 
 async function setupDeadlinesToggle() {
   const section = document.querySelector('.deadlines');
-  const toggleBtn = document.querySelector('.deadlines .toggle-btn');
+  const toggleBtn = document.getElementById('deadlinesToggle');
   
   if (!section || !toggleBtn) return;
   
@@ -1578,6 +1556,7 @@ async function renderDeadlines() {
   for (const { d } of items) {
     const li = document.createElement('li');
     li.className = 'deadline-item';
+    li.style.cursor = 'pointer';
     li.innerHTML = `
       <div class="deadline-info">
         <span class="material-symbols-outlined deadline-icon">event</span>
@@ -1590,6 +1569,24 @@ async function renderDeadlines() {
         ${dueBadge(d)}
       </div>
     `;
+    
+    li.addEventListener('click', async () => {
+      let targetHref;
+      if (d.type === 'gallery') {
+        targetHref = `gallery.html?id=${encodeURIComponent(d.id)}`;
+      } else if (d.type === 'presentation') {
+        targetHref = `slides.html?id=${encodeURIComponent(d.id)}`;
+      } else {
+        targetHref = `editor.html?id=${encodeURIComponent(d.id)}`;
+      }
+      
+      if (d.locked) {
+        const ok = await requireAuth();
+        if (!ok) return;
+      }
+      location.href = targetHref;
+    });
+    
     ul.appendChild(li);
   }
   // Update greeting when deadlines change
