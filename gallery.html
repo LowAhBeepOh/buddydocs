@@ -241,6 +241,7 @@
       <h1 id="docTitle" contenteditable="true" spellcheck="false">Untitled</h1>
     </div>
     <div class="right">
+      <button id="downloadAllBtn" class="icon-btn" title="Download all images" hidden><span class="material-symbols-outlined">download</span></button>
       <button id="profileBtn" class="avatar" title="Profile">U</button>
       <div id="profileMenu" class="menu" hidden>
         <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
@@ -291,6 +292,7 @@
   <script type="module" src="data/js/theme.js"></script>
   <script type="module" src="data/js/version-history.js"></script>
   <script type="module" src="data/js/initSync.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
 </body> 
   <script type="module">
     import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
@@ -627,6 +629,14 @@
       });
       // enable reorder for any pre-existing items (safety)
       gallery.querySelectorAll('.gallery-item').forEach(el=> enableReorder(el));
+      
+      // Update button visibility
+      updateDownloadButtonVisibility();
+    }
+
+    function updateDownloadButtonVisibility() {
+      const items = gallery.querySelectorAll('.gallery-item:not(.add-image)');
+      downloadAllBtn.hidden = items.length === 0;
     }
 
     async function saveNow(){
@@ -654,6 +664,9 @@
       if (!getParam('id')){
         history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);
       }
+      
+      // Update button visibility
+      updateDownloadButtonVisibility();
     }
 
     async function deleteNow(){
@@ -742,6 +755,10 @@
 
     // Delete button
     document.getElementById('deleteBtn').addEventListener('click', deleteNow);
+    
+    // Download all button
+    const downloadAllBtn = document.getElementById('downloadAllBtn');
+    downloadAllBtn.addEventListener('click', downloadAllImages);
 
     // Simple context menu implementation
     const ctx = document.createElement('div');
@@ -750,6 +767,137 @@
     ctx.style.zIndex = '1000';
     ctx.hidden = true;
     document.body.appendChild(ctx);
+
+    // Download a single image
+    function downloadImage(item) {
+      const img = item.querySelector('img');
+      if (!img || !img.src) return;
+
+      // Get the filename from the image source or use a default
+      let filename = 'image';
+      if (currentDoc.title) {
+        filename = currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      }
+      
+      // Extract extension from src
+      const src = img.src;
+      const urlObj = new URL(src, window.location.origin);
+      const pathname = urlObj.pathname;
+      const ext = pathname.split('.').pop().split('?')[0] || 'png';
+      
+      // For data URLs, generate a unique name
+      if (src.startsWith('data:')) {
+        const mimeType = src.match(/data:([^;]+)/)?.[1] || 'image/png';
+        const extFromMime = mimeType.split('/')[1] || 'png';
+        filename += `_${Date.now()}.${extFromMime}`;
+      } else {
+        filename += `.${ext}`;
+      }
+
+      // Create a link and trigger download
+      const link = document.createElement('a');
+      link.href = src;
+      link.download = filename;
+      link.style.display = 'none';
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+    }
+
+    // Download all images (with auth check if locked images exist)
+    async function downloadAllImages() {
+      // Check if there are any locked images
+      const hasLockedImages = Array.from(gallery.querySelectorAll('.gallery-item.locked')).length > 0;
+      
+      // If there are locked images, require authentication
+      if (hasLockedImages) {
+        const ok = await requireAuth();
+        if (!ok) return;
+      }
+
+      const items = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
+      if (items.length === 0) {
+        alert('No images to download');
+        return;
+      }
+
+      // Create ZIP file
+      const zip = new JSZip();
+      
+      // Add each image to the zip
+      for (let i = 0; i < items.length; i++) {
+        const item = items[i];
+        const img = item.querySelector('img');
+        
+        if (!img || !img.src) continue;
+
+        // Generate filename
+        let baseFilename = 'image';
+        if (currentDoc.title) {
+          baseFilename = currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        }
+        
+        // Extract extension from src
+        const src = img.src;
+        let filename = '';
+        let fileData = null;
+        
+        if (src.startsWith('data:')) {
+          // Handle data URLs
+          const mimeType = src.match(/data:([^;]+)/)?.[1] || 'image/png';
+          const extFromMime = mimeType.split('/')[1] || 'png';
+          filename = `${baseFilename}_${i + 1}.${extFromMime}`;
+          
+          // Convert data URL to blob
+          const binaryString = atob(src.split(',')[1]);
+          const bytes = new Uint8Array(binaryString.length);
+          for (let j = 0; j < binaryString.length; j++) {
+            bytes[j] = binaryString.charCodeAt(j);
+          }
+          fileData = bytes;
+        } else {
+          // Handle regular URLs
+          try {
+            const urlObj = new URL(src, window.location.origin);
+            const pathname = urlObj.pathname;
+            const ext = pathname.split('.').pop().split('?')[0] || 'png';
+            filename = `${baseFilename}_${i + 1}.${ext}`;
+            
+            // Fetch image
+            const response = await fetch(src);
+            fileData = await response.arrayBuffer();
+          } catch (err) {
+            console.error(`Failed to fetch image ${i + 1}:`, err);
+            continue;
+          }
+        }
+        
+        // Add file to zip
+        if (fileData) {
+          zip.file(filename, fileData);
+        }
+      }
+      
+      // Generate and download zip
+      try {
+        const zipFilename = currentDoc.title ? currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.zip' : 'gallery.zip';
+        const blob = await zip.generateAsync({ type: 'blob' });
+        
+        const link = document.createElement('a');
+        link.href = URL.createObjectURL(blob);
+        link.download = zipFilename;
+        link.style.display = 'none';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        
+        // Clean up object URL
+        URL.revokeObjectURL(link.href);
+      } catch (err) {
+        console.error('Failed to create zip:', err);
+        alert('Failed to create zip file');
+      }
+    }
 
     function openContextMenu(x, y, item){
       const isSpoiler = item.dataset.spoiler === 'true';
@@ -840,6 +988,19 @@
         closeContextMenu();
         saveNow();
       });
+      // Download option (only for unlocked images)
+      if (!isLocked) {
+        const dlBtn = document.createElement('button');
+        dlBtn.className = 'menu-item';
+        dlBtn.textContent = 'Download image';
+        dlBtn.addEventListener('click', (e) => {
+          e.stopPropagation();
+          downloadImage(item);
+          closeContextMenu();
+        });
+        ctx.appendChild(dlBtn);
+      }
+      
       ctx.appendChild(mk);
       ctx.appendChild(lk);
       ctx.style.left = `${x}px`;
