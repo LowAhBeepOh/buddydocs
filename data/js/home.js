@@ -7,6 +7,10 @@ import { notificationManager } from './notifications.js';
 // Current folder navigation
 let currentFolderId = null;
 
+// Bulk selection state (declared early so card builders can reference altKeyHeld)
+let altKeyHeld = false;
+const selectedItems = new Set();
+
 // Cache for scrypt module to avoid repeated imports
 let scryptModule = null;
 
@@ -928,6 +932,14 @@ function createDocCard(doc){
   link.href = '#';
   link.addEventListener('click', async (e)=>{
     e.preventDefault();
+    // Alt+Click toggles selection instead of navigating
+    if (e.altKey || altKeyHeld) {
+      e.stopPropagation();
+      toggleSelection(doc.id, 'doc');
+      node.classList.toggle('selected', isSelected(doc.id, 'doc'));
+      hideBulkHint();
+      return;
+    }
     if (doc.locked){
       const ok = await requireAuth();
       if (!ok) return;
@@ -982,6 +994,18 @@ function createDocCard(doc){
     thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
   }
   node._doc = doc;
+
+  // Selection check overlay
+  const selCheck = document.createElement('span');
+  selCheck.className = 'selection-check material-symbols-outlined';
+  selCheck.setAttribute('aria-hidden', 'true');
+  selCheck.textContent = 'check';
+  node.appendChild(selCheck);
+
+  // Restore selected state if already selected (e.g. after re-render)
+  if (isSelected(doc.id, 'doc')) {
+    node.classList.add('selected');
+  }
 
   ensureDocCardObserver();
   docCardObserver.observe(node);
@@ -1220,6 +1244,14 @@ function createFolderCard(folder) {
   link.href = '#';
   link.addEventListener('click', async (e) => {
     e.preventDefault();
+    // Alt+Click toggles selection instead of navigating
+    if (e.altKey || altKeyHeld) {
+      e.stopPropagation();
+      toggleSelection(folder.id, 'folder');
+      card.classList.toggle('selected', isSelected(folder.id, 'folder'));
+      hideBulkHint();
+      return;
+    }
     currentFolderId = folder.id;
     await renderDocs();
   });
@@ -1255,6 +1287,18 @@ function createFolderCard(folder) {
   link.appendChild(thumb);
   link.appendChild(meta);
   card.appendChild(link);
+
+  // Selection check overlay
+  const folderSelCheck = document.createElement('span');
+  folderSelCheck.className = 'selection-check material-symbols-outlined';
+  folderSelCheck.setAttribute('aria-hidden', 'true');
+  folderSelCheck.textContent = 'check';
+  card.appendChild(folderSelCheck);
+
+  // Restore selected state if already selected
+  if (isSelected(folder.id, 'folder')) {
+    card.classList.add('selected');
+  }
   
   // Menu container
   const menuContainer = document.createElement('div');
@@ -1959,6 +2003,246 @@ async function setupViewModeToggle() {
   });
 }
 
+// ── Bulk Selection ────────────────────────────────────────────────
+// Each entry in selectedItems: type:id (e.g. 'doc:123' or 'folder:456')
+
+function getSelectionKey(id, type) {
+  return `${type}:${id}`;
+}
+
+function addToSelection(id, type) {
+  selectedItems.add(getSelectionKey(id, type));
+  updateBulkUI();
+}
+
+function removeFromSelection(id, type) {
+  selectedItems.delete(getSelectionKey(id, type));
+  updateBulkUI();
+}
+
+function toggleSelection(id, type) {
+  const key = getSelectionKey(id, type);
+  if (selectedItems.has(key)) {
+    selectedItems.delete(key);
+  } else {
+    selectedItems.add(key);
+  }
+  updateBulkUI();
+}
+
+function clearSelection() {
+  selectedItems.clear();
+  // Remove selected class from all cards (folder cards also carry the doc-card class,
+  // but the explicit union ensures correctness if that ever changes)
+  document.querySelectorAll('.doc-card.selected, .folder-card.selected').forEach(c => c.classList.remove('selected'));
+  updateBulkUI();
+}
+
+function isSelected(id, type) {
+  return selectedItems.has(getSelectionKey(id, type));
+}
+
+function getSelectedIds() {
+  // Returns [{id, type}] for each selected item
+  return [...selectedItems].map(key => {
+    const colonIdx = key.indexOf(':');
+    return { type: key.slice(0, colonIdx), id: key.slice(colonIdx + 1) };
+  });
+}
+
+function updateBulkUI() {
+  const bar = document.getElementById('bulkActionBar');
+  const countEl = document.getElementById('bulkCount');
+  const n = selectedItems.size;
+
+  if (bar) {
+    if (n > 0) {
+      bar.classList.add('visible');
+    } else {
+      bar.classList.remove('visible');
+    }
+  }
+  if (countEl) {
+    countEl.textContent = `${n} selected`;
+  }
+}
+
+// Alt-key hint management (altKeyHeld declared at top of module)
+
+function showBulkHint() {
+  const hint = document.getElementById('bulkSelectHint');
+  if (hint) hint.classList.add('visible');
+}
+function hideBulkHint() {
+  const hint = document.getElementById('bulkSelectHint');
+  if (hint) hint.classList.remove('visible');
+}
+
+function setupBulkSelection() {
+  // Track Alt key
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Alt' && !altKeyHeld) {
+      altKeyHeld = true;
+      document.body.classList.add('bulk-select-active');
+      if (selectedItems.size === 0) showBulkHint();
+    }
+  });
+  document.addEventListener('keyup', (e) => {
+    if (e.key === 'Alt') {
+      altKeyHeld = false;
+      document.body.classList.remove('bulk-select-active');
+      hideBulkHint();
+    }
+  });
+  // Also clear alt state if window loses focus
+  window.addEventListener('blur', () => {
+    if (altKeyHeld) {
+      altKeyHeld = false;
+      document.body.classList.remove('bulk-select-active');
+      hideBulkHint();
+    }
+  });
+
+  // Bulk action bar buttons
+  document.getElementById('bulkClearBtn')?.addEventListener('click', () => {
+    clearSelection();
+  });
+
+  document.getElementById('bulkArchiveBtn')?.addEventListener('click', async () => {
+    const items = getSelectedIds();
+    const allDocs = await listDocuments();
+    const docsMap = new Map(allDocs.map(d => [d.id, d]));
+    for (const { id, type } of items) {
+      if (type === 'doc') {
+        const doc = docsMap.get(id);
+        if (doc) {
+          doc.archived = true;
+          await saveDocument(doc);
+        }
+      }
+      // Folders don't have an archive action
+    }
+    clearSelection();
+    await renderDocs();
+    await renderDeadlines();
+  });
+
+  document.getElementById('bulkCompleteBtn')?.addEventListener('click', async () => {
+    const items = getSelectedIds();
+    const allDocs = await listDocuments();
+    const docsMap = new Map(allDocs.map(d => [d.id, d]));
+    for (const { id, type } of items) {
+      if (type === 'doc') {
+        const doc = docsMap.get(id);
+        if (doc) {
+          doc.dueDate = null;
+          doc.completed = true;
+          await saveDocument(doc);
+        }
+      }
+    }
+    clearSelection();
+    await renderDocs();
+    await renderDeadlines();
+  });
+
+  document.getElementById('bulkLockBtn')?.addEventListener('click', async () => {
+    const secretSet = await getSetting('secretSet', false);
+    if (!secretSet) {
+      alert('Set a password or PIN in Settings first.');
+      return;
+    }
+    const items = getSelectedIds();
+    const docItems = items.filter(i => i.type === 'doc');
+    if (docItems.length === 0) return;
+
+    const allDocs = await listDocuments();
+    const docsMap = new Map(allDocs.map(d => [d.id, d]));
+    const selectedDocs = docItems.map(i => docsMap.get(i.id)).filter(Boolean);
+
+    // If any are unlocked, lock them all; if all locked, unlock all (requires auth)
+    const hasUnlocked = selectedDocs.some(d => !d.locked);
+    if (hasUnlocked) {
+      for (const doc of selectedDocs) {
+        doc.locked = true;
+        await saveDocument(doc);
+      }
+    } else {
+      const ok = await requireAuth();
+      if (!ok) return;
+      for (const doc of selectedDocs) {
+        doc.locked = false;
+        await saveDocument(doc);
+      }
+    }
+    clearSelection();
+    await renderDocs();
+    await renderDeadlines();
+  });
+
+  document.getElementById('bulkDeleteBtn')?.addEventListener('click', async () => {
+    const items = getSelectedIds();
+    if (items.length === 0) return;
+    if (!confirm(`Delete ${items.length} item${items.length > 1 ? 's' : ''}? This cannot be undone.`)) return;
+    for (const { id, type } of items) {
+      if (type === 'doc') {
+        await deleteDocument(id);
+      } else if (type === 'folder') {
+        await deleteFolder(id);
+      }
+    }
+    clearSelection();
+    await renderDocs();
+    await renderDeadlines();
+  });
+
+  document.getElementById('bulkMoveBtn')?.addEventListener('click', async () => {
+    const items = getSelectedIds();
+    const docItems = items.filter(i => i.type === 'doc');
+    if (docItems.length === 0) {
+      alert('Move to Folder only applies to documents, not folders.');
+      return;
+    }
+    await showBulkMoveToFolderModal(docItems.map(i => i.id));
+  });
+}
+
+async function showBulkMoveToFolderModal(docIds) {
+  const modal = document.getElementById('moveToFolderModal');
+  const folderSelect = document.getElementById('folderSelect');
+  const moveBtn = document.getElementById('moveToFolderBtn');
+  if (!modal) return;
+
+  const allFolders = await getAllFoldersFlat();
+  folderSelect.innerHTML = '<option value="">Root (No Folder)</option>';
+  for (const folder of allFolders) {
+    const option = document.createElement('option');
+    option.value = folder.id;
+    option.textContent = folder.name;
+    folderSelect.appendChild(option);
+  }
+
+  modal.removeAttribute('hidden');
+
+  const handleMove = async () => {
+    const selectedFolderId = folderSelect.value || null;
+    const allDocs = await listDocuments();
+    const docsMap = new Map(allDocs.map(d => [d.id, d]));
+    for (const id of docIds) {
+      const doc = docsMap.get(id);
+      if (doc) {
+        doc.folderId = selectedFolderId;
+        await saveDocument(doc);
+      }
+    }
+    closeMoveToFolderModal();
+    clearSelection();
+    await renderDocs();
+  };
+
+  moveBtn.onclick = handleMove;
+}
+
 // Initialize everything when DOM is ready
 async function initialize() {
   await migrateListsAndDeleteBoards();
@@ -1972,6 +2256,7 @@ async function initialize() {
   setupTemplatesModal();
   setupFolderModal();
   setupMoveToFolderModal();
+  setupBulkSelection();
   
   // Initialize notification system
   try {
