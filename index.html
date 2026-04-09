@@ -321,6 +321,40 @@
     </div>
   </div>
 
+  <!-- Bulk Selection Hint -->
+  <div id="bulkSelectHint" class="bulk-select-hint">
+    <span class="material-symbols-outlined" style="font-size:16px;vertical-align:-3px;margin-right:6px;">touch_app</span>
+    Click items to select
+  </div>
+
+  <!-- Bulk Action Bar -->
+  <div id="bulkActionBar" class="bulk-action-bar" role="toolbar" aria-label="Bulk actions">
+    <span id="bulkCount" class="bulk-count">0 selected</span>
+    <button id="bulkMoveBtn" class="icon-btn" title="Move to Folder">
+      <span class="material-symbols-outlined">drive_file_move</span>
+      Move
+    </button>
+    <button id="bulkArchiveBtn" class="icon-btn" title="Archive">
+      <span class="material-symbols-outlined">archive</span>
+      Archive
+    </button>
+    <button id="bulkCompleteBtn" class="icon-btn" title="Mark as Complete">
+      <span class="material-symbols-outlined">task_alt</span>
+      Complete
+    </button>
+    <button id="bulkLockBtn" class="icon-btn" title="Lock / Unlock">
+      <span class="material-symbols-outlined">lock</span>
+      Lock
+    </button>
+    <button id="bulkDeleteBtn" class="icon-btn danger" title="Delete">
+      <span class="material-symbols-outlined">delete</span>
+      Delete
+    </button>
+    <button id="bulkClearBtn" class="icon-btn clear-btn" title="Clear selection">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+  </div>
+
   <script src="data/js/idb.js" type="module"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/home.js" type="module"></script>
