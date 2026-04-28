@@ -816,19 +816,47 @@ async function exportAs(type){
   if (type === 'pdf'){
     // Generate real PDF using html2pdf.js
     const element = document.createElement('div');
-    element.innerHTML = `
-      <div style="font-family: 'Inter Tight', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
-        <h1 style="color: #333; border-bottom: 2px solid #0550FF; padding-bottom: 10px; margin-bottom: 30px;">
-          ${currentDoc.title || 'Untitled Document'}
-        </h1>
-        <div style="line-height: 1.6; color: #000;">
-          ${currentDoc.content || ''}
-        </div>
-        <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #eee; font-size: 14px; color: #666; text-align: center;">
-          Written in <a style="color: #0550FF; text-decoration: none;" href="https://lowahbeepoh.github.io/buddydocs" target="_blank">Buddy Docs</a>
-        </div>
-      </div>
-    `;
+
+    const wrapper = document.createElement('div');
+    wrapper.style.fontFamily = "'Inter Tight', Arial, sans-serif";
+    wrapper.style.padding = '40px';
+    wrapper.style.maxWidth = '800px';
+    wrapper.style.margin = '0 auto';
+
+    const heading = document.createElement('h1');
+    heading.style.color = '#333';
+    heading.style.borderBottom = '2px solid #0550FF';
+    heading.style.paddingBottom = '10px';
+    heading.style.marginBottom = '30px';
+    heading.textContent = currentDoc.title || 'Untitled Document';
+
+    const content = document.createElement('div');
+    content.style.lineHeight = '1.6';
+    content.style.color = '#000';
+    content.textContent = currentDoc.content || '';
+
+    const footer = document.createElement('div');
+    footer.style.marginTop = '40px';
+    footer.style.paddingTop = '20px';
+    footer.style.borderTop = '2px solid #eee';
+    footer.style.fontSize = '14px';
+    footer.style.color = '#666';
+    footer.style.textAlign = 'center';
+
+    footer.appendChild(document.createTextNode('Written in '));
+
+    const link = document.createElement('a');
+    link.style.color = '#0550FF';
+    link.style.textDecoration = 'none';
+    link.href = 'https://lowahbeepoh.github.io/buddydocs';
+    link.target = '_blank';
+    link.textContent = 'Buddy Docs';
+    footer.appendChild(link);
+
+    wrapper.appendChild(heading);
+    wrapper.appendChild(content);
+    wrapper.appendChild(footer);
+    element.appendChild(wrapper);
     
     const opt = {
       margin: [10, 10, 10, 10],
