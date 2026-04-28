@@ -1029,10 +1029,10 @@ class DocumentManager {
 
         // Create demo document cards
         const demoCardData = [
-            { title: 'Try making a document!', subtitle: 'Get Started', avatar: '📝', color: '#FF4D00' },
-            { title: 'Edit your profile', subtitle: 'Get Started', avatar: '👤', color: '#FF4D00' },
-            { title: 'Customize the app', subtitle: 'Get Started', avatar: '⚙️', color: '#FF4D00' },
-            { title: 'Buddy Docs', subtitle: 'In development - ver 0.0.6', avatar: '🚀', color: '#FF4D00' }
+            { title: 'Try making a document!', subtitle: 'Get Started', avatar: '📝', color: '#EEEDED' },
+            { title: 'Edit your profile', subtitle: 'Get Started', avatar: '👤', color: '#EEEDED' },
+            { title: 'Customize the app', subtitle: 'Get Started', avatar: '⚙️', color: '#EEEDED' },
+            { title: 'Buddy Docs', subtitle: 'In development - ver 0.0.73', avatar: '🚀', color: '#EEEDED' }
         ];
 
         demoCardData.forEach(cardData => {
