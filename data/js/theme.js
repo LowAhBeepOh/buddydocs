@@ -195,6 +195,21 @@ export async function initAppFont() {
   root.style.setProperty('--bd-font-family', stack);
 }
 
+const ALLOWED_GOOGLE_FONTS = new Set([
+  'Inter Tight',
+  'Inter',
+  'Roboto',
+  'Poppins',
+  'DM Sans',
+  'Open Sans',
+  'Nunito',
+  'Lato',
+  'Figtree',
+  'Noto Sans',
+  'IBM Plex Sans',
+  'Cossette Titre',
+]);
+
 function gfFamilyParam(name){
   const map = {
     'Inter Tight': 'Inter+Tight',
@@ -234,6 +249,7 @@ export async function ensureWebFontLoaded(name){
     document.head.appendChild(style);
     return;
   }
+  if (!ALLOWED_GOOGLE_FONTS.has(name)) return;
   const link = document.createElement('link');
   link.id = id;
   link.rel = 'stylesheet';
