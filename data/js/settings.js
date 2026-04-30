@@ -245,6 +245,18 @@ async function loadSettings() {
     updateSegmentedIndicator();
   }, 100);
 
+  // Load and apply squircle border setting
+  const useSquircleBorders = await getSetting('useSquircleBorders', false);
+  const squircleToggle = document.getElementById('useSquircleBorders');
+  const squircleWarning = document.getElementById('squircleWarning');
+  if (squircleToggle) {
+    squircleToggle.checked = !!useSquircleBorders;
+    if (squircleWarning) {
+      squircleWarning.style.display = useSquircleBorders ? 'block' : 'none';
+    }
+    applySquircleBorders(useSquircleBorders);
+  }
+
   // No need to apply theme here, initTheme in theme.js handles it.
 }
 
@@ -351,6 +363,16 @@ function markChanges() {
   if (bar) bar.style.display = 'flex';
 }
 
+// Apply squircle borders to the document
+function applySquircleBorders(useSquircle) {
+  const root = document.documentElement;
+  if (useSquircle) {
+    root.setAttribute('data-corner-shape', 'squircle');
+  } else {
+    root.removeAttribute('data-corner-shape');
+  }
+}
+
 async function saveSettings() {
   const bar = document.getElementById('saveBar');
   if (bar) bar.style.display = 'none';
@@ -415,6 +437,9 @@ async function saveSettings() {
   const useSmartReminders = document.getElementById('useSmartReminders')?.checked || true;
   const reminderTime = Number(document.getElementById('reminderTime')?.value || 15);
 
+  // Get squircle border setting
+  const useSquircleBorders = document.getElementById('useSquircleBorders')?.checked || false;
+
   const settingsToSave = [
     setSetting('displayName', displayName),
     setSetting('initials', initials),
@@ -438,6 +463,7 @@ async function saveSettings() {
     setSetting('useSmartReminders', useSmartReminders),
     setSetting('reminderTime', reminderTime),
     setSetting('appFontFamily', appFontFamily),
+    setSetting('useSquircleBorders', useSquircleBorders),
   ];
 
   if (appFontFamily === 'Custom') {
@@ -1468,6 +1494,20 @@ loadSettings().then(async () => {
   const aiProviderSelect = document.getElementById('aiProvider');
   if (aiProviderSelect) {
     aiProviderSelect.addEventListener('change', toggleAiProviderSettings);
+  }
+
+  // Squircle borders toggle
+  const squircleToggle = document.getElementById('useSquircleBorders');
+  if (squircleToggle) {
+    squircleToggle.addEventListener('change', (e) => {
+      const useSquircle = e.target.checked;
+      applySquircleBorders(useSquircle);
+      const squircleWarning = document.getElementById('squircleWarning');
+      if (squircleWarning) {
+        squircleWarning.style.display = useSquircle ? 'block' : 'none';
+      }
+      markChanges();
+    });
   }
 
   // Data Management

@@ -197,6 +197,109 @@
       font-size: 18px;
     }
 
+    /* Fullscreen lightbox styles */
+    .lightbox {
+      position: fixed;
+      inset: 0;
+      background: rgba(0, 0, 0, 0.95);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      z-index: 9999;
+      opacity: 0;
+      visibility: hidden;
+      transition: opacity 0.3s ease, visibility 0.3s ease;
+      padding: 20px;
+    }
+
+    .lightbox.active {
+      opacity: 1;
+      visibility: visible;
+    }
+
+    .lightbox img {
+      max-width: 100%;
+      max-height: 100%;
+      object-fit: contain;
+      border-radius: 8px;
+      box-shadow: 0 4px 32px rgba(0, 0, 0, 0.5);
+    }
+
+    .lightbox-close {
+      position: absolute;
+      top: 20px;
+      right: 20px;
+      width: 48px;
+      height: 48px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, transform 0.2s ease;
+      z-index: 10000;
+    }
+
+    .lightbox-close:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: scale(1.1);
+    }
+
+    .lightbox-close .material-symbols-outlined {
+      font-size: 28px;
+    }
+
+    .lightbox-nav {
+      position: absolute;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 56px;
+      height: 56px;
+      background: rgba(255, 255, 255, 0.1);
+      border: none;
+      border-radius: 50%;
+      color: white;
+      cursor: pointer;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: background 0.2s ease, transform 0.2s ease;
+      z-index: 10000;
+    }
+
+    .lightbox-nav:hover {
+      background: rgba(255, 255, 255, 0.2);
+      transform: translateY(-50%) scale(1.1);
+    }
+
+    .lightbox-nav .material-symbols-outlined {
+      font-size: 32px;
+    }
+
+    .lightbox-prev {
+      left: 20px;
+    }
+
+    .lightbox-next {
+      right: 20px;
+    }
+
+    .lightbox-counter {
+      position: absolute;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      color: white;
+      font-size: 14px;
+      background: rgba(255, 255, 255, 0.1);
+      padding: 8px 16px;
+      border-radius: 20px;
+      font-family: 'Inter Tight', sans-serif;
+    }
+
     .gallery-item:hover .remove-btn {
       opacity: 1;
     }
@@ -289,6 +392,21 @@
     </div>
   </template>
 
+  <!-- Lightbox for fullscreen image viewing -->
+  <div id="lightbox" class="lightbox">
+    <button id="lightboxClose" class="lightbox-close" title="Close (Esc)">
+      <span class="material-symbols-outlined">close</span>
+    </button>
+    <button id="lightboxPrev" class="lightbox-nav lightbox-prev" title="Previous (←)">
+      <span class="material-symbols-outlined">arrow_back</span>
+    </button>
+    <img id="lightboxImg" src="" alt="">
+    <button id="lightboxNext" class="lightbox-nav lightbox-next" title="Next (→)">
+      <span class="material-symbols-outlined">arrow_forward</span>
+    </button>
+    <div id="lightboxCounter" class="lightbox-counter"></div>
+  </div>
+
   <script type="module" src="data/js/theme.js"></script>
   <script type="module" src="data/js/version-history.js"></script>
   <script type="module" src="data/js/initSync.js"></script>
@@ -325,6 +443,7 @@
     let currentDoc = { id:null, title:'Untitled', type:'gallery', content:[], dueDate:null, tags:[], createdAt: Date.now(), updatedAt: Date.now() };
     let gallerySessionUnlocked = false; // unlock state for locked images on this page only
     let scryptModule = null; // Cache for scrypt module to avoid repeated imports
+    let currentLightboxIndex = 0; // Track current image index in lightbox
     
     const titleEl = document.getElementById('docTitle');
     const typeEl = document.getElementById('docType');
@@ -387,10 +506,12 @@
         '<span style="pointer-events: none;">SPOILER</span>';
       item.appendChild(overlay);
 
-      // Click to reveal spoiler or unlock images
+      // Click to reveal spoiler, unlock images, or open fullscreen
       item.addEventListener('click', async (e) => {
         // Don't process clicks on the overlay itself, only on the image
         if (e.target === overlay) return;
+        // Don't process clicks on remove button
+        if (e.target.closest('.remove-btn')) return;
         
         const isLocked = item.dataset.locked === 'true';
         const isSpoiler = item.dataset.spoiler === 'true';
@@ -406,7 +527,11 @@
         if (isSpoiler && !img.classList.contains('revealed')){
           img.classList.add('revealed');
           overlay.classList.add('hidden');
+          return;
         }
+        
+        // Open fullscreen lightbox
+        openLightbox(item);
       });
 
       const removeBtn = item.querySelector('.remove-btn');
@@ -1054,6 +1179,99 @@
         return false;
       }
     }
+
+    // Lightbox functionality
+    const lightbox = document.getElementById('lightbox');
+    const lightboxImg = document.getElementById('lightboxImg');
+    const lightboxClose = document.getElementById('lightboxClose');
+    const lightboxPrev = document.getElementById('lightboxPrev');
+    const lightboxNext = document.getElementById('lightboxNext');
+    const lightboxCounter = document.getElementById('lightboxCounter');
+
+    function getVisibleImages() {
+      return Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
+    }
+
+    function openLightbox(item) {
+      const images = getVisibleImages();
+      currentLightboxIndex = images.indexOf(item);
+      if (currentLightboxIndex === -1) return;
+
+      updateLightboxImage();
+      lightbox.classList.add('active');
+      document.body.style.overflow = 'hidden'; // Prevent background scrolling
+    }
+
+    function closeLightbox() {
+      lightbox.classList.remove('active');
+      document.body.style.overflow = '';
+      lightboxImg.src = '';
+    }
+
+    function updateLightboxImage() {
+      const images = getVisibleImages();
+      if (images.length === 0) {
+        closeLightbox();
+        return;
+      }
+
+      const item = images[currentLightboxIndex];
+      const img = item.querySelector('img');
+      const src = img?.dataset?.src || img?.src;
+      
+      if (src) {
+        lightboxImg.src = src;
+        lightboxCounter.textContent = `${currentLightboxIndex + 1} / ${images.length}`;
+      }
+
+      // Update nav button visibility
+      lightboxPrev.style.visibility = currentLightboxIndex > 0 ? 'visible' : 'hidden';
+      lightboxNext.style.visibility = currentLightboxIndex < images.length - 1 ? 'visible' : 'hidden';
+    }
+
+    function showPrevImage() {
+      if (currentLightboxIndex > 0) {
+        currentLightboxIndex--;
+        updateLightboxImage();
+      }
+    }
+
+    function showNextImage() {
+      const images = getVisibleImages();
+      if (currentLightboxIndex < images.length - 1) {
+        currentLightboxIndex++;
+        updateLightboxImage();
+      }
+    }
+
+    // Lightbox event listeners
+    lightboxClose.addEventListener('click', closeLightbox);
+    lightboxPrev.addEventListener('click', showPrevImage);
+    lightboxNext.addEventListener('click', showNextImage);
+
+    // Close on background click
+    lightbox.addEventListener('click', (e) => {
+      if (e.target === lightbox) {
+        closeLightbox();
+      }
+    });
+
+    // Keyboard navigation
+    document.addEventListener('keydown', (e) => {
+      if (!lightbox.classList.contains('active')) return;
+      
+      switch (e.key) {
+        case 'Escape':
+          closeLightbox();
+          break;
+        case 'ArrowLeft':
+          showPrevImage();
+          break;
+        case 'ArrowRight':
+          showNextImage();
+          break;
+      }
+    });
   </script>
 </body>
 </html>

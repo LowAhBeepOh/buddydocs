@@ -144,6 +144,20 @@ export async function initTheme() {
   }
 
   await initAppFont();
+
+  // Initialize squircle borders setting
+  await initSquircleBorders();
+}
+
+// Initialize squircle borders from saved setting
+async function initSquircleBorders() {
+  const useSquircleBorders = await getSetting('useSquircleBorders', false);
+  const root = document.documentElement;
+  if (useSquircleBorders) {
+    root.setAttribute('data-corner-shape', 'squircle');
+  } else {
+    root.removeAttribute('data-corner-shape');
+  }
 }
 
 initTheme();

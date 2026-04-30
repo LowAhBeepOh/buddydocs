@@ -40,7 +40,7 @@
   color: white;
   font-family: var(--bd-font-family);
   border: none;
-  border-radius: 4px;
+  border-radius: var(--radius-sm);
   padding: 6px 12px;
   cursor: pointer;
   font-weight: 700;
@@ -98,7 +98,62 @@
   --success:#85F485;
   --error:#F48585;
   --radius:16px; /* Slightly more rounded for M3 */
+  --radius-sm:8px;
+  --radius-md:12px;
+  --radius-lg:16px;
+  --radius-xl:18px;
+  --radius-2xl:20px;
+  --radius-full:999px;
+  --corner-shape:round;
   --shadow: var(--shadow-2);
+}
+
+/* Squircle mode - increases border-radius and applies corner-shape */
+[data-corner-shape="squircle"] {
+  --radius-sm:12px;
+  --radius-md:18px;
+  --radius-lg:24px;
+  --radius-xl:32px;
+  --radius-2xl:40px;
+  --corner-shape:squircle;
+}
+
+/* Apply corner-shape to common elements */
+[data-corner-shape="squircle"] .card,
+[data-corner-shape="squircle"] .doc-card,
+[data-corner-shape="squircle"] .tile,
+[data-corner-shape="squircle"] .btn,
+[data-corner-shape="squircle"] .input,
+[data-corner-shape="squircle"] select,
+[data-corner-shape="squircle"] .nav-tab,
+[data-corner-shape="squircle"] .menu,
+[data-corner-shape="squircle"] .dropdown-menu,
+[data-corner-shape="squircle"] .template-card,
+[data-corner-shape="squircle"] .modal-card,
+[data-corner-shape="squircle"] .template-sidebar,
+[data-corner-shape="squircle"] .security-container,
+[data-corner-shape="squircle"] .password-form,
+[data-corner-shape="squircle"] .profile-upload,
+[data-corner-shape="squircle"] .color-option,
+[data-corner-shape="squircle"] .hue-slider,
+[data-corner-shape="squircle"] .checkmark,
+[data-corner-shape="squircle"] .toast,
+[data-corner-shape="squircle"] .save-bar,
+[data-corner-shape="squircle"] .logo-wrapper,
+[data-corner-shape="squircle"] .social-link,
+[data-corner-shape="squircle"] .about-tile,
+[data-corner-shape="squircle"] .folder-card .folder-thumbnail,
+[data-corner-shape="squircle"] .segmented-control,
+[data-corner-shape="squircle"] .segmented-indicator,
+[data-corner-shape="squircle"] .toggle,
+[data-corner-shape="squircle"] .avatar,
+[data-corner-shape="squircle"] #profilePreview,
+[data-corner-shape="squircle"] .storage-bar,
+[data-corner-shape="squircle"] .badge,
+[data-corner-shape="squircle"] .deadline-list li,
+[data-corner-shape="squircle"] .form-row .tile,
+[data-corner-shape="squircle"] .icon-btn {
+  corner-shape: squircle;
 }
 
 [data-theme="dark"]{
@@ -386,7 +441,7 @@ html[data-theme="black"] {
 }
 
 .doc-card .type{
-  padding:2px 8px; border-radius:999px; background:var(--gray); font-size:12px;
+  padding:2px 8px; border-radius:var(--radius-full); background:var(--gray); font-size:12px;
   color: color-mix(in hsl, var(--text) 92%, black 8%);
 }
 
@@ -495,24 +550,24 @@ img{max-width:100%;display:block}
 
 .icon-btn{
   appearance:none; border:none; background:transparent;
-  padding:4px; border-radius:6px; cursor:pointer; color:var(--text);
+  padding:4px; border-radius:var(--radius-sm); cursor:pointer; color:var(--text);
   display:inline-flex; align-items:center; justify-content:center; gap:6px;
 }
 .icon-btn:hover{background:color-mix(in hsl, var(--primary) 10%, var(--surface))}
 .icon-btn .material-symbols-outlined{font-variation-settings:"FILL" 0, "wght" 400, "GRAD" 0, "opsz" 24}
 
-.btn{appearance:none; border:none; border-radius:10px; padding:10px 14px; cursor:pointer; font-weight:600; font-family: var(--bd-font-family)}
+.btn{appearance:none; border:none; border-radius:var(--radius-md); padding:10px 14px; cursor:pointer; font-weight:600; font-family: var(--bd-font-family)}
 .btn.primary{background:var(--primary); color:white}
 .btn.secondary{background:var(--secondary); color:white}
 .btn.outline{background:transparent; border:1px solid var(--border)}
 .btn.danger{background:var(--error); color:#110}
 .btn:disabled{opacity:.6; cursor:not-allowed}
 
-.input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:10px; background:var(--surface); color:var(--text)}
+.input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface); color:var(--text)}
 
 .card-row{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px}
 .card{
-  background:var(--surface); border:1px solid var(--border); border-radius:18px; padding:16px;
+  background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-xl); padding:16px;
   display:flex; align-items:center; gap:16px; box-shadow:var(--shadow-1);
   color:inherit; text-decoration:none;
   font-family: var(--bd-font-family);
@@ -536,7 +591,7 @@ img{max-width:100%;display:block}
 
 .doc-grid{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:16px}
 .doc-card{
-  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:20px; padding:12px; display:block; color:inherit; box-shadow:var(--shadow-1);
+  position:relative; background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-2xl); padding:12px; display:block; color:inherit; box-shadow:var(--shadow-1);
   transition: all var(--speed-normal) var(--ease-spring);
 }
 .doc-card:hover {
@@ -553,7 +608,7 @@ img{max-width:100%;display:block}
   color: inherit;
 }
 .doc-card .thumb{
-  height:120px; border:1px dashed var(--border); border-radius:8px;
+  height:120px; border:1px dashed var(--border); border-radius:var(--radius-sm);
   padding:12px; color:var(--muted); overflow:hidden;
   display:block; font-size:14px; line-height:1.5;
 }
@@ -624,7 +679,7 @@ img{max-width:100%;display:block}
 
 .avatar{
   width:36px; height:36px; 
-  border-radius:50%; 
+  border-radius:var(--radius-full); 
   border:1px solid var(--border); 
   background:var(--primary); 
   color:#fff; 
@@ -651,7 +706,7 @@ img{max-width:100%;display:block}
   position:absolute; right:0; top:48px;
   background:color-mix(in hsl, var(--surface) 95%, white 5%); 
   border:1px solid var(--border); 
-  border-radius:16px; 
+  border-radius:var(--radius-lg); 
   box-shadow:var(--shadow-4);
   backdrop-filter: blur(20px);
   padding:8px; min-width:220px; display:grid; z-index:120;
@@ -670,11 +725,11 @@ img{max-width:100%;display:block}
   transition: opacity var(--speed-normal) var(--ease-out-expo),
               transform var(--speed-normal) var(--ease-spring);
 }
-.menu-item{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:8px; color:inherit; text-decoration:none; background:transparent; border:none; text-align:left; cursor:pointer}
+.menu-item{display:flex; align-items:center; gap:8px; padding:8px 10px; border-radius:var(--radius-sm); color:inherit; text-decoration:none; background:transparent; border:none; text-align:left; cursor:pointer}
 .menu-item:hover{background:color-mix(in hsl, var(--primary) 10%, var(--surface))}
 
 .deadline-list{list-style:none; margin:0; padding:0; display:grid; gap:8px}
-.deadline-list li{display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--surface); border:1px solid var(--border); padding:10px; border-radius:12px}
+.deadline-list li{display:flex; align-items:center; justify-content:space-between; gap:8px; background:var(--surface); border:1px solid var(--border); padding:10px; border-radius:var(--radius-md)}
 .deadline-list .badge{padding:2px 8px; border-radius:999px; font-size:12px}
 .badge.success{background:var(--success)}
 .badge.error{background:var(--error)}
@@ -716,7 +771,7 @@ img{max-width:100%;display:block}
   margin: 24px;
   background: var(--surface);
   border: 1px solid var(--border);
-  border-radius: 16px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
@@ -746,7 +801,7 @@ img{max-width:100%;display:block}
   display: block;
   padding: 12px;
   border: 1px solid var(--border);
-  border-radius: 14px;
+  border-radius: var(--radius-lg);
   background: var(--surface);
   transition: transform 0.2s, box-shadow 0.2s;
   color: var(--text);
@@ -1010,7 +1065,7 @@ img{max-width:100%;display:block}
   gap: 6px;
   padding: 4px 8px;
   font-size: 11px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--gray);
   color: color-mix(in hsl, var(--text) 92%, black 8%);
 }
@@ -1038,7 +1093,7 @@ img{max-width:100%;display:block}
 .folder-card .folder-thumbnail {
   width: 100%;
   height: 100%;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -1088,7 +1143,7 @@ img{max-width:100%;display:block}
 .color-option {
   width: 40px;
   height: 40px;
-  border-radius: 8px;
+  border-radius: var(--radius-sm);
   border: 2px solid transparent;
   cursor: pointer;
   transition: transform 0.2s, border-color 0.2s;
@@ -1113,7 +1168,7 @@ img{max-width:100%;display:block}
 
 .btn {
   padding: 10px 20px;
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   border: none;
   font-weight: 600;
   cursor: pointer;

@@ -169,6 +169,22 @@
             <input id="fontFileInput" class="input" type="file" accept=".ttf,.otf,.woff,.woff2" />
           </label>
         </div>
+
+        <!-- Border Shape Settings -->
+        <div class="row">
+          <label class="tile toggle-row">
+            <span>Use squircle borders (modern rounded)</span>
+            <input id="useSquircleBorders" class="toggle" type="checkbox" />
+          </label>
+        </div>
+        <div id="squircleWarning" class="row" style="display: none;">
+          <div class="tile">
+            <div class="browser-warning">
+              <span class="material-symbols-outlined">info</span>
+              <span>Squircle borders are only supported in Chrome and Edge browsers. Other browsers will show classic rounded corners.</span>
+            </div>
+          </div>
+        </div>
       </section>
 
       <section id="security" class="settings-pane security-section">
@@ -546,7 +562,7 @@
               <span class="material-symbols-outlined logo-icon">note_stack</span>
             </div>
             <h3>Typeset</h3>
-            <p class="version">Version 0.9.6</p>
+            <p class="version">Version 0.9.7</p>
           </div>
 
           <div class="about-grid">
@@ -556,6 +572,24 @@
                 <h4>Updates</h4>
               </div>
               <div class="updates-container">
+                <div class="update-entry">
+                  <div class="update-header">
+                    <span class="update-version">v0.9.7</span>
+                    <span class="update-date">Apr 30, 2026</span>
+                  </div>
+                  <ul class="update-changes">
+                    <li>Appearance additions</li>
+                    <li>Full screen images in galleries</li>
+                    <li>Security fixes</li>
+                    <li>Bulk selection (holding alt)</li>
+                    <li>Download images/GIFs in galleries</li>
+                    <li>Removed the intro image</li>
+                    <li>Improved small features on the deadlines thing</li>
+                    <li>Removed a few unneeded elements</li>
+                    <li>Another redo of the UI</li>
+                    <li>Improved the top bar for mobile</li>
+                  </ul>
+                </div>
                 <div class="update-entry">
                   <div class="update-header">
                     <span class="update-version">v0.9.6</span>
