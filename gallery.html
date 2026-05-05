@@ -1189,7 +1189,9 @@
     const lightboxCounter = document.getElementById('lightboxCounter');
 
     function getVisibleImages() {
-      return Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
+      const allItems = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
+      if (gallerySessionUnlocked) return allItems;
+      return allItems.filter(item => item.dataset.locked !== 'true');
     }
 
     function openLightbox(item) {
