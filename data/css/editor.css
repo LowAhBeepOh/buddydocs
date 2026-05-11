@@ -2064,3 +2064,23 @@ body {
   opacity: 0.6;
   color: var(--muted);
 }
+
+/* Voice Conversion context menu */
+.context-menu {
+  position: fixed;
+  z-index: 1001;
+  min-width: 220px;
+}
+.context-menu .menu-title {
+  font-weight: 700;
+  font-size: 12px;
+  color: var(--muted);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  padding: 6px 10px 4px;
+  margin-bottom: 2px;
+}
+.context-menu .menu-item .material-symbols-outlined {
+  font-size: 18px;
+  color: var(--muted);
+}

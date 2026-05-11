@@ -2146,3 +2146,343 @@ function buildOutline() {
   }
   editor.addEventListener('input', update);
 })();
+
+// ==================== Voice Conversion (Active/Passive) ====================
+
+const VOICE_VERBS = {
+  'be': ['was','been'], 'have': ['had','had'], 'do': ['did','done'],
+  'say': ['said','said'], 'go': ['went','gone'], 'get': ['got','gotten'],
+  'make': ['made','made'], 'know': ['knew','known'], 'think': ['thought','thought'],
+  'take': ['took','taken'], 'see': ['saw','seen'], 'come': ['came','come'],
+  'want': ['wanted','wanted'], 'look': ['looked','looked'], 'use': ['used','used'],
+  'find': ['found','found'], 'give': ['gave','given'], 'tell': ['told','told'],
+  'ask': ['asked','asked'], 'work': ['worked','worked'], 'feel': ['felt','felt'],
+  'try': ['tried','tried'], 'leave': ['left','left'], 'call': ['called','called'],
+  'keep': ['kept','kept'], 'let': ['let','let'], 'put': ['put','put'],
+  'mean': ['meant','meant'], 'turn': ['turned','turned'], 'show': ['showed','shown'],
+  'hear': ['heard','heard'], 'play': ['played','played'], 'run': ['ran','run'],
+  'move': ['moved','moved'], 'live': ['lived','lived'], 'believe': ['believed','believed'],
+  'bring': ['brought','brought'], 'happen': ['happened','happened'], 'write': ['wrote','written'],
+  'provide': ['provided','provided'], 'sit': ['sat','sat'], 'stand': ['stood','stood'],
+  'lose': ['lost','lost'], 'pay': ['paid','paid'], 'meet': ['met','met'],
+  'include': ['included','included'], 'continue': ['continued','continued'],
+  'set': ['set','set'], 'learn': ['learned','learned'], 'change': ['changed','changed'],
+  'lead': ['led','led'], 'understand': ['understood','understood'], 'watch': ['watched','watched'],
+  'follow': ['followed','followed'], 'stop': ['stopped','stopped'], 'create': ['created','created'],
+  'speak': ['spoke','spoken'], 'read': ['read','read'], 'allow': ['allowed','allowed'],
+  'add': ['added','added'], 'spend': ['spent','spent'], 'grow': ['grew','grown'],
+  'open': ['opened','opened'], 'walk': ['walked','walked'], 'win': ['won','won'],
+  'offer': ['offered','offered'], 'remember': ['remembered','remembered'], 'love': ['loved','loved'],
+  'consider': ['considered','considered'], 'appear': ['appeared','appeared'], 'buy': ['bought','bought'],
+  'wait': ['waited','waited'], 'serve': ['served','served'], 'die': ['died','died'],
+  'send': ['sent','sent'], 'expect': ['expected','expected'], 'build': ['built','built'],
+  'stay': ['stayed','stayed'], 'fall': ['fell','fallen'], 'cut': ['cut','cut'],
+  'reach': ['reached','reached'], 'kill': ['killed','killed'], 'remain': ['remained','remained'],
+  'eat': ['ate','eaten'], 'draw': ['drew','drawn'], 'choose': ['chose','chosen'],
+  'break': ['broke','broken'], 'sell': ['sold','sold'], 'drive': ['drove','driven'],
+  'wear': ['wore','worn'], 'hit': ['hit','hit'], 'catch': ['caught','caught'],
+  'teach': ['taught','taught'], 'sleep': ['slept','slept'], 'drink': ['drank','drunk'],
+  'fly': ['flew','flown'], 'throw': ['threw','thrown'], 'sing': ['sang','sung'],
+  'swim': ['swam','swum'], 'ride': ['rode','ridden'], 'hide': ['hid','hidden'],
+  'bite': ['bit','bitten'], 'tear': ['tore','torn'], 'shake': ['shook','shaken'],
+  'feed': ['fed','fed'], 'fight': ['fought','fought'], 'seek': ['sought','sought'],
+  'ring': ['rang','rung'], 'rise': ['rose','risen'], 'beat': ['beat','beaten'],
+  'bend': ['bent','bent'], 'bind': ['bound','bound'], 'burn': ['burned','burned'],
+  'dig': ['dug','dug'], 'hang': ['hung','hung'], 'lay': ['laid','laid'],
+  'lie': ['lay','lain'], 'stick': ['stuck','stuck'], 'strike': ['struck','struck'],
+  'swear': ['swore','sworn'], 'sweep': ['swept','swept'], 'wake': ['woke','woken']
+};
+
+const ppToBase = {}, ppToPast = {}, pastToBase = {}, baseToPP = {};
+for (const [base, [past, pp]] of Object.entries(VOICE_VERBS)) {
+  ppToBase[pp] = base; ppToPast[pp] = past; pastToBase[past] = base; baseToPP[base] = pp;
+}
+
+const PRONOUN_SUBJ_TO_OBJ = {
+  'i': 'me', 'he': 'him', 'she': 'her', 'we': 'us', 'they': 'them',
+  'who': 'whom', 'someone': 'someone', 'somebody': 'somebody',
+  'everyone': 'everyone', 'everybody': 'everybody', 'anyone': 'anyone',
+  'anybody': 'anybody', 'nobody': 'nobody'
+};
+
+const PRONOUN_OBJ_TO_SUBJ = {
+  'me': 'i', 'him': 'he', 'her': 'she', 'us': 'we', 'them': 'they',
+  'whom': 'who', 'someone': 'someone', 'somebody': 'somebody',
+  'everyone': 'everyone', 'everybody': 'everybody', 'anyone': 'anyone',
+  'anybody': 'anybody', 'nobody': 'nobody'
+};
+
+const COMMON_WORDS = new Set([
+  'the', 'a', 'an', 'i', 'me', 'you', 'he', 'him', 'she', 'her', 'it',
+  'we', 'us', 'they', 'them', 'who', 'whom', 'my', 'your', 'his', 'its',
+  'our', 'their', 'this', 'that', 'these', 'those', 'some', 'any', 'no',
+  'all', 'both', 'each', 'every', 'one', 'two', 'someone', 'somebody',
+  'everyone', 'everybody', 'anyone', 'anybody', 'nobody', 'something',
+  'nothing', 'everything'
+]);
+
+function deriveBaseFromPP(pp) {
+  if (ppToBase[pp]) return ppToBase[pp];
+  if (pp.endsWith('ied')) return pp.slice(0, -3) + 'y';
+  if (pp.endsWith('ed')) {
+    const stem = pp.slice(0, -2);
+    if (stem.length > 2 && stem[stem.length-1] === stem[stem.length-2]) return stem.slice(0, -1);
+    return stem;
+  }
+  return pp;
+}
+
+function deriveBaseFromPresent(p) {
+  const lower = p.toLowerCase();
+  if (lower.endsWith('ies')) return lower.slice(0, -3) + 'y';
+  if (lower.endsWith('es')) {
+    const withoutEs = lower.slice(0, -2);
+    const withoutS = lower.slice(0, -1);
+    if (VOICE_VERBS[withoutEs] || baseToPP[withoutEs]) return withoutEs;
+    if (VOICE_VERBS[withoutS] || baseToPP[withoutS]) return withoutS;
+    const beforeEs = lower.slice(0, -2);
+    const lastChar = beforeEs[beforeEs.length - 1];
+    if ('sxzho'.includes(lastChar) || lower.endsWith('sses')) return withoutEs;
+    return withoutS;
+  }
+  if (lower.endsWith('s') && !lower.endsWith('ss')) return lower.slice(0, -1);
+  return lower;
+}
+
+function getRegularPP(base) {
+  if (base.endsWith('e')) return base + 'd';
+  if (base.endsWith('y') && !'aeiou'.includes(base[base.length-2])) return base.slice(0, -1) + 'ied';
+  return base + 'ed';
+}
+
+function isLikelyPlural(agent) {
+  const w = agent.toLowerCase().trim().split(/\s+/);
+  const last = w[w.length-1];
+  if (['they','we','you','these','those'].includes(last)) return true;
+  if (['i','he','she','it','this','that','someone'].includes(last)) return false;
+  if (last.endsWith('s') && !last.endsWith('ss')) return true;
+  return false;
+}
+
+function conjugatePresent(base, agent) {
+  if (isLikelyPlural(agent)) return base;
+  if (/[sxzosh]$/.test(base)) return base + 'es';
+  if (base.endsWith('y') && !'aeiou'.includes(base[base.length-2])) return base.slice(0, -1) + 'ies';
+  return base + 's';
+}
+
+function convertPronounCase(phrase, direction) {
+  const map = direction === 'subjToObj' ? PRONOUN_SUBJ_TO_OBJ : PRONOUN_OBJ_TO_SUBJ;
+  const words = phrase.trim().split(/\s+/);
+  if (words.length === 0) return phrase;
+  const w = words[0].toLowerCase().replace(/[^a-z]/g, '');
+  const mapped = map[w];
+  if (!mapped) return phrase;
+  let result = mapped;
+  if (words[0][0] === words[0][0].toUpperCase()) {
+    result = mapped.charAt(0).toUpperCase() + mapped.slice(1);
+  }
+  words[0] = result;
+  return words.join(' ');
+}
+
+function lowerCaseFirstIfCommon(phrase) {
+  const words = phrase.trim().split(/\s+/);
+  if (words.length === 0) return phrase;
+  const firstLower = words[0].toLowerCase();
+  if (COMMON_WORDS.has(firstLower)) {
+    return firstLower + (words.length > 1 ? ' ' + words.slice(1).join(' ') : '');
+  }
+  return phrase;
+}
+
+function capitalize(str) {
+  if (!str) return str;
+  return str.charAt(0).toUpperCase() + str.slice(1);
+}
+
+function convertPassiveToActive(text) {
+  return text.replace(/([^.!?]*[^.!?\s])([.!?])(\s*)/g, (match, sentence, punct, space) => {
+    const converted = tryConvertPassiveSentence(sentence);
+    return converted ? converted + punct + space : match;
+  });
+}
+
+function tryConvertPassiveSentence(sentence) {
+  const words = sentence.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 3) return null;
+  const beForms = new Set(['am','is','are','was','were','be','been','being']);
+  const auxBeForms = new Set(['has','have','had','will','would','can','could','shall','should','may','might','must']);
+
+  for (let i = 0; i < words.length; i++) {
+    const lw = words[i].toLowerCase().replace(/[^a-z]/g, '');
+
+    if (beForms.has(lw)) {
+      let j = i + 1, notFlag = false;
+      if (j < words.length && words[j].toLowerCase().replace(/[^a-z]/g, '') === 'not') { notFlag = true; j++; }
+      if (j < words.length && words[j].toLowerCase().replace(/[^a-z]/g, '') === 'being') j++;
+      if (j >= words.length) continue;
+      const ppRaw = words[j].toLowerCase().replace(/[^a-z]/g, '');
+      const base = deriveBaseFromPP(ppRaw);
+      const past = ppToPast[ppRaw] || ppRaw;
+      let agent = null;
+      for (let k = j + 1; k < words.length; k++) {
+        if (words[k].toLowerCase().replace(/[^a-z]/g, '') === 'by') { agent = words.slice(k + 1).join(' '); break; }
+      }
+      const subject = words.slice(0, i).join(' ');
+      let verbForm;
+      if (lw === 'was' || lw === 'were') verbForm = notFlag ? `did not ${base}` : past;
+      else if (lw === 'is' || lw === 'are') {
+        const aux = isLikelyPlural(agent || 'someone') ? 'do' : 'does';
+        verbForm = notFlag ? `${aux} not ${base}` : conjugatePresent(base, agent || 'someone');
+      } else if (lw === 'am') verbForm = notFlag ? `do not ${base}` : base;
+      else verbForm = notFlag ? `do not ${base}` : base;
+      const newObject = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      if (agent) {
+        const newSubject = capitalize(convertPronounCase(agent, 'objToSubj'));
+        return `${newSubject} ${verbForm} ${newObject}`;
+      }
+      return `Someone ${verbForm} ${newObject}`;
+    }
+
+    if (auxBeForms.has(lw) && i + 2 < words.length) {
+      const next = words[i+1].toLowerCase().replace(/[^a-z]/g, '');
+      if (next !== 'been' && next !== 'be') continue;
+      let j = i + 2, notFlag = false;
+      if (words[j].toLowerCase().replace(/[^a-z]/g, '') === 'not') { notFlag = true; j++; }
+      if (words[j].toLowerCase().replace(/[^a-z]/g, '') === 'being') j++;
+      if (j >= words.length) continue;
+      const ppRaw = words[j].toLowerCase().replace(/[^a-z]/g, '');
+      const base = deriveBaseFromPP(ppRaw);
+      const pp = baseToPP[base] || getRegularPP(base);
+      let agent = null;
+      for (let k = j + 1; k < words.length; k++) {
+        if (words[k].toLowerCase().replace(/[^a-z]/g, '') === 'by') { agent = words.slice(k + 1).join(' '); break; }
+      }
+      const subject = words.slice(0, i).join(' ');
+      const modal = words[i];
+      let verbForm;
+      if (modal === 'has' || modal === 'have' || modal === 'had') verbForm = notFlag ? `${modal} not ${pp}` : `${modal} ${pp}`;
+      else verbForm = notFlag ? `${modal} not ${base}` : `${modal} ${base}`;
+      const newObject = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      if (agent) {
+        const newSubject = capitalize(convertPronounCase(agent, 'objToSubj'));
+        return `${newSubject} ${verbForm} ${newObject}`;
+      }
+      return `Someone ${verbForm} ${newObject}`;
+    }
+  }
+  return null;
+}
+
+function convertActiveToPassive(text) {
+  return text.replace(/([^.!?]*[^.!?\s])([.!?])(\s*)/g, (match, sentence, punct, space) => {
+    const converted = tryConvertActiveSentence(sentence);
+    return converted ? converted + punct + space : match;
+  });
+}
+
+function tryConvertActiveSentence(sentence) {
+  const words = sentence.trim().split(/\s+/).filter(Boolean);
+  if (words.length < 3) return null;
+
+  for (let i = 1; i < words.length - 1; i++) {
+    const word = words[i].toLowerCase().replace(/[^a-z]/g, '');
+    if (pastToBase[word]) {
+      const base = pastToBase[word];
+      const pp = baseToPP[base];
+      const subject = words.slice(0, i).join(' ');
+      const object = words.slice(i + 1).join(' ');
+      const byPhrase = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      return `${capitalize(object)} was ${pp} by ${byPhrase}`;
+    }
+    if (word.endsWith('ed') && word.length > 3) {
+      const subject = words.slice(0, i).join(' ');
+      const object = words.slice(i + 1).join(' ');
+      const byPhrase = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      return `${capitalize(object)} was ${word} by ${byPhrase}`;
+    }
+    const base = deriveBaseFromPresent(word);
+    if (base !== word && (baseToPP[base] || word.length > 2)) {
+      const pp = baseToPP[base] || getRegularPP(base);
+      const subject = words.slice(0, i).join(' ');
+      const object = words.slice(i + 1).join(' ');
+      const beVerb = isLikelyPlural(subject) ? 'are' : 'is';
+      const byPhrase = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      return `${capitalize(object)} ${beVerb} ${pp} by ${byPhrase}`;
+    }
+  }
+
+  // Fallback: Subject + Verb + from + Object (e.g., "The titanic sank from the iceberg")
+  for (let i = 2; i < words.length - 1; i++) {
+    if (words[i].toLowerCase().replace(/[^a-z]/g, '') === 'from') {
+      const subject = words.slice(0, i - 1).join(' ');
+      const verbWord = words[i - 1].toLowerCase().replace(/[^a-z]/g, '');
+      const object = words.slice(i + 1).join(' ');
+      const base = pastToBase[verbWord] || deriveBaseFromPP(verbWord);
+      const pp = baseToPP[base] || getRegularPP(base);
+      const byPhrase = lowerCaseFirstIfCommon(convertPronounCase(subject, 'subjToObj'));
+      return `${capitalize(object)} was ${pp} by ${byPhrase}`;
+    }
+  }
+
+  return null;
+}
+
+// Voice conversion context menu
+(function initVoiceConversion(){
+  const menu = document.getElementById('voiceConvertMenu');
+  if (!menu) return;
+  let savedRange = null;
+
+  editor.addEventListener('contextmenu', (e) => {
+    const sel = window.getSelection();
+    const txt = sel.toString().trim();
+    if (!txt) return;
+    savedRange = sel.rangeCount ? sel.getRangeAt(0).cloneRange() : null;
+    e.preventDefault();
+    const x = Math.min(e.clientX, window.innerWidth - 240);
+    const y = Math.min(e.clientY, window.innerHeight - 100);
+    menu.style.left = `${x}px`;
+    menu.style.top = `${y}px`;
+    menu.removeAttribute('hidden');
+    function closeOnClick(ev) {
+      if (!menu.contains(ev.target)) {
+        menu.setAttribute('hidden', '');
+        document.removeEventListener('click', closeOnClick);
+        savedRange = null;
+      }
+    }
+    setTimeout(() => document.addEventListener('click', closeOnClick), 0);
+  });
+
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && !menu.hasAttribute('hidden')) {
+      menu.setAttribute('hidden', '');
+      savedRange = null;
+    }
+  });
+
+  function doReplace(newText) {
+    if (!savedRange) return;
+    const sel = window.getSelection();
+    sel.removeAllRanges();
+    sel.addRange(savedRange);
+    document.execCommand('insertText', false, newText);
+    editor.dispatchEvent(new Event('input', { bubbles: true }));
+    savedRange = null;
+    menu.setAttribute('hidden', '');
+  }
+
+  document.getElementById('convertToActive')?.addEventListener('click', () => {
+    const text = savedRange ? savedRange.toString() : '';
+    if (!text) return;
+    doReplace(convertPassiveToActive(text));
+  });
+
+  document.getElementById('convertToPassive')?.addEventListener('click', () => {
+    const text = savedRange ? savedRange.toString() : '';
+    if (!text) return;
+    doReplace(convertActiveToPassive(text));
+  });
+})();

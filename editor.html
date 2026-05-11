@@ -122,6 +122,19 @@
       <div class="menu-divider"></div>
       <button class="menu-item" data-export="gdocs"><span class="material-symbols-outlined">content_copy</span> Copy to Google Docs</button>
     </div>
+
+    <!-- Voice Conversion context menu -->
+    <div id="voiceConvertMenu" class="dropdown-menu context-menu" hidden>
+      <div class="menu-title">Convert Voice</div>
+      <button id="convertToActive" class="menu-item">
+        <span class="material-symbols-outlined">record_voice_over</span>
+        Convert to Active
+      </button>
+      <button id="convertToPassive" class="menu-item">
+        <span class="material-symbols-outlined">voice_over_off</span>
+        Convert to Passive
+      </button>
+    </div>
     <div class="formatbar">
         <button data-cmd="undo" class="icon-btn" title="Undo"><span class="material-symbols-outlined">undo</span></button>
         <button data-cmd="redo" class="icon-btn" title="Redo"><span class="material-symbols-outlined">redo</span></button>
