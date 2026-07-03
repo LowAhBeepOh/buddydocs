@@ -125,6 +125,13 @@ function updateToolbarForType(type) {
     location.href = `gallery.html${id ? '?id=' + id : ''}`;
     return;
   }
+
+  // If it's math type, redirect to math.html
+  if (type === 'math') {
+    const id = getParam('id');
+    location.href = `math.html${id ? '?id=' + id : ''}`;
+    return;
+  }
 }
 
 // Apply subscript

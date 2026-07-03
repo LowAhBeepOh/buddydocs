@@ -1,0 +1,409 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/editor.css" />
+  <style>
+    .math-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 20px;
+      padding: 20px;
+      height: calc(100vh - 120px);
+      overflow: auto;
+    }
+
+    .spreadsheet-area {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: auto;
+    }
+
+    .graph-area {
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      padding: 10px;
+      overflow: auto;
+    }
+
+    .spreadsheet {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    .spreadsheet th,
+    .spreadsheet td {
+      border: 1px solid var(--border);
+      padding: 8px;
+      text-align: left;
+      min-width: 80px;
+    }
+
+    .spreadsheet th {
+      background: var(--primary);
+      color: white;
+      font-weight: 600;
+      position: sticky;
+      top: 0;
+    }
+
+    .spreadsheet input {
+      width: 100%;
+      border: none;
+      padding: 0;
+      font: inherit;
+      background: transparent;
+    }
+
+    #canvas {
+      width: 100%;
+      height: 100%;
+      border: 1px solid var(--border);
+    }
+
+    .formatbar {
+      display: flex;
+      gap: 8px;
+      padding: 12px 20px;
+      border-bottom: 1px solid var(--border);
+      flex-wrap: wrap;
+    }
+
+    .sep {
+      width: 1px;
+      background: var(--border);
+      margin: 0 4px;
+    }
+  </style>
+  <title>Math • Buddy Docs</title>
+</head>
+<body>
+  <header class="editor-header">
+    <div class="menubar">
+      <div class="left">
+        <a href="./" class="logo-link" title="Home">
+          <img class="logo" src="data/assets/docslogo.svg" alt="Buddy Docs"/>
+        </a>
+        <div class="title-stack">
+          <h1 id="mathTitle" contenteditable="true" spellcheck="false">Untitled Math</h1>
+          <nav class="menu-row" aria-label="Application menu">
+            <button id="fileMenuBtn" class="menu-btn" data-menu="file">File</button>
+            <button class="menu-btn" data-menu="edit">Edit</button>
+          </nav>
+        </div>
+      </div>
+      <div class="right">
+        <button id="syncIndicator" class="icon-btn" title="Saved" disabled>
+          <span id="syncIcon" class="material-symbols-outlined">check</span>
+        </button>
+        <button id="profileBtn" class="avatar" title="Profile">BD</button>
+        <div id="profileMenu" class="menu" hidden>
+          <a href="settings.html" class="menu-item"><span class="material-symbols-outlined">settings</span> Settings</a>
+          <a href="calendar.html" class="menu-item"><span class="material-symbols-outlined">calendar_month</span> Calendar</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- File dropdown -->
+    <div id="fileDropdown" class="dropdown-menu wide" hidden>
+      <a class="menu-item" href="./"><span class="material-symbols-outlined">home</span> Home</a>
+      <a class="menu-item" href="math.html"><span class="material-symbols-outlined">add</span> New Math</a>
+      <div class="menu-divider"></div>
+      <button id="archiveBtn" class="menu-item"><span class="material-symbols-outlined">inventory_2</span> Archive</button>
+      <button id="deleteBtn" class="menu-item delete"><span class="material-symbols-outlined">delete</span> Delete</button>
+      <div class="menu-divider"></div>
+      <button id="exportPdfBtn" class="menu-item"><span class="material-symbols-outlined">picture_as_pdf</span> Export as PDF</button>
+      <button id="exportBdoxBtn" class="menu-item"><span class="material-symbols-outlined">download</span> Export (.bdox)</button>
+    </div>
+
+    <!-- Edit dropdown -->
+    <div id="editDropdown" class="dropdown-menu" hidden>
+      <button id="undoBtn" class="menu-item"><span class="material-symbols-outlined">undo</span> Undo</button>
+      <button id="redoBtn" class="menu-item"><span class="material-symbols-outlined">redo</span> Redo</button>
+    </div>
+
+    <div class="formatbar">
+      <button id="plotBtn" class="icon-btn" title="Plot graph from data">
+        <span class="material-symbols-outlined">show_chart</span>
+      </button>
+      <span class="sep"></span>
+      <button id="clearGraphBtn" class="icon-btn" title="Clear graph">
+        <span class="material-symbols-outlined">delete</span>
+      </button>
+    </div>
+  </header>
+
+  <main>
+    <div class="math-container">
+      <div class="spreadsheet-area">
+        <table class="spreadsheet" id="dataTable">
+          <thead>
+            <tr id="headerRow"></tr>
+          </thead>
+          <tbody id="tableBody"></tbody>
+        </table>
+      </div>
+      <div class="graph-area">
+        <canvas id="canvas"></canvas>
+      </div>
+    </div>
+  </main>
+
+  <script type="module">
+    import { getDocument, saveDocument, deleteDocument, setSetting, getSetting } from './data/js/idb.js';
+    import { applyEditorPrefs } from './data/js/theme.js';
+
+    const mathTitle = document.getElementById('mathTitle');
+    const canvas = document.getElementById('canvas');
+    const ctx = canvas.getContext('2d');
+    const dataTable = document.getElementById('dataTable');
+    const tableBody = document.getElementById('tableBody');
+    const headerRow = document.getElementById('headerRow');
+    const plotBtn = document.getElementById('plotBtn');
+    const clearGraphBtn = document.getElementById('clearGraphBtn');
+    const syncIndicator = document.getElementById('syncIndicator');
+    const syncIcon = document.getElementById('syncIcon');
+
+    let currentDoc = {
+      id: null,
+      title: 'Untitled Math',
+      type: 'math',
+      content: '',
+      data: [],
+      createdAt: Date.now(),
+      updatedAt: Date.now()
+    };
+
+    const ROWS = 10;
+    const COLS = 5;
+    let saveTimeout;
+
+    function getParam(name) {
+      const u = new URL(location.href);
+      return u.searchParams.get(name);
+    }
+
+    function resizeCanvas() {
+      const container = canvas.parentElement;
+      canvas.width = container.clientWidth - 20;
+      canvas.height = container.clientHeight - 20;
+      redrawGraph();
+    }
+
+    function createTable() {
+      headerRow.innerHTML = '';
+      for (let c = 0; c < COLS; c++) {
+        const th = document.createElement('th');
+        th.textContent = String.fromCharCode(65 + c);
+        headerRow.appendChild(th);
+      }
+
+      tableBody.innerHTML = '';
+      for (let r = 0; r < ROWS; r++) {
+        const tr = document.createElement('tr');
+        for (let c = 0; c < COLS; c++) {
+          const td = document.createElement('td');
+          const input = document.createElement('input');
+          input.type = 'text';
+          input.value = currentDoc.data[r]?.[c] || '';
+          input.dataset.row = r;
+          input.dataset.col = c;
+          input.addEventListener('change', updateData);
+          input.addEventListener('input', queueSave);
+          td.appendChild(input);
+          tr.appendChild(td);
+        }
+        tableBody.appendChild(tr);
+      }
+    }
+
+    function updateData(e) {
+      const r = parseInt(e.target.dataset.row);
+      const c = parseInt(e.target.dataset.col);
+      if (!currentDoc.data[r]) {
+        currentDoc.data[r] = [];
+      }
+      currentDoc.data[r][c] = e.target.value;
+      queueSave();
+    }
+
+    function plotGraph() {
+      clearGraph();
+      // Simple plot: column A as X, column B as Y
+      const xData = [];
+      const yData = [];
+
+      for (let r = 0; r < currentDoc.data.length; r++) {
+        const x = parseFloat(currentDoc.data[r]?.[0]);
+        const y = parseFloat(currentDoc.data[r]?.[1]);
+        if (!isNaN(x) && !isNaN(y)) {
+          xData.push(x);
+          yData.push(y);
+        }
+      }
+
+      if (xData.length === 0) return;
+
+      const minX = Math.min(...xData);
+      const maxX = Math.max(...xData);
+      const minY = Math.min(...yData);
+      const maxY = Math.max(...yData);
+
+      const padding = 40;
+      const width = canvas.width - 2 * padding;
+      const height = canvas.height - 2 * padding;
+
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+      // Draw axes
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.moveTo(padding, canvas.height - padding);
+      ctx.lineTo(canvas.width - padding, canvas.height - padding);
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.moveTo(padding, padding);
+      ctx.lineTo(padding, canvas.height - padding);
+      ctx.stroke();
+
+      // Plot points
+      ctx.fillStyle = '#0550FF';
+      ctx.strokeStyle = '#0550FF';
+      ctx.lineWidth = 2;
+
+      for (let i = 0; i < xData.length; i++) {
+        const x = padding + ((xData[i] - minX) / (maxX - minX || 1)) * width;
+        const y = canvas.height - padding - ((yData[i] - minY) / (maxY - minY || 1)) * height;
+
+        ctx.beginPath();
+        ctx.arc(x, y, 4, 0, 2 * Math.PI);
+        ctx.fill();
+      }
+
+      // Draw connecting line
+      if (xData.length > 1) {
+        ctx.beginPath();
+        for (let i = 0; i < xData.length; i++) {
+          const x = padding + ((xData[i] - minX) / (maxX - minX || 1)) * width;
+          const y = canvas.height - padding - ((yData[i] - minY) / (maxY - minY || 1)) * height;
+          if (i === 0) ctx.moveTo(x, y);
+          else ctx.lineTo(x, y);
+        }
+        ctx.stroke();
+      }
+    }
+
+    function redrawGraph() {
+      plotGraph();
+    }
+
+    function clearGraph() {
+      ctx.fillStyle = '#fff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+    }
+
+    function queueSave() {
+      clearTimeout(saveTimeout);
+      syncIcon.textContent = 'schedule';
+      saveTimeout = setTimeout(save, 500);
+    }
+
+    async function save() {
+      currentDoc.updatedAt = Date.now();
+      await saveDocument(currentDoc);
+      syncIcon.textContent = 'check';
+    }
+
+    async function load() {
+      const id = getParam('id');
+      if (id) {
+        currentDoc = await getDocument(id);
+      }
+      mathTitle.textContent = currentDoc.title || 'Untitled Math';
+      createTable();
+      applyEditorPrefs();
+    }
+
+    mathTitle.addEventListener('blur', () => {
+      currentDoc.title = mathTitle.textContent || 'Untitled Math';
+      queueSave();
+    });
+
+    plotBtn.addEventListener('click', plotGraph);
+    clearGraphBtn.addEventListener('click', clearGraph);
+
+    window.addEventListener('resize', resizeCanvas);
+
+    // Menu handlers
+    document.getElementById('fileMenuBtn').addEventListener('click', function() {
+      const dropdown = document.getElementById('fileDropdown');
+      dropdown.hidden = !dropdown.hidden;
+    });
+
+    document.getElementById('archiveBtn').addEventListener('click', async function() {
+      if (confirm('Archive this document?')) {
+        currentDoc.archived = true;
+        await saveDocument(currentDoc);
+        location.href = './';
+      }
+    });
+
+    document.getElementById('deleteBtn').addEventListener('click', async function() {
+      if (confirm('Delete this document? This cannot be undone.')) {
+        await deleteDocument(currentDoc.id);
+        location.href = './';
+      }
+    });
+
+    document.getElementById('exportPdfBtn').addEventListener('click', function() {
+      alert('PDF export coming soon!');
+    });
+
+    document.getElementById('exportBdoxBtn').addEventListener('click', async function() {
+      const dataStr = JSON.stringify(currentDoc);
+      const dataBlob = new Blob([dataStr], { type: 'application/json' });
+      const url = URL.createObjectURL(dataBlob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = `${(currentDoc.title || 'math').replace(/[^\w\-]+/g, '_')}.bdox`;
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      URL.revokeObjectURL(url);
+    });
+
+    // Profile menu
+    const profileBtn = document.getElementById('profileBtn');
+    const profileMenu = document.getElementById('profileMenu');
+
+    profileBtn.addEventListener('click', function() {
+      profileMenu.hidden = !profileMenu.hidden;
+    });
+
+    document.addEventListener('click', function(e) {
+      if (e.target !== profileBtn && !profileMenu.contains(e.target)) {
+        profileMenu.hidden = true;
+      }
+    });
+
+    // Load document
+    load();
+    resizeCanvas();
+  </script>
+</body>
+</html>

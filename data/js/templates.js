@@ -393,5 +393,18 @@ export const TEMPLATES = {
       <h2>Notes</h2>
       <p>Any tips, variations, or personal notes about this recipe?</p>
     `
+  },
+
+  // Math Templates
+  math_spreadsheet: {
+    key: 'math_spreadsheet',
+    title: 'Math Spreadsheet',
+    type: 'math',
+    description: 'Mathematical spreadsheet with graphing capabilities.',
+    category: 'Study',
+    icon: '📊',
+    content: `
+      Math spreadsheet for calculations and visualizations.
+    `
   }
 };

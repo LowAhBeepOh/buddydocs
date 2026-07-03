@@ -926,6 +926,8 @@ function createDocCard(doc){
     targetHref = `gallery.html?id=${encodeURIComponent(doc.id)}`;
   } else if (doc.type === 'presentation') {
     targetHref = `slides.html?id=${encodeURIComponent(doc.id)}`;
+  } else if (doc.type === 'math') {
+    targetHref = `math.html?id=${encodeURIComponent(doc.id)}`;
   } else {
     targetHref = `editor.html?id=${encodeURIComponent(doc.id)}`;
   }
@@ -1416,6 +1418,11 @@ function hydrateDocCardPreview(card){
         <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
       </div>`;
       thumb.style.padding = '0';
+    } else if (doc.type === 'math') {
+      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: #f5f5f5; font-size: 11px; color: var(--muted);">
+        <span class="material-symbols-outlined" style="font-size: 48px;">functions</span>
+      </div>`;
+      thumb.style.padding = '0';
     } else {
       const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
       if (content) {
@@ -1620,10 +1627,12 @@ async function renderDeadlines() {
         targetHref = `gallery.html?id=${encodeURIComponent(d.id)}`;
       } else if (d.type === 'presentation') {
         targetHref = `slides.html?id=${encodeURIComponent(d.id)}`;
+      } else if (d.type === 'math') {
+        targetHref = `math.html?id=${encodeURIComponent(d.id)}`;
       } else {
         targetHref = `editor.html?id=${encodeURIComponent(d.id)}`;
       }
-      
+       
       if (d.locked) {
         const ok = await requireAuth();
         if (!ok) return;
