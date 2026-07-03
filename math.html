@@ -355,6 +355,14 @@
       dropdown.hidden = !dropdown.hidden;
     });
 
+    const editBtn = Array.from(document.querySelectorAll('.menu-btn')).find(btn => btn.textContent.includes('Edit'));
+    if (editBtn) {
+      editBtn.addEventListener('click', function() {
+        const dropdown = document.getElementById('editDropdown');
+        dropdown.hidden = !dropdown.hidden;
+      });
+    }
+
     document.getElementById('archiveBtn').addEventListener('click', async function() {
       if (confirm('Archive this document?')) {
         currentDoc.archived = true;
