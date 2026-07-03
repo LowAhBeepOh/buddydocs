@@ -1669,7 +1669,9 @@ function renderTemplates(category = 'All') {
   for (const template of filteredTemplates) {
     const card = document.createElement('a');
     card.className = 'card template-card';
-    card.href = `editor.html?template=${encodeURIComponent(template.key)}`;
+    // Link to math.html for math templates, editor.html for others
+    const href = template.type === 'math' ? `math.html` : `editor.html?template=${encodeURIComponent(template.key)}`;
+    card.href = href;
     card.setAttribute('data-icon', template.icon || '📄');
 
     // Render preview using raw HTML snippet (safe since templates are authored locally)
