@@ -1844,3 +1844,6 @@ body {
   font-size: 18px;
   color: var(--muted);
 }
+
+/* Header save indicator error state */
+#syncIndicator.sync-error{color:var(--error)}

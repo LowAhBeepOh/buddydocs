@@ -587,17 +587,36 @@ function bindMeta(){
   tagsEl.addEventListener('change', () => currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean));
 }
 
+// Header save indicator: icon, tooltip, and error colour
+function setSyncState(state){
+  const icon = document.getElementById('syncIcon');
+  const btn = document.getElementById('syncIndicator');
+  const states = {
+    pending: { icon: 'sync', spin: false, title: 'Unsaved changes', error: false },
+    saving: { icon: 'sync', spin: true, title: 'Saving…', error: false },
+    saved: { icon: 'check', spin: false, title: 'Saved', error: false },
+    error: { icon: 'error', spin: false, title: 'Save failed. Recent changes may not be stored.', error: true }
+  };
+  const s = states[state];
+  if (!s) return;
+  if (icon){ icon.textContent = s.icon; icon.classList.toggle('spin', s.spin); }
+  if (btn){
+    btn.title = s.title;
+    btn.setAttribute('aria-label', s.title);
+    btn.classList.toggle('sync-error', s.error);
+  }
+}
+
 function autosave(){
   let t;
   let lastSavedContent = '';
   let versionSaveCounter = 0;
-  
-  function queue(){
-    clearTimeout(t);
-    // immediately show unsaved state
-    const iconPending = document.getElementById('syncIcon');
-    if (iconPending){ iconPending.textContent = 'sync'; iconPending.classList.remove('spin'); }
-    t = setTimeout(async () => {
+  let editSeq = 0;
+  let saveChain = Promise.resolve();
+
+  async function save(seq){
+    if (seq === editSeq) setSyncState('saving');
+    try {
       // Save current page content
       if (currentDoc.pages && currentDoc.pages[currentPageIndex]) {
         currentDoc.pages[currentPageIndex].content = editor.innerHTML;
@@ -606,23 +625,39 @@ function autosave(){
       } else {
         currentDoc.content = editor.innerHTML;
       }
-      
-      const icon = document.getElementById('syncIcon');
-      if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
       await saveDocument(currentDoc);
-      
-      // Save version every 10 saves (approximately every minute of active editing)
-      versionSaveCounter++;
-      if (versionSaveCounter >= 10 && currentDoc.id) {
-        const currentContent = editor.innerHTML;
-        if (currentContent !== lastSavedContent) {
+    } catch (err) {
+      console.error('Autosave failed:', err);
+      setSyncState('error');
+      return;
+    }
+    // If a newer edit is already queued, its save sets the final state
+    if (seq === editSeq) setSyncState('saved');
+
+    // Save version every 10 saves (approximately every minute of active editing)
+    versionSaveCounter++;
+    if (versionSaveCounter >= 10 && currentDoc.id) {
+      const currentContent = editor.innerHTML;
+      if (currentContent !== lastSavedContent) {
+        try {
           await saveVersion(currentDoc.id, currentContent, currentDoc.title);
           lastSavedContent = currentContent;
           versionSaveCounter = 0;
+        } catch (err) {
+          console.warn('Version save failed:', err);
         }
       }
-      
-      if (icon){ icon.textContent = 'check'; icon.classList.remove('spin'); }
+    }
+  }
+
+  // Each edit restarts the debounce. Saves run one at a time so they never overlap.
+  function queue(){
+    clearTimeout(t);
+    editSeq++;
+    setSyncState('pending');
+    t = setTimeout(() => {
+      const seq = editSeq;
+      saveChain = saveChain.then(() => save(seq));
     }, 600);
   }
   editor.addEventListener('input', queue);
@@ -756,13 +791,18 @@ async function saveNow(){
     currentDoc.content = editor.innerHTML;
   }
   
-  const icon = document.getElementById('syncIcon');
-  if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
-  const saved = await saveDocument(currentDoc);
+  setSyncState('saving');
+  let saved;
+  try {
+    saved = await saveDocument(currentDoc);
+  } catch (err) {
+    setSyncState('error');
+    throw err;
+  }
   if (!getParam('id')){
     history.replaceState({}, '', `editor.html?id=${encodeURIComponent(saved.id)}`);
   }
-  if (icon){ icon.textContent = 'check'; icon.classList.remove('spin'); }
+  setSyncState('saved');
 }
 
 async function deleteNow(){
@@ -1681,13 +1721,17 @@ setupToolsMenu();
 initMusic();
 initOutlineTabs();
 
-// Live-refresh Review panel when visible
+// Live-refresh Review panel when visible (debounced, since the check scans the whole document)
 if (editor){
+  let reviewRefreshTimer = null;
   editor.addEventListener('input', ()=>{
-    const panel = document.getElementById('reviewSidebar');
-    if (panel && !panel.hidden){
-      renderReviewPanel(editor);
-    }
+    clearTimeout(reviewRefreshTimer);
+    reviewRefreshTimer = setTimeout(()=>{
+      const panel = document.getElementById('reviewSidebar');
+      if (panel && !panel.hidden){
+        renderReviewPanel(editor);
+      }
+    }, 300);
   });
 }
 
@@ -2013,10 +2057,16 @@ function updateReadingUI(wordsCountOverride = null) {
   }
 }
 
+let lastOutlineSignature = null;
+
 function buildOutline() {
   const outlineList = document.getElementById('outlineList');
   if (!outlineList) return;
   const headings = Array.from(editor.querySelectorAll('h1, h2, h3'));
+  // Typing in body text leaves headings unchanged, so skip the rebuild
+  const signature = headings.map(h => h.tagName + h.textContent.trim()).join('\u0000');
+  if (signature === lastOutlineSignature) return;
+  lastOutlineSignature = signature;
   outlineList.innerHTML = '';
   if (headings.length === 0) {
     const empty = document.createElement('div');
@@ -2026,7 +2076,7 @@ function buildOutline() {
     return;
   }
   let h1Index = 0, h2Index = 0, h3Index = 0;
-  headings.forEach(h => {
+  headings.forEach((h, index) => {
     const level = Number(h.tagName.slice(1));
     if (level === 1) { h1Index++; h2Index = 0; h3Index = 0; }
     if (level === 2) { h2Index++; h3Index = 0; }
@@ -2048,13 +2098,16 @@ function buildOutline() {
     text.textContent = title;
     item.appendChild(num);
     item.appendChild(text);
-    // Scroll to heading on click
+    // Scroll to heading on click. Look the heading up at click time, because the
+    // outline can outlive the nodes it was built from after a page switch.
     item.addEventListener('click', (e) => {
       e.preventDefault();
-      h.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const target = editor.querySelectorAll('h1, h2, h3')[index];
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // briefly highlight
-      h.style.outline = `2px solid var(--primary)`;
-      setTimeout(() => (h.style.outline = ''), 800);
+      target.style.outline = `2px solid var(--primary)`;
+      setTimeout(() => (target.style.outline = ''), 800);
     });
     outlineList.appendChild(item);
   });
@@ -2141,13 +2194,19 @@ function buildOutline() {
 // Hook into existing flows to update counts and outline
 (function attachLiveUpdates(){
   const update = ()=>{ updateStatusCounts(); buildOutline(); };
+  // Coalesce bursts of input into one update per frame
+  let frame = 0;
+  const scheduleUpdate = ()=>{
+    if (frame) return;
+    frame = requestAnimationFrame(()=>{ frame = 0; update(); });
+  };
   // initial
   if (document.readyState === 'complete' || document.readyState === 'interactive'){
     setTimeout(update, 0);
   } else {
     window.addEventListener('DOMContentLoaded', update, { once:true });
   }
-  editor.addEventListener('input', update);
+  editor.addEventListener('input', scheduleUpdate);
 })();
 
 // ==================== Voice Conversion (Active/Passive) ====================
