@@ -1,5 +1,6 @@
 import { saveDocument, getDocument, deleteDocument } from './idb.js';
 import { sanitizeHtml } from './sanitize.js';
+import { renderSlideInto, SLIDE_WIDTH } from './slide-render.js';
 
 // State management
 let presentation = {
@@ -46,6 +47,9 @@ const exitPresentBtn = document.getElementById('exitPresentBtn');
 const prevSlideBtn = document.getElementById('prevSlideBtn');
 const nextSlideBtn = document.getElementById('nextSlideBtn');
 const presentSlideCounter = document.getElementById('presentSlideCounter');
+const presenterBtn = document.getElementById('presenterBtn');
+const speakerNotes = document.getElementById('speakerNotes');
+const printRoot = document.getElementById('printRoot');
 
 // File menu
 const fileMenuBtn = document.getElementById('fileMenuBtn');
@@ -89,6 +93,7 @@ async function init() {
   renderSlidesList();
   renderCurrentSlide();
   setupEventListeners();
+  openPresentChannel();
 }
 
 // Create a new slide
@@ -299,7 +304,8 @@ function duplicateCurrentSlide() {
       ...el,
       id: crypto.randomUUID()
     })),
-    background: currentSlide.background
+    background: currentSlide.background,
+    notes: currentSlide.notes || ''
   };
   
   presentation.slides.splice(presentation.currentSlideIndex + 1, 0, duplicateSlide);
@@ -453,6 +459,9 @@ function renderCurrentSlide() {
     slideCanvas.appendChild(el);
   });
   
+  if (speakerNotes && document.activeElement !== speakerNotes) {
+    speakerNotes.value = slide.notes || '';
+  }
   updateSlideCounter();
 }
 
@@ -788,8 +797,7 @@ presentBtn?.addEventListener('click', () => {
 
 function enterPresentationMode() {
   presentationMode.hidden = false;
-  presentation.presentSlideIndex = 0;
-  renderPresentationSlide();
+  goToPresentSlide(0);
   
   // Fullscreen API
   if (presentationMode.requestFullscreen) {
@@ -806,19 +814,8 @@ function exitPresentationMode() {
   }
 }
 
-prevSlideBtn?.addEventListener('click', () => {
-  if (presentation.presentSlideIndex > 0) {
-    presentation.presentSlideIndex--;
-    renderPresentationSlide();
-  }
-});
-
-nextSlideBtn?.addEventListener('click', () => {
-  if (presentation.presentSlideIndex < presentation.slides.length - 1) {
-    presentation.presentSlideIndex++;
-    renderPresentationSlide();
-  }
-});
+prevSlideBtn?.addEventListener('click', () => goToPresentSlide(presentation.presentSlideIndex - 1));
+nextSlideBtn?.addEventListener('click', () => goToPresentSlide(presentation.presentSlideIndex + 1));
 
 // Keyboard shortcuts
 document.addEventListener('keydown', (e) => {
@@ -826,16 +823,10 @@ document.addEventListener('keydown', (e) => {
   if (!presentationMode.hidden) {
     if (e.key === 'ArrowRight' || e.key === ' ') {
       e.preventDefault();
-      if (presentation.presentSlideIndex < presentation.slides.length - 1) {
-        presentation.presentSlideIndex++;
-        renderPresentationSlide();
-      }
+      goToPresentSlide(presentation.presentSlideIndex + 1);
     } else if (e.key === 'ArrowLeft') {
       e.preventDefault();
-      if (presentation.presentSlideIndex > 0) {
-        presentation.presentSlideIndex--;
-        renderPresentationSlide();
-      }
+      goToPresentSlide(presentation.presentSlideIndex - 1);
     } else if (e.key === 'Escape') {
       exitPresentationMode();
     }
@@ -844,7 +835,8 @@ document.addEventListener('keydown', (e) => {
   
   // Edit mode shortcuts
   // Don't trigger shortcuts when typing in contenteditable elements
-  if (document.activeElement.contentEditable === 'true' || document.activeElement.tagName === 'INPUT') {
+  if (document.activeElement.contentEditable === 'true' || document.activeElement.tagName === 'INPUT' ||
+      document.activeElement.tagName === 'TEXTAREA') {
     return;
   }
   
@@ -944,53 +936,44 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
+// Presentation mode navigation; broadcast keeps the presenter window in step
+function goToPresentSlide(index, { broadcast = true } = {}) {
+  const last = presentation.slides.length - 1;
+  presentation.presentSlideIndex = Math.min(Math.max(index, 0), last);
+  if (!presentationMode.hidden) renderPresentationSlide();
+  if (broadcast) presentChannel?.postMessage({ type: 'goto', index: presentation.presentSlideIndex });
+}
+
 function renderPresentationSlide() {
   const slide = presentation.slides[presentation.presentSlideIndex];
   if (!slide) return;
-  
-  presentCanvas.innerHTML = '';
-  presentCanvas.style.background = slide.background;
-  
-  slide.elements.forEach(element => {
-    const el = document.createElement('div');
-    el.style.position = 'absolute';
-    el.style.left = element.x + 'px';
-    el.style.top = element.y + 'px';
-    el.style.width = element.width + 'px';
-    el.style.height = element.height + 'px';
-    
-    if (element.type === 'text') {
-      el.innerHTML = sanitizeHtml(element.content);
-      el.style.fontSize = element.fontSize + 'px';
-      el.style.color = element.color;
-      el.style.fontWeight = element.fontWeight;
-      el.style.fontStyle = element.fontStyle;
-      el.style.textDecoration = element.textDecoration;
-      el.style.textAlign = element.textAlign || 'left';
-      el.style.padding = '12px';
-    } else if (element.type === 'image') {
-      const img = document.createElement('img');
-      img.src = element.src;
-      img.style.width = '100%';
-      img.style.height = '100%';
-      img.style.objectFit = 'contain';
-      el.appendChild(img);
-    } else if (element.type === 'shape') {
-      const shape = document.createElement('div');
-      shape.className = 'shape ' + element.shape;
-      shape.style.width = '100%';
-      shape.style.height = '100%';
-      if (element.shape === 'rectangle' || element.shape === 'circle' || element.shape === 'line') {
-        shape.style.background = element.color;
-      }
-      el.appendChild(shape);
-    }
-    
-    presentCanvas.appendChild(el);
-  });
-  
+
+  renderSlideInto(presentCanvas, slide);
   presentSlideCounter.textContent = `${presentation.presentSlideIndex + 1} / ${presentation.slides.length}`;
 }
+
+window.addEventListener('resize', () => {
+  if (!presentationMode.hidden) renderPresentationSlide();
+});
+
+// Presenter view sync
+let presentChannel = null;
+
+function openPresentChannel() {
+  if (presentChannel || !('BroadcastChannel' in window)) return;
+  presentChannel = new BroadcastChannel(`buddydocs-present-${presentation.id}`);
+  presentChannel.addEventListener('message', (e) => {
+    if (e.data?.type === 'goto' && Number.isInteger(e.data.index)) {
+      goToPresentSlide(e.data.index, { broadcast: false });
+    }
+  });
+}
+
+presenterBtn?.addEventListener('click', async () => {
+  await savePresentation();
+  const url = `presenter.html?id=${encodeURIComponent(presentation.id)}&slide=${presentation.currentSlideIndex}`;
+  window.open(url, `buddydocs-presenter-${presentation.id}`, 'width=1280,height=800');
+});
 
 // Save presentation
 async function savePresentation() {
@@ -1001,6 +984,7 @@ async function savePresentation() {
   syncIcon.textContent = '...';
   
   await saveDocument(presentation);
+  presentChannel?.postMessage({ type: 'doc' });
   
   setTimeout(() => {
     syncIcon.classList.add('material-symbols-outlined');
@@ -1066,9 +1050,29 @@ deleteBtn?.addEventListener('click', async () => {
   }
 });
 
-// Export as PDF (placeholder)
-exportPdfBtn?.addEventListener('click', () => {
-  alert('PDF export coming soon!');
+// Export as PDF: print-only pages, saved through the browser's print dialog
+const PRINT_PAGE_WIDTH = 1280; // 13.333in at 96dpi, matches @page size in slides.css
+
+exportPdfBtn?.addEventListener('click', async () => {
+  fileDropdown.hidden = true;
+
+  const previousTitle = document.title;
+  document.title = presentation.title;
+  printRoot.innerHTML = '';
+  presentation.slides.forEach(slide => {
+    const page = document.createElement('section');
+    page.className = 'print-page';
+    renderSlideInto(page, slide, PRINT_PAGE_WIDTH / SLIDE_WIDTH);
+    printRoot.appendChild(page);
+  });
+
+  await Promise.all([...printRoot.querySelectorAll('img')].map(img => img.decode().catch(() => {})));
+
+  window.addEventListener('afterprint', () => {
+    printRoot.innerHTML = '';
+    document.title = previousTitle;
+  }, { once: true });
+  window.print();
 });
 
 // Export as .bdox
@@ -1080,6 +1084,16 @@ exportBdoxBtn?.addEventListener('click', () => {
   a.download = `${presentation.title}.bdox`;
   a.click();
   URL.revokeObjectURL(url);
+});
+
+// Speaker notes: save shortly after typing stops
+let notesSaveTimer = null;
+speakerNotes?.addEventListener('input', () => {
+  const slide = getCurrentSlide();
+  if (!slide) return;
+  slide.notes = speakerNotes.value;
+  clearTimeout(notesSaveTimer);
+  notesSaveTimer = setTimeout(savePresentation, 400);
 });
 
 // Setup event listeners

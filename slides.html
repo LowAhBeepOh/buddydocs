@@ -41,6 +41,9 @@
         <button id="presentBtn" class="icon-btn" style="background: var(--primary); color: white; padding: 8px 12px; gap: 4px;" title="Start presentation (F5)">
           <span class="material-symbols-outlined" style="font-size: 18px;">play_arrow</span>
         </button>
+        <button id="presenterBtn" class="icon-btn" title="Presenter view (notes + next slide)">
+          <span class="material-symbols-outlined" style="font-size: 18px;">co_present</span>
+        </button>
         <button id="syncIndicator" class="icon-btn" title="Saved" disabled>
           <span id="syncIcon" class="material-symbols-outlined">check</span>
         </button>
@@ -141,6 +144,10 @@
       <div class="canvas-info">
         <span id="slideCounter">Slide 1 of 1</span>
       </div>
+      <div class="speaker-notes">
+        <label for="speakerNotes">Speaker notes</label>
+        <textarea id="speakerNotes" class="input" rows="3" placeholder="Notes for this slide. Only shown in presenter view."></textarea>
+      </div>
     </section>
   </main>
 
@@ -156,6 +163,9 @@
       <!-- Current slide displayed here in presentation mode -->
     </div>
   </div>
+
+  <!-- Print-only pages for Export as PDF -->
+  <div id="printRoot"></div>
 
   <!-- Layout picker modal -->
   <div id="layoutModal" class="modal-backdrop" hidden>

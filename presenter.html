@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en" data-theme="light">
+<head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:*; frame-src https://accounts.google.com https://apis.google.com https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0550FF" />
+  <link rel="icon" href="data/assets/docslogo.svg" type="image/svg+xml">
+
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Doto:wght@100..900&family=Inter+Tight:ital,wght@0,100..900;1,100..900&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:opsz,wght,FILL,GRAD@20..48,100..700,0..1,-50..200" rel="stylesheet" />
+
+  <link rel="stylesheet" href="data/css/base.css" />
+  <link rel="stylesheet" href="data/css/slides.css" />
+  <link rel="stylesheet" href="data/css/presenter.css" />
+  <title>Presenter view • Buddy Docs</title>
+</head>
+<body class="presenter-page">
+  <header class="presenter-header">
+    <h1 id="presenterTitle">Presenter view</h1>
+    <div class="presenter-timer" title="Time since the presenter window opened">
+      <span id="timer" aria-live="off">00:00</span>
+      <button id="resetTimer" class="icon-btn" title="Reset timer">
+        <span class="material-symbols-outlined">restart_alt</span>
+      </button>
+    </div>
+    <span id="presenterCounter" class="presenter-counter">0 / 0</span>
+  </header>
+
+  <p id="presenterError" class="presenter-error" hidden></p>
+
+  <main id="presenterMain" class="presenter-main">
+    <section class="presenter-left">
+      <div class="presenter-label">Current slide</div>
+      <div id="currentSlide" class="presenter-slide"></div>
+
+      <div class="presenter-nav">
+        <button id="prevBtn" class="icon-btn" title="Previous (Left, PageUp)">
+          <span class="material-symbols-outlined">arrow_back</span>
+        </button>
+        <button id="nextBtn" class="icon-btn" title="Next (Right, Space, PageDown)">
+          <span class="material-symbols-outlined">arrow_forward</span>
+        </button>
+      </div>
+
+      <div class="presenter-notes-wrap">
+        <div class="presenter-label">Speaker notes</div>
+        <div id="notes" class="presenter-notes"></div>
+      </div>
+    </section>
+
+    <aside class="presenter-right">
+      <div class="presenter-label">Up next</div>
+      <div id="nextSlide" class="presenter-slide presenter-slide--next"></div>
+      <p id="endMsg" class="presenter-end" hidden>End of presentation</p>
+    </aside>
+  </main>
+
+  <script type="module" src="data/js/theme.js"></script>
+  <script type="module" src="data/js/presenter.js"></script>
+</body>
+</html>
