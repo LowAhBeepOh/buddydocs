@@ -1,5 +1,6 @@
 import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
 import * as themeModule from './theme.js';
+import { TOOLBAR_ITEMS } from './toolbar-config.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
 import { getVersions } from './version-history.js';
@@ -37,6 +38,28 @@ async function hashSecret(secret) {
   const out = await scrypt(pwBytes, saltBytes, N, r, p, dkLen);
   // Convert to hex string
   return Array.from(out).map(b => b.toString(16).padStart(2, '0')).join('');
+}
+
+function renderToolbarItems(hiddenKeys) {
+  const container = document.getElementById('toolbarItems');
+  if (!container) return;
+  const hidden = new Set(hiddenKeys);
+  container.replaceChildren(...TOOLBAR_ITEMS.map(item => {
+    const label = document.createElement('label');
+    label.className = 'toolbar-item-option';
+    const box = document.createElement('input');
+    box.type = 'checkbox';
+    box.value = item.key;
+    box.checked = !hidden.has(item.key);
+    label.append(box, document.createTextNode(item.label));
+    return label;
+  }));
+}
+
+function getHiddenToolbarItems() {
+  return [...document.querySelectorAll('#toolbarItems input')]
+    .filter(box => !box.checked)
+    .map(box => box.value);
 }
 
 async function loadSettings() {
@@ -78,6 +101,14 @@ async function loadSettings() {
   if (customFontNameInput && appFontFamily === 'Custom') {
     customFontNameInput.value = await getSetting('customFontName', '');
   }
+
+  const accentColor = await getSetting('accentColor', '');
+  document.getElementById('useCustomAccent').checked = !!accentColor;
+  document.getElementById('accentColor').value = accentColor || '#0550ff';
+  document.getElementById('accentColorRow').style.display = accentColor ? 'grid' : 'none';
+
+  document.getElementById('uiDensity').value = await getSetting('uiDensity', 'comfortable');
+  renderToolbarItems(await getSetting('hiddenToolbarItems', []));
 
   const displayName = await getSetting('displayName', 'Buddy');
   const initials = await getSetting('initials', 'BD');
@@ -449,6 +480,11 @@ async function saveSettings() {
   // Get squircle border setting
   const useSquircleBorders = document.getElementById('useSquircleBorders')?.checked || false;
 
+  const useCustomAccent = document.getElementById('useCustomAccent')?.checked || false;
+  const accentColor = useCustomAccent ? document.getElementById('accentColor').value : '';
+  const uiDensity = document.getElementById('uiDensity')?.value || 'comfortable';
+  const hiddenToolbarItems = getHiddenToolbarItems();
+
   const settingsToSave = [
     setSetting('displayName', displayName),
     setSetting('initials', initials),
@@ -473,7 +509,13 @@ async function saveSettings() {
     setSetting('reminderTime', reminderTime),
     setSetting('appFontFamily', appFontFamily),
     setSetting('useSquircleBorders', useSquircleBorders),
+    setSetting('accentColor', accentColor),
+    setSetting('uiDensity', uiDensity),
+    setSetting('hiddenToolbarItems', hiddenToolbarItems),
   ];
+
+  themeModule.setAccentColor(accentColor);
+  themeModule.applyDensity(uiDensity);
 
   if (appFontFamily === 'Custom') {
     settingsToSave.push(setSetting('customFontName', customFontName));
@@ -1040,6 +1082,19 @@ loadSettings().then(async () => {
   }
   document.getElementById('profilePicture').addEventListener('change', handleProfilePicture);
   document.getElementById('removeProfilePic').addEventListener('click', removeProfilePicture);
+
+  document.getElementById('useCustomAccent')?.addEventListener('change', (e) => {
+    const on = e.target.checked;
+    document.getElementById('accentColorRow').style.display = on ? 'grid' : 'none';
+    themeModule.setAccentColor(on ? document.getElementById('accentColor').value : '');
+  });
+  document.getElementById('accentColor')?.addEventListener('input', (e) => {
+    themeModule.setAccentColor(e.target.value);
+  });
+  document.getElementById('uiDensity')?.addEventListener('change', (e) => {
+    themeModule.applyDensity(e.target.value);
+  });
+  document.getElementById('toolbarItems')?.addEventListener('change', markChanges);
 
   const defaultFontSelect = document.getElementById('defaultFontSelect');
   const customFontRow = document.getElementById('customFontRow');
@@ -1725,5 +1780,5 @@ document.getElementById('initials')?.addEventListener('input', (e)=>{
 // Live theme/app prefs
 document.getElementById('themeSelect')?.addEventListener('change', (e)=>{
   const val = e.target.value;
-  applyClassicTheme(val);
+  themeModule.applyClassicTheme(val);
 });

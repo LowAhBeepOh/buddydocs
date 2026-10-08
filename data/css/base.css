@@ -565,6 +565,13 @@ img{max-width:100%;display:block}
 
 .input{width:100%; padding:10px 12px; border:1px solid var(--border); border-radius:var(--radius-md); background:var(--surface); color:var(--text)}
 
+/* Compact density, set via data-density on <html> in theme.js */
+:root[data-density="compact"] .btn{padding:6px 10px}
+:root[data-density="compact"] .input{padding:6px 9px}
+:root[data-density="compact"] .icon-btn{padding:2px}
+:root[data-density="compact"] .menu-item,
+:root[data-density="compact"] .dropdown-menu .menu-item{padding:5px 8px}
+
 .card-row{display:grid; grid-template-columns:repeat(4, minmax(0,1fr)); gap:12px}
 .card{
   background:var(--surface); border:1px solid var(--border); border-radius:var(--radius-xl); padding:16px;

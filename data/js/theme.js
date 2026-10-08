@@ -1,6 +1,12 @@
 import { getSetting, setSetting } from './idb.js';
+import { applyToolbarVisibility } from './toolbar-config.js';
 
 const root = document.documentElement;
+
+// Custom accent (classic themes only). Empty means the theme's own --primary.
+let accentColor = '';
+// Every var applyDynamicTheme can set.
+const DYNAMIC_THEME_PROPS = Object.keys(generateDynamicTheme(0, 'light', 'normal'));
 
 function updateMetaThemeColor(){
   const meta = document.querySelector('meta[name="theme-color"]');
@@ -16,8 +22,27 @@ export function applyClassicTheme(theme) {
     t = matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
   }
   root.setAttribute('data-theme', t);
-  root.style = ''; // Clear dynamic styles
+  // Only drop the dynamic-theme vars. Clearing all inline styles would also wipe the app font.
+  for (const prop of DYNAMIC_THEME_PROPS) root.style.removeProperty(prop);
+  applyAccent();
   updateMetaThemeColor();
+}
+
+function applyAccent() {
+  if (accentColor) root.style.setProperty('--primary', accentColor);
+}
+
+export function setAccentColor(color) {
+  accentColor = color || '';
+  // Dynamic themes set --primary themselves, so the accent only applies to classic ones.
+  if (!root.hasAttribute('data-theme')) return;
+  root.style.removeProperty('--primary');
+  applyAccent();
+}
+
+export function applyDensity(density) {
+  if (density === 'compact') root.dataset.density = 'compact';
+  else delete root.dataset.density;
 }
 
 export function generateDynamicTheme(hue, mode, scheme) {
@@ -111,6 +136,8 @@ export function applyDynamicTheme(hue, mode, scheme) {
 }
 
 export async function initTheme() {
+  accentColor = await getSetting('accentColor', '');
+  applyDensity(await getSetting('uiDensity', 'comfortable'));
   const useDynamicTheme = await getSetting('useDynamicTheme', false);
 
   if (useDynamicTheme) {
@@ -171,6 +198,8 @@ export async function applyEditorPrefs() {
   if (!await getSetting('useDynamicTheme', false)) {
     root.style.setProperty('--border', highContrast ? '#8f8d9f' : getComputedStyle(root).getPropertyValue('--border'));
   }
+  const formatbar = document.querySelector('.formatbar');
+  if (formatbar) applyToolbarVisibility(formatbar, await getSetting('hiddenToolbarItems', []));
 }
 
 let customFontStyleEl;

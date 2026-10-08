@@ -1170,6 +1170,7 @@ body {
 .menu-btn{appearance:none; background:transparent; border:none; color:var(--muted); font-weight:600; padding:4px 8px; border-radius:8px; cursor:pointer; font-family: var(--bd-font-family)}
 .menu-btn:hover, .menu-btn[aria-expanded="true"]{background:color-mix(in hsl, var(--primary) 10%, var(--surface)); color:var(--text)}
 .formatbar{position:sticky; top:0; z-index:25; background:color-mix(in hsl, var(--surface) 85%, white 15%); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 16px; backdrop-filter: blur(6px); display:flex; flex-wrap:wrap; align-items:center; gap:4px}
+:root[data-density="compact"] .formatbar{padding:4px 10px}
 .formatbar.compact{display:none}
 
 /* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */

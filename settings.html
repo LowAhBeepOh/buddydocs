@@ -106,6 +106,18 @@
               </select>
             </label>
           </div>
+          <div class="row">
+            <label class="tile toggle-row">
+              <span>Custom accent color</span>
+              <input id="useCustomAccent" class="toggle" type="checkbox" />
+            </label>
+          </div>
+          <div id="accentColorRow" class="row" style="display: none;">
+            <label class="tile">
+              <span>Accent color</span>
+              <input id="accentColor" class="input" type="color" value="#0550ff" />
+            </label>
+          </div>
           <button id="switchToDynamic" class="btn secondary">Switch to new version</button>
         </div>
 
@@ -169,6 +181,24 @@
             <span>Import Font File</span>
             <input id="fontFileInput" class="input" type="file" accept=".ttf,.otf,.woff,.woff2" />
           </label>
+        </div>
+
+        <!-- Density and editor toolbar settings -->
+        <div class="row">
+          <label class="tile">
+            <span>Interface density</span>
+            <select id="uiDensity" class="input">
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <div class="tile">
+            <span>Editor toolbar buttons</span>
+            <p class="tile-hint">Unchecked buttons are hidden in the editor toolbar.</p>
+            <div id="toolbarItems" class="toolbar-items-grid"></div>
+          </div>
         </div>
 
         <!-- Border Shape Settings -->
