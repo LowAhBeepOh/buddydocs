@@ -240,6 +240,135 @@ function insertTable(rows, cols) {
   editor.focus();
 }
 
+// Dropdowns for Edit, View, Insert, Format and Help. Every item runs an existing command.
+const actionMenu = { btn: null };
+
+function closeActionMenu(){
+  document.getElementById('menuDropdown')?.setAttribute('hidden','');
+  actionMenu.btn?.setAttribute('aria-expanded','false');
+  actionMenu.btn = null;
+}
+
+function openActionMenu(btn, name){
+  const menu = document.getElementById('menuDropdown');
+  const build = ACTION_MENUS[name];
+  if (!menu || !build) return;
+  menu.replaceChildren(...build().map(buildMenuEntry));
+  const r = btn.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top = `${r.bottom + 6}px`;
+  menu.removeAttribute('hidden');
+  btn.setAttribute('aria-expanded','true');
+  actionMenu.btn = btn;
+}
+
+function buildMenuEntry(item){
+  if (item.divider){
+    const divider = document.createElement('div');
+    divider.className = 'menu-divider';
+    return divider;
+  }
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'menu-item';
+  if (item.icon){
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = item.icon;
+    button.appendChild(icon);
+  }
+  button.appendChild(document.createTextNode(item.label));
+  if (item.shortcut){
+    const shortcut = document.createElement('span');
+    shortcut.className = 'menu-shortcut';
+    shortcut.textContent = item.shortcut;
+    button.appendChild(shortcut);
+  }
+  button.addEventListener('mousedown', (e) => e.preventDefault());
+  button.addEventListener('click', () => {
+    closeActionMenu();
+    item.run();
+  });
+  return button;
+}
+
+// Focus first so the command applies to the current selection
+function runEditorCommand(fn){
+  editor.focus();
+  fn();
+}
+const execCmd = (cmd, value) => runEditorCommand(() => document.execCommand(cmd, false, value));
+const clickButton = (id) => () => document.getElementById(id)?.click();
+const blockItem = (label, icon, tag) => ({ label, icon, run: () => runEditorCommand(() => applyBlock(tag)) });
+
+const toolsState = { aiEnabled: false, smartComposeOn: false };
+
+const ACTION_MENUS = {
+  edit: () => [
+    { label: 'Undo', icon: 'undo', shortcut: 'Ctrl+Z', run: () => execCmd('undo') },
+    { label: 'Redo', icon: 'redo', shortcut: 'Ctrl+Y', run: () => execCmd('redo') },
+    { divider: true },
+    { label: 'Select all', icon: 'select_all', shortcut: 'Ctrl+A', run: () => execCmd('selectAll') },
+  ],
+  view: () => {
+    const toolbarHidden = document.querySelector('.formatbar')?.classList.contains('compact');
+    const menusHidden = document.querySelector('.editor-wrap')?.classList.contains('hide-menus');
+    return [
+      { label: isViewMode ? 'Switch to editing' : 'Reading view', icon: isViewMode ? 'edit' : 'visibility', run: clickButton(isViewMode ? 'editModeBtn' : 'viewModeBtn') },
+      { divider: true },
+      { label: toolbarHidden ? 'Show formatting toolbar' : 'Hide formatting toolbar', icon: 'view_compact', run: () => document.querySelector('.formatbar')?.classList.toggle('compact') },
+      { label: menusHidden ? 'Show menus' : 'Hide menus', icon: 'fullscreen', shortcut: 'Ctrl+Shift+F', run: clickButton('hideMenusBtn') },
+    ];
+  },
+  insert: () => [
+    { label: 'Image', icon: 'image', run: clickButton('insertImage') },
+    { label: 'Link', icon: 'link', shortcut: 'Ctrl+K', run: clickButton('insertLink') },
+    { label: 'Table', icon: 'table_chart', run: clickButton('insertTableBtn') },
+    { label: 'Horizontal line', icon: 'horizontal_rule', run: () => execCmd('insertHorizontalRule') },
+  ],
+  format: () => [
+    { label: 'Bold', icon: 'format_bold', shortcut: 'Ctrl+B', run: () => execCmd('bold') },
+    { label: 'Italic', icon: 'format_italic', shortcut: 'Ctrl+I', run: () => execCmd('italic') },
+    { label: 'Underline', icon: 'format_underlined', shortcut: 'Ctrl+U', run: () => execCmd('underline') },
+    { label: 'Strikethrough', icon: 'strikethrough_s', run: () => execCmd('strikeThrough') },
+    { label: 'Subscript', icon: 'subscript', run: () => runEditorCommand(applySubscript) },
+    { label: 'Superscript', icon: 'superscript', run: () => runEditorCommand(applySuperscript) },
+    { divider: true },
+    blockItem('Paragraph', 'notes', 'p'),
+    blockItem('Heading 1', 'title', 'h1'),
+    blockItem('Heading 2', 'title', 'h2'),
+    blockItem('Heading 3', 'title', 'h3'),
+    blockItem('Quote', 'format_quote', 'blockquote'),
+    blockItem('Code', 'code', 'pre'),
+    { divider: true },
+    { label: 'Bulleted list', icon: 'format_list_bulleted', run: () => execCmd('insertUnorderedList') },
+    { label: 'Numbered list', icon: 'format_list_numbered', run: () => execCmd('insertOrderedList') },
+    { divider: true },
+    { label: 'Align left', icon: 'format_align_left', run: () => execCmd('justifyLeft') },
+    { label: 'Align center', icon: 'format_align_center', run: () => execCmd('justifyCenter') },
+    { label: 'Align right', icon: 'format_align_right', run: () => execCmd('justifyRight') },
+    { divider: true },
+    { label: 'Clear formatting', icon: 'format_clear', run: clickButton('clearFormat') },
+  ],
+  tools: () => [
+    ...(toolsState.aiEnabled ? [
+      { label: 'CompactB', icon: 'auto_awesome', run: openChatbotFromMenu },
+      { divider: true },
+    ] : []),
+    { label: 'Version history', icon: 'history', run: openVersionHistoryFromMenu },
+    { label: 'Summary', icon: 'summarize', run: openSummaryFromMenu },
+    { label: 'Review', icon: 'spellcheck', run: toggleReviewPanel },
+    { divider: true },
+    { label: 'Smart Compose', icon: 'auto_fix_high', shortcut: toolsState.smartComposeOn ? 'On' : 'Off', run: toggleSmartComposeFromMenu },
+  ],
+  help: () => [
+    { label: 'Keyboard shortcuts', icon: 'keyboard', run: () => showKeyboardShortcutsHelp() },
+    { label: 'Word count', icon: 'analytics', shortcut: 'Ctrl+Shift+C', run: () => showWordCountPopup() },
+    { divider: true },
+    { label: 'Privacy policy', icon: 'policy', run: () => window.open('data/legal/privacypolicy.html', '_blank', 'noopener') },
+  ],
+};
+
 function bindToolbar(){
   document.querySelectorAll('.formatbar [data-cmd]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -249,37 +378,26 @@ function bindToolbar(){
     });
   });
   // top menu actions (File/Edit/View/Insert/Format/Tools/Help)
-  // Menus are lightweight; many items map to existing actions/shortcuts
   const menuContainer = document.querySelector('.menu-row');
   if (menuContainer){
-    menuContainer.addEventListener('click', async (e)=>{
+    // Keep focus and text selection in the editor when a menu button is pressed
+    menuContainer.addEventListener('mousedown', (e)=>{
+      if (e.target.closest('.menu-btn')) e.preventDefault();
+    });
+    menuContainer.addEventListener('click', (e)=>{
       const btn = e.target.closest('.menu-btn');
       if (!btn) return;
       const name = btn.dataset.menu;
-      switch(name){
-        case 'file':
-          toggleFileMenu();
-          break;
-        case 'edit':
-          document.execCommand('selectAll');
-          break;
-        case 'view':
-          // toggle compact formatbar
-          document.querySelector('.formatbar')?.classList.toggle('compact');
-          break;
-        case 'insert':
-          document.getElementById('insertImage')?.click();
-          break;
-        case 'format':
-          document.getElementById('blockFormat')?.focus();
-          break;
-        case 'tools':
-          toggleToolsMenu();
-          break;
-        case 'help':
-          alert('Buddy Docs — Editor Help coming soon.');
-          break;
-      }
+      const wasOpen = actionMenu.btn === btn;
+      closeActionMenu();
+      if (name === 'file') return toggleFileMenu();
+      if (!wasOpen) openActionMenu(btn, name);
+    });
+    document.addEventListener('click', (ev)=>{
+      if (actionMenu.btn && !ev.target.closest('.menu-btn, #menuDropdown')) closeActionMenu();
+    });
+    document.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape' && actionMenu.btn) closeActionMenu();
     });
   }
   // block format select
@@ -680,64 +798,6 @@ function toggleFileMenu(){
       document.removeEventListener('click', onDocClick);
     }
   }
-}
-
-function toggleToolsMenu(){
-  const btn = document.getElementById('toolsMenuBtn');
-  const menu = document.getElementById('toolsDropdown');
-  if (!btn || !menu) return;
-  const open = menu.hasAttribute('hidden') ? false : true;
-  if (open){
-    menu.setAttribute('hidden','');
-    btn.setAttribute('aria-expanded','false');
-    document.removeEventListener('click', onDocClick);
-    return;
-  }
-  // position the menu below the Tools button
-  const r = btn.getBoundingClientRect();
-  menu.style.left = `${r.left}px`;
-  menu.style.top = `${r.bottom + 6}px`;
-  menu.removeAttribute('hidden');
-  btn.setAttribute('aria-expanded','true');
-  setTimeout(()=> document.addEventListener('click', onDocClick));
-  function onDocClick(ev){
-    if (!menu.contains(ev.target) && ev.target !== btn){
-      menu.setAttribute('hidden','');
-      btn.setAttribute('aria-expanded','false');
-      document.removeEventListener('click', onDocClick);
-    }
-  }
-}
-
-// Tools menu item actions
-function bindToolsMenuActions(){
-  const menu = document.getElementById('toolsDropdown');
-  if (!menu) return;
-  menu.addEventListener('click', (e)=>{
-    const item = e.target.closest('.tools-menu-item, .menu-item');
-    if (!item) return;
-    // Close menu
-    menu.setAttribute('hidden','');
-    document.getElementById('toolsMenuBtn')?.setAttribute('aria-expanded','false');
-
-    if (item.id === 'openSummaryTool'){
-      showSummaryModal(editor?.innerHTML || '');
-      return;
-    }
-    if (item.id === 'openVersionHistory'){
-      if (currentDoc?.id) showVersionHistoryModal(currentDoc.id, currentDoc.title || 'Untitled');
-      return;
-    }
-    if (item.id === 'openReview'){
-      const panel = document.getElementById('reviewSidebar');
-      if (!panel) return;
-      panel.hidden = !panel.hidden;
-      if (!panel.hidden){
-        renderReviewPanel(editor);
-      }
-      return;
-    }
-  });
 }
 
 // Document Settings modal controls
@@ -1620,7 +1680,6 @@ applyEditorPrefs();
 setupToolsMenu();
 initMusic();
 initOutlineTabs();
-bindToolsMenuActions();
 
 // Live-refresh Review panel when visible
 if (editor){
@@ -1826,142 +1885,78 @@ function initOutlineTabs() {
   }
 }
 
-// Setup Tools menu items
+// Load Tools menu state; menu items are built from this on open
 async function setupToolsMenu(){
-  const { getSetting } = await import('./idb.js');
-  const aiEnabled = await getSetting('aiEnabled', false);
-  const openAiBtn = document.getElementById('openAiBtn');
-  if (openAiBtn){
-    openAiBtn.style.display = aiEnabled ? '' : 'none';
-    openAiBtn.addEventListener('click', async ()=>{
-      toggleToolsMenu();
-      const { isAiEnabled } = await import('./ai.js');
-      const enabled = await isAiEnabled();
-      if (!enabled){
-        alert('AI is disabled. Enable it in Settings.');
-        return;
-      }
-      // Show chatbot UI and adjust layout
-      window.showChatbot?.();
-      const wrap = document.querySelector('.editor-wrap');
-      if (wrap){ wrap.classList.add('with-ai'); }
-    });
-  }
-  const openShortcuts = document.getElementById('openShortcuts');
-  if (openShortcuts){
-    openShortcuts.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      showKeyboardShortcutsHelp();
-    });
-  }
-  const openWordCount = document.getElementById('openWordCount');
-  if (openWordCount){
-    openWordCount.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      showWordCountPopup();
-    });
-  }
-  
-  // Version History
-  const openVersionHistory = document.getElementById('openVersionHistory');
-  if (openVersionHistory){
-    openVersionHistory.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      if (!currentDoc.id) {
-        alert('Please save the document first to view version history.');
-        return;
-      }
-      showVersionHistoryModal(currentDoc.id, (restored) => {
-        // Reload the restored document
-        currentDoc = restored;
-        titleEl.textContent = restored.title;
-        if (restored.pages && restored.pages.length > 0) {
-          editor.innerHTML = sanitizeHtml(restored.pages[currentPageIndex].content);
-        } else {
-          editor.innerHTML = sanitizeHtml(restored.content);
-        }
-        buildOutline();
-        updateStatusCounts();
-      });
-    });
-  }
-  
-  // Summary Tool
-  const openSummaryTool = document.getElementById('openSummaryTool');
-  if (openSummaryTool){
-    openSummaryTool.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      const content = editor.innerHTML;
-      if (!content.trim()) {
-        alert('Please add some content to summarize.');
-        return;
-      }
-      showSummaryModal(content);
-    });
-  }
-  
-  // Grammar Check
-  const openGrammarCheck = document.getElementById('openGrammarCheck');
-  if (openGrammarCheck){
-    openGrammarCheck.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      const content = editor.innerHTML;
-      if (!content.trim()) {
-        alert('Please add some content to check.');
-        return;
-      }
-      showGrammarCheckModal(content, editor);
-    });
-  }
-  const toggleSmartCompose = document.getElementById('toggleSmartCompose');
-  if (toggleSmartCompose){
-    // Initialize button label to reflect current setting (default Off)
-    try {
-      const initiallyEnabled = await getSetting('smartComposeEnabled', false);
-      const spanInit = toggleSmartCompose.querySelector('span:last-child');
-      if (spanInit) spanInit.textContent = initiallyEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
-    } catch {}
-    toggleSmartCompose.addEventListener('click', async ()=>{
-      toggleToolsMenu();
-      // Read current persisted state (default off)
-      const wasEnabled = await getSetting('smartComposeEnabled', false);
-      let isEnabled;
-      if (wasEnabled) {
-        // Turn off
-        if (smartCompose && smartCompose.isEnabled) {
-          smartCompose.toggle();
-        }
-        isEnabled = false;
-      } else {
-        // Turn on: instantiate if missing, or toggle if present but disabled
-        if (!smartCompose) {
-          smartCompose = new SmartCompose(editor);
-          isEnabled = true;
-        } else {
-          if (!smartCompose.isEnabled) smartCompose.toggle();
-          isEnabled = true;
-        }
-      }
-      await setSetting('smartComposeEnabled', isEnabled);
+  toolsState.aiEnabled = await getSetting('aiEnabled', false);
+  toolsState.smartComposeOn = await getSetting('smartComposeEnabled', false);
+}
 
-      // Update button text to show current state
-      const span = toggleSmartCompose.querySelector('span:last-child');
-      if (span) {
-        span.textContent = isEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
-      }
-      
-      // Show feedback
-      const status = isEnabled ? 'enabled' : 'disabled';
-      console.log(`Smart Compose ${status}`);
-      
-      // Show help on first enable
-      if (isEnabled && !await getSetting('smartComposeHelpShown', false)) {
-        showSmartComposeHelp();
-        await setSetting('smartComposeHelpShown', true);
-      }
-    });
+async function openChatbotFromMenu(){
+  const { isAiEnabled } = await import('./ai.js');
+  if (!(await isAiEnabled())){
+    alert('AI is disabled. Enable it in Settings.');
+    return;
+  }
+  window.showChatbot?.();
+  document.querySelector('.editor-wrap')?.classList.add('with-ai');
+}
+
+function openVersionHistoryFromMenu(){
+  if (!currentDoc.id){
+    alert('Please save the document first to view version history.');
+    return;
+  }
+  showVersionHistoryModal(currentDoc.id, restoreVersionFromHistory);
+}
+
+function restoreVersionFromHistory(restored){
+  currentDoc = restored;
+  titleEl.textContent = restored.title;
+  if (restored.pages && restored.pages.length > 0){
+    editor.innerHTML = sanitizeHtml(restored.pages[currentPageIndex].content);
+  } else {
+    editor.innerHTML = sanitizeHtml(restored.content);
+  }
+  buildOutline();
+  updateStatusCounts();
+}
+
+function openSummaryFromMenu(){
+  const isPlaceholder = !!editor.querySelector('.placeholder');
+  if (isPlaceholder || !editor.textContent.trim()){
+    alert('Please add some content to summarize.');
+    return;
+  }
+  showSummaryModal(editor.innerHTML);
+}
+
+function toggleReviewPanel(){
+  const panel = document.getElementById('reviewSidebar');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) renderReviewPanel(editor);
+}
+
+async function toggleSmartComposeFromMenu(){
+  let isEnabled;
+  if (toolsState.smartComposeOn){
+    if (smartCompose?.isEnabled) smartCompose.toggle();
+    isEnabled = false;
+  } else {
+    // The SmartCompose constructor starts enabled
+    if (!smartCompose) smartCompose = new SmartCompose(editor);
+    else if (!smartCompose.isEnabled) smartCompose.toggle();
+    isEnabled = true;
+  }
+  toolsState.smartComposeOn = isEnabled;
+  await setSetting('smartComposeEnabled', isEnabled);
+
+  if (isEnabled && !await getSetting('smartComposeHelpShown', false)){
+    showSmartComposeHelp();
+    await setSetting('smartComposeHelpShown', true);
   }
 }
+
 
 // When closing chatbot, remove with-ai class
 window.hideChatbot = (function(orig){

@@ -40,7 +40,7 @@
             <button class="menu-btn" data-menu="view">View</button>
             <button class="menu-btn" data-menu="insert">Insert</button>
             <button class="menu-btn" data-menu="format">Format</button>
-            <button id="toolsMenuBtn" class="menu-btn" data-menu="tools" aria-haspopup="true" aria-expanded="false">Tools</button>
+            <button class="menu-btn" data-menu="tools">Tools</button>
             <button class="menu-btn" data-menu="help">Help</button>
           </nav>
         </div>
@@ -79,40 +79,8 @@
       <button id="exportBdoxBtn" class="menu-item"><span class="material-symbols-outlined">download</span> Export (.bdox)</button>
       <button id="exportAsBtn" class="menu-item"><span class="material-symbols-outlined">ios_share</span> Export as</button>
     </div>
-    <!-- Tools dropdown -->
-    <div id="toolsDropdown" class="dropdown-menu" hidden>
-      <button id="openAiBtn" class="tools-menu-item ai-item">
-        <span class="material-symbols-outlined">auto_awesome</span>
-        <span>CompactB</span>
-      </button>
-      <div class="menu-divider"></div>
-      <button id="openShortcuts" class="tools-menu-item">
-        <span class="material-symbols-outlined">keyboard</span>
-        <span>Keyboard Shortcuts</span>
-      </button>
-      <button id="openWordCount" class="tools-menu-item">
-        <span class="material-symbols-outlined">analytics</span>
-        <span>Word Count</span>
-      </button>
-      <div class="menu-divider"></div>
-      <button id="openVersionHistory" class="tools-menu-item">
-        <span class="material-symbols-outlined">history</span>
-        <span>Version History</span>
-      </button>
-      <button id="openSummaryTool" class="tools-menu-item">
-        <span class="material-symbols-outlined">summarize</span>
-        <span>Summary</span>
-      </button>
-      <button id="openReview" class="tools-menu-item">
-        <span class="material-symbols-outlined">spellcheck</span>
-        <span>Review</span>
-      </button>
-      <div class="menu-divider"></div>
-      <button id="toggleSmartCompose" class="tools-menu-item">
-        <span class="material-symbols-outlined">auto_fix_high</span>
-        <span>Smart Compose</span>
-      </button>
-    </div>
+    <!-- Shared dropdown for Edit, View, Insert, Format, Tools and Help -->
+    <div id="menuDropdown" class="dropdown-menu" hidden></div>
     <!-- Export As submenu -->
     <div id="exportAsMenu" class="dropdown-menu" hidden>
       <button class="menu-item" data-export="txt">Plain text (.txt)</button>

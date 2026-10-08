@@ -673,6 +673,8 @@ img{max-width:100%;display:block}
 .dropdown-menu .menu-item:hover{background:color-mix(in hsl, var(--primary) 12%, var(--surface))}
 .dropdown-menu .menu-item.delete{color:#d32f2f}
 .dropdown-menu .menu-item.delete:hover{background:color-mix(in hsl, #d32f2f 10%, var(--surface))}
+.dropdown-menu .menu-item .menu-shortcut{margin-left:auto; padding-left:24px; font-size:12px; color:var(--muted); white-space:nowrap}
+#menuDropdown{max-height:calc(100vh - 88px); overflow-y:auto}
 
 .greeting h2{margin:0 0 6px; font-weight:800}
 .greeting .sub{margin:0; color:var(--muted)}
