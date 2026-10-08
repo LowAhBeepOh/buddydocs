@@ -142,6 +142,7 @@
             </nav>
           </div>
           <div class="templates-grid-container">
+            <input id="templateSearch" class="template-search" type="search" placeholder="Search templates" aria-label="Search templates" />
             <div id="templatesGrid" class="card-grid templates-grid"></div>
           </div>
         </div>
@@ -219,6 +220,24 @@
   </template>
 
   <!-- Move to Folder Modal -->
+  <div id="templatePreviewModal" class="modal-backdrop" hidden>
+    <div class="modal-card template-preview-modal" role="dialog" aria-modal="true" aria-labelledby="templatePreviewTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="templatePreviewTitle"></h3>
+          <p class="modal-subtitle" id="templatePreviewCategory"></p>
+        </div>
+        <button id="closeTemplatePreview" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="template-preview-body">
+        <iframe id="templatePreviewFrame" class="template-preview-frame" sandbox="" title="Template preview"></iframe>
+      </div>
+      <div class="template-preview-foot">
+        <a id="templatePreviewUse" class="template-action primary" href="#">Use template</a>
+      </div>
+    </div>
+  </div>
+
   <div id="moveToFolderModal" class="modal-backdrop" hidden>
     <div class="modal-card folder-modal">
       <div class="modal-head">

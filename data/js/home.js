@@ -1643,45 +1643,142 @@ async function renderDeadlines() {
   await renderGreeting();
 }
 
-function renderTemplates(category = 'All') {
+const TEMPLATE_THUMB_WIDTH = 900;
+let templateThumbObserver = null;
+let templateThumbResizer = null;
+
+function buildTemplateDocument(html) {
+  // Empty sandbox: no scripts and no same-origin access. Templates are local, but this keeps thumbnails inert.
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    html, body { margin: 0; background: #fff; }
+    body { padding: 32px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1f; line-height: 1.5; }
+  </style></head><body>${html}</body></html>`;
+}
+
+function templateEditorUrl(template) {
+  return `editor.html?template=${encodeURIComponent(template.key)}`;
+}
+
+// Scales the fixed-width document so it fills the thumbnail box.
+function fitTemplateThumb(thumb) {
+  const frame = thumb.querySelector('iframe');
+  const scale = thumb.clientWidth / TEMPLATE_THUMB_WIDTH;
+  if (!scale) return;
+  frame.style.transform = `scale(${scale})`;
+  frame.style.height = `${thumb.clientHeight / scale}px`;
+}
+
+function showTemplatePreview(template) {
+  const modal = document.getElementById('templatePreviewModal');
+  if (!modal) return;
+  document.getElementById('templatePreviewTitle').textContent = template.title;
+  document.getElementById('templatePreviewCategory').textContent = template.category;
+  document.getElementById('templatePreviewFrame').srcdoc = buildTemplateDocument(template.content);
+  document.getElementById('templatePreviewUse').href = templateEditorUrl(template);
+  modal.removeAttribute('hidden');
+}
+
+function hideTemplatePreview() {
+  const modal = document.getElementById('templatePreviewModal');
+  if (!modal) return;
+  modal.setAttribute('hidden', '');
+  document.getElementById('templatePreviewFrame').srcdoc = '';
+}
+
+function createTemplateCard(template) {
+  const card = document.createElement('div');
+  card.className = 'card template-card';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'template-thumb';
+  thumb.title = 'Preview template';
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', '');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.tabIndex = -1;
+  frame.style.width = `${TEMPLATE_THUMB_WIDTH}px`;
+  thumb.appendChild(frame);
+  thumb.addEventListener('click', () => showTemplatePreview(template));
+
+  const title = document.createElement('strong');
+  title.className = 'template-card-title';
+  const icon = document.createElement('span');
+  icon.className = 'template-card-icon';
+  icon.textContent = template.icon || '\u{1F4C4}';
+  title.append(icon, template.title);
+
+  const desc = document.createElement('p');
+  desc.className = 'template-card-desc';
+  desc.textContent = template.description;
+
+  const foot = document.createElement('div');
+  foot.className = 'template-card-foot';
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = template.category;
+  const actions = document.createElement('div');
+  actions.className = 'template-card-actions';
+  const previewBtn = document.createElement('button');
+  previewBtn.type = 'button';
+  previewBtn.className = 'template-action';
+  previewBtn.textContent = 'Preview';
+  previewBtn.addEventListener('click', () => showTemplatePreview(template));
+  const useLink = document.createElement('a');
+  useLink.className = 'template-action primary';
+  useLink.href = templateEditorUrl(template);
+  useLink.textContent = 'Use';
+  actions.append(previewBtn, useLink);
+  foot.append(badge, actions);
+
+  card.append(thumb, title, desc, foot);
+  return { card, thumb };
+}
+
+function renderTemplates(category = 'All', query = '') {
   const grid = document.getElementById('templatesGrid');
   if (!grid) {
     console.error('Templates grid not found in the modal.');
     return;
   }
-  grid.innerHTML = ''; // Clear existing templates
+  templateThumbObserver?.disconnect();
+  templateThumbResizer?.disconnect();
+  grid.innerHTML = '';
 
-  const filteredTemplates = Object.values(TEMPLATES).filter(template => 
-    category === 'All' || template.category === category
-  );
+  const needle = query.trim().toLowerCase();
+  const filteredTemplates = Object.values(TEMPLATES)
+    .filter(template => category === 'All' || template.category === category)
+    .filter(template => !needle || `${template.title} ${template.description} ${template.category}`.toLowerCase().includes(needle))
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   if (filteredTemplates.length === 0) {
-    grid.innerHTML = '<p class="empty-state">No templates found in this category.</p>';
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = needle ? `No templates match "${query.trim()}".` : 'No templates found in this category.';
+    grid.appendChild(empty);
     return;
   }
 
-  // Sort templates by title for consistent ordering
-  filteredTemplates.sort((a, b) => a.title.localeCompare(b.title));
+  // Thumbnail content is only written into the iframe once the card scrolls near the viewport.
+  const pendingThumbs = new Map();
+  const resizer = new ResizeObserver(entries => entries.forEach(entry => fitTemplateThumb(entry.target)));
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const thumb = entry.target;
+      thumb.querySelector('iframe').srcdoc = pendingThumbs.get(thumb);
+      pendingThumbs.delete(thumb);
+      observer.unobserve(thumb);
+    }
+  }, { rootMargin: '200px' });
+  templateThumbObserver = observer;
+  templateThumbResizer = resizer;
 
   for (const template of filteredTemplates) {
-    const card = document.createElement('a');
-    card.className = 'card template-card';
-    card.href = `editor.html?template=${encodeURIComponent(template.key)}`;
-    card.setAttribute('data-icon', template.icon || '📄');
-
-    // Render preview using raw HTML snippet (safe since templates are authored locally)
-    const previewHtml = template.content.substring(0, 600);
-    card.innerHTML = `
-      <strong data-icon="${template.icon || '📄'}">${template.title}</strong>
-      <div class="preview">${previewHtml}</div>
-      <div class="info">
-        <p>${template.description}</p>
-      </div>
-      <div class="meta">
-        <span class="badge">${template.category}</span>
-      </div>
-    `;
+    const { card, thumb } = createTemplateCard(template);
+    pendingThumbs.set(thumb, buildTemplateDocument(template.content));
     grid.appendChild(card);
+    resizer.observe(thumb);
+    observer.observe(thumb);
   }
 }
 
@@ -1690,21 +1787,29 @@ function setupTemplatesModal() {
   const modal = document.getElementById('templatesModal');
   const closeBtn = document.getElementById('closeTemplatesModal');
   const sidebar = document.querySelector('.template-sidebar');
+  const searchInput = document.getElementById('templateSearch');
+  const previewModal = document.getElementById('templatePreviewModal');
+  const closePreviewBtn = document.getElementById('closeTemplatePreview');
 
   if (!modal || !openBtn || !closeBtn || !sidebar) {
     return;
   }
 
+  let activeCategory = 'All';
+  const refresh = () => renderTemplates(activeCategory, searchInput?.value ?? '');
+
   function open() {
-    modal?.removeAttribute('hidden');
+    modal.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
-    renderTemplates('All');
-    // Ensure the 'All' button is active by default
-    sidebar.querySelector('button[data-category="All"]').classList.add('active');
+    activeCategory = 'All';
+    if (searchInput) searchInput.value = '';
+    sidebar.querySelectorAll('button').forEach(btn => btn.classList.toggle('active', btn.dataset.category === 'All'));
+    refresh();
   }
 
   function close() {
-    modal?.setAttribute('hidden', '');
+    hideTemplatePreview();
+    modal.setAttribute('hidden', '');
     document.body.style.overflow = '';
   }
 
@@ -1717,18 +1822,31 @@ function setupTemplatesModal() {
   modal.addEventListener('click', (e) => {
     if (e.target === modal) close();
   });
+
+  previewModal?.addEventListener('click', (e) => {
+    if (e.target === previewModal) hideTemplatePreview();
+  });
+  closePreviewBtn?.addEventListener('click', hideTemplatePreview);
+
   window.addEventListener('keydown', (e) => {
-    if (!modal?.hasAttribute('hidden') && e.key === 'Escape') close();
+    if (e.key !== 'Escape' || modal.hasAttribute('hidden')) return;
+    if (previewModal && !previewModal.hasAttribute('hidden')) {
+      hideTemplatePreview();
+    } else {
+      close();
+    }
   });
 
   sidebar.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      const category = e.target.dataset.category;
-      sidebar.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-      e.target.classList.add('active');
-      renderTemplates(category);
-    }
+    const btn = e.target.closest('button[data-category]');
+    if (!btn) return;
+    activeCategory = btn.dataset.category;
+    sidebar.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    refresh();
   });
+
+  searchInput?.addEventListener('input', refresh);
 }
 
 function bindSearch() {
