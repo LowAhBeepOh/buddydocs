@@ -1,4 +1,5 @@
 import { saveDocument, getDocument, deleteDocument } from './idb.js';
+import { sanitizeHtml } from './sanitize.js';
 
 // State management
 let presentation = {
@@ -468,7 +469,7 @@ function createElementDOM(element) {
   
   if (element.type === 'text') {
     div.classList.add('text-box');
-    div.innerHTML = element.content;
+    div.innerHTML = sanitizeHtml(element.content);
     div.style.fontSize = element.fontSize + 'px';
     div.style.color = element.color;
     div.style.fontWeight = element.fontWeight;
@@ -713,8 +714,8 @@ function renderSlidesList() {
       el.style.width = element.width + 'px';
       el.style.height = element.height + 'px';
       
-      if (element.type === 'text') {
-        el.innerHTML = element.content;
+      if (element.type === 'text') {
+        el.innerHTML = sanitizeHtml(element.content);
         el.style.fontSize = element.fontSize + 'px';
         el.style.color = element.color;
         el.style.fontWeight = element.fontWeight;
@@ -958,8 +959,8 @@ function renderPresentationSlide() {
     el.style.width = element.width + 'px';
     el.style.height = element.height + 'px';
     
-    if (element.type === 'text') {
-      el.innerHTML = element.content;
+    if (element.type === 'text') {
+      el.innerHTML = sanitizeHtml(element.content);
       el.style.fontSize = element.fontSize + 'px';
       el.style.color = element.color;
       el.style.fontWeight = element.fontWeight;

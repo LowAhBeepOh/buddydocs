@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:*; frame-src https://accounts.google.com https://apis.google.com https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0550FF" />
@@ -410,7 +411,7 @@
   <script type="module" src="data/js/theme.js"></script>
   <script type="module" src="data/js/version-history.js"></script>
   <script type="module" src="data/js/initSync.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
 </body> 
   <script type="module">
     import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
@@ -460,6 +461,28 @@
       return u.searchParams.get(name);
     }
 
+    const LOADING_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
+    const LOCKED_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3C/svg%3E';
+
+    // Real image sources are kept here rather than in the DOM, so locked images never load until unlocked
+    const imageSources = new WeakMap();
+
+    function realSrc(img) {
+      return imageSources.get(img) || img.src;
+    }
+
+    function loadRealSrc(img) {
+      const src = imageSources.get(img);
+      if (src) img.src = src;
+      img.classList.remove('lazy');
+    }
+
+    function unloadToPlaceholder(img) {
+      img.src = LOCKED_PLACEHOLDER;
+      img.classList.remove('lazy');
+      window.imageObserver?.unobserve(img);
+    }
+
     function createGalleryItem(imageEntry, lazy = true) {
       const item = itemTemplate.content.cloneNode(true).children[0];
       const img = item.querySelector('img');
@@ -483,13 +506,12 @@
       item.dataset.locked = String(!!meta.locked);
       item.dataset.pinned = String(!!meta.pinned);
 
-      if (lazy) {
-        // Lazy loading: set data-src instead of src
-        img.dataset.src = meta.src;
-        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
+      imageSources.set(img, meta.src);
+      if (meta.locked) {
+        img.src = LOCKED_PLACEHOLDER;
+      } else if (lazy) {
+        img.src = LOADING_PLACEHOLDER;
         img.classList.add('lazy');
-        
-        // Set up intersection observer for this image
         if (window.imageObserver) {
           window.imageObserver.observe(img);
         }
@@ -727,7 +749,10 @@
       items.forEach(el => {
         const img = el.querySelector('img');
         const ov = el.querySelector('.overlay');
-        if (img) img.classList.add('revealed');
+        if (img) {
+          loadRealSrc(img);
+          img.classList.add('revealed');
+        }
         if (ov) ov.classList.add('hidden');
       });
     }
@@ -768,7 +793,7 @@
       const items = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
       currentDoc.content = items.map(item => {
         const img = item.querySelector('img');
-        const src = img?.dataset?.src || img?.src;
+        const src = realSrc(img);
         const spoiler = item.dataset.spoiler === 'true';
         const locked = item.dataset.locked === 'true';
         const pinned = item.dataset.pinned === 'true';
@@ -780,7 +805,7 @@
       const pinnedItem = items.find(item => item.dataset.pinned === 'true');
       if (pinnedItem) {
         const img = pinnedItem.querySelector('img');
-        currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
+        currentDoc.thumbnailSrc = realSrc(img);
       } else {
         delete currentDoc.thumbnailSrc;
       }
@@ -863,9 +888,8 @@
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const img = entry.target;
-            if (img.dataset.src) {
-              img.src = img.dataset.src;
-              img.classList.remove('lazy');
+            if (imageSources.has(img) && img.closest('.gallery-item')?.dataset.locked !== 'true') {
+              loadRealSrc(img);
               window.imageObserver.unobserve(img);
             }
           }
@@ -896,7 +920,7 @@
     // Download a single image
     function downloadImage(item) {
       const img = item.querySelector('img');
-      if (!img || !img.src) return;
+      if (!img || !realSrc(img)) return;
 
       // Get the filename from the image source or use a default
       let filename = 'image';
@@ -905,7 +929,7 @@
       }
       
       // Extract extension from src
-      const src = img.src;
+      const src = realSrc(img);
       const urlObj = new URL(src, window.location.origin);
       const pathname = urlObj.pathname;
       const ext = pathname.split('.').pop().split('?')[0] || 'png';
@@ -954,7 +978,7 @@
         const item = items[i];
         const img = item.querySelector('img');
         
-        if (!img || !img.src) continue;
+        if (!img || !realSrc(img)) continue;
 
         // Generate filename
         let baseFilename = 'image';
@@ -963,7 +987,7 @@
         }
         
         // Extract extension from src
-        const src = img.src;
+        const src = realSrc(img);
         let filename = '';
         let fileData = null;
         
@@ -1094,6 +1118,7 @@
           // No auth needed to lock
           item.dataset.locked = 'true';
           item.classList.add('locked');
+          unloadToPlaceholder(item.querySelector('img'));
           const ov = item.querySelector('.overlay');
           if (ov) {
             ov.classList.remove('hidden');
@@ -1107,6 +1132,7 @@
           gallerySessionUnlocked = true; // Session is now unlocked
           item.dataset.locked = 'false';
           item.classList.remove('locked');
+          loadRealSrc(item.querySelector('img'));
           const ov = item.querySelector('.overlay');
           if (ov) ov.classList.add('hidden');
         }
@@ -1219,7 +1245,7 @@
 
       const item = images[currentLightboxIndex];
       const img = item.querySelector('img');
-      const src = img?.dataset?.src || img?.src;
+      const src = realSrc(img);
       
       if (src) {
         lightboxImg.src = src;

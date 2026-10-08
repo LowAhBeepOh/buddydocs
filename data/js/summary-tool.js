@@ -1,10 +1,11 @@
 // Summary Tool for Buddy Docs
 import { getSetting } from './idb.js';
+import { sanitizeHtml, escapeHtml } from './sanitize.js';
 
 // Extract plain text from HTML
 function extractText(html) {
   const temp = document.createElement('div');
-  temp.innerHTML = html;
+  temp.innerHTML = sanitizeHtml(html);
   return temp.textContent || temp.innerText || '';
 }
 
@@ -429,9 +430,9 @@ export function showSummaryModal(content) {
           summary = generateBasicSummary(content, length);
         }
 
-        resultDiv.innerHTML = summary.split('\n').map(line => `<p>${line}</p>`).join('');
+        resultDiv.innerHTML = summary.split('\n').map(line => `<p>${escapeHtml(line)}</p>`).join('');
       } catch (error) {
-        resultDiv.innerHTML = `<p style="color: #ef4444;">${error.message}</p>`;
+        resultDiv.innerHTML = `<p style="color: #ef4444;">${escapeHtml(error.message)}</p>`;
       }
     });
   });

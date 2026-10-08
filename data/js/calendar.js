@@ -1,4 +1,5 @@
 import { listDeadlinesForMonth, listDocuments, saveNote, getNotesForMonth, deleteNote } from './idb.js';
+import { escapeHtml } from './sanitize.js';
 
 const monthLabel = document.getElementById('monthLabel');
 const grid = document.getElementById('calendarGrid');
@@ -144,7 +145,7 @@ async function renderDeadlines(){
 
     const diff = Math.round((startOfDay(new Date(it.dueDate)) - today)/(1000*60*60*24));
     const li = document.createElement('li');
-    li.innerHTML = `<div><strong>${it.title||'Untitled'}</strong><div class=\"muted\">${new Date(it.dueDate).toDateString()}</div></div><span class=\"badge ${badgeClass(diff)}\">${diff<0? `${Math.abs(diff)}d ago`: diff===0? 'Today': diff===1? 'Tomorrow': `${diff}d`}</span>`;
+    li.innerHTML = `<div><strong>${escapeHtml(it.title||'Untitled')}</strong><div class=\"muted\">${new Date(it.dueDate).toDateString()}</div></div><span class=\"badge ${badgeClass(diff)}\">${diff<0? `${Math.abs(diff)}d ago`: diff===0? 'Today': diff===1? 'Tomorrow': `${diff}d`}</span>`;
     
     // Make the deadline item clickable
     li.style.cursor = 'pointer';

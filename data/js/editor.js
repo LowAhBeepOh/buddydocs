@@ -6,6 +6,7 @@ import { initMusicPlayer } from './music-player.js';
 import { showVersionHistoryModal, saveVersion } from './version-history.js';
 import { showSummaryModal } from './summary-tool.js';
 import { renderReviewPanel, enableAutoCorrect } from './grammar-check.js';
+import { sanitizeHtml, escapeHtml } from './sanitize.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -571,10 +572,10 @@ async function loadOrCreate(){
   
   // Load first page content
   if (currentDoc.pages && currentDoc.pages.length > 0) {
-    editor.innerHTML = currentDoc.pages[0].content || placeholderForType(currentDoc.type);
+    editor.innerHTML = sanitizeHtml(currentDoc.pages[0].content || placeholderForType(currentDoc.type));
     currentPageIndex = 0;
   } else {
-    editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
+    editor.innerHTML = sanitizeHtml(currentDoc.content || placeholderForType(currentDoc.type));
   }
   // Setup placeholder behavior (clear on first interaction)
   setupPlaceholderBehavior();
@@ -819,7 +820,7 @@ async function exportAs(type){
     element.innerHTML = `
       <div style="font-family: 'Inter Tight', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
         <h1 style="color: #333; border-bottom: 2px solid #0550FF; padding-bottom: 10px; margin-bottom: 30px;">
-          ${currentDoc.title || 'Untitled Document'}
+          ${escapeHtml(currentDoc.title || 'Untitled Document')}
         </h1>
         <div style="line-height: 1.6; color: #000;">
           ${currentDoc.content || ''}
@@ -849,7 +850,7 @@ async function exportAs(type){
   
   if (type === 'docx'){
     // Lightweight client-only fallback: generate HTML file and hint extension
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${currentDoc.title||'Document'}</title></head><body>${currentDoc.content||''}</body></html>`;
+    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(currentDoc.title||'Document')}</title></head><body>${currentDoc.content||''}</body></html>`;
     const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
     const suggested = `${titleSafe}.${type}.html`;
     return downloadBlob(blob, suggested);
@@ -878,7 +879,7 @@ async function exportAs(type){
         // Remove empty style attributes with only whitespace
         cleanContent = cleanContent.replace(/style="\s*"/gi, '');
         
-        tempDiv.innerHTML = cleanContent;
+        tempDiv.innerHTML = sanitizeHtml(cleanContent);
         document.body.appendChild(tempDiv);
         
         // Select the content
@@ -1031,6 +1032,13 @@ function setupAutoFormat(){
   });
   
   // Handle backspace and other key events
+  editor.addEventListener('paste', (e) => {
+    const html = e.clipboardData?.getData('text/html');
+    if (!html) return;
+    e.preventDefault();
+    document.execCommand('insertHTML', false, sanitizeHtml(html));
+  });
+
   editor.addEventListener('keydown', (e) => {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
@@ -1705,7 +1713,7 @@ function buildPagesList() {
     pageItem.className = `page-item ${index === currentPageIndex ? 'active' : ''}`;
     pageItem.innerHTML = `
       <span class="material-symbols-outlined page-item-icon">description</span>
-      <span class="page-item-title">${page.title}</span>
+      <span class="page-item-title">${escapeHtml(page.title)}</span>
       ${currentDoc.pages.length > 1 ? `<button class="page-item-delete" data-page-index="${index}"><span class="material-symbols-outlined">delete</span></button>` : ''}
     `;
     
@@ -1739,7 +1747,7 @@ function switchToPage(index) {
   
   // Switch to new page
   currentPageIndex = index;
-  editor.innerHTML = currentDoc.pages[index].content || '';
+  editor.innerHTML = sanitizeHtml(currentDoc.pages[index].content || '');
   
   // Update UI
   buildPagesList();
@@ -1781,7 +1789,7 @@ function deletePage(index) {
   }
   
   // Load the current page
-  editor.innerHTML = currentDoc.pages[currentPageIndex].content || '';
+  editor.innerHTML = sanitizeHtml(currentDoc.pages[currentPageIndex].content || '');
   
   buildPagesList();
   saveNow();
@@ -1868,9 +1876,9 @@ async function setupToolsMenu(){
         currentDoc = restored;
         titleEl.textContent = restored.title;
         if (restored.pages && restored.pages.length > 0) {
-          editor.innerHTML = restored.pages[currentPageIndex].content;
+          editor.innerHTML = sanitizeHtml(restored.pages[currentPageIndex].content);
         } else {
-          editor.innerHTML = restored.content;
+          editor.innerHTML = sanitizeHtml(restored.content);
         }
         buildOutline();
         updateStatusCounts();

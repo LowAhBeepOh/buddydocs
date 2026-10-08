@@ -9,6 +9,14 @@ const SYNC_INTERVAL = 8 * 60 * 1000; // 8 minutes in milliseconds
 const TOKEN_REFRESH_BUFFER = 90 * 60 * 1000; // 90 minutes before token expires
 const STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1GB in bytes
 
+// The Drive token is kept in sessionStorage so it is cleared when the tab closes.
+// Move any copy left in localStorage by older versions over to sessionStorage.
+const legacyDriveToken = localStorage.getItem('googleAuthToken');
+if (legacyDriveToken) {
+  if (!sessionStorage.getItem('googleAuthToken')) sessionStorage.setItem('googleAuthToken', legacyDriveToken);
+  localStorage.removeItem('googleAuthToken');
+}
+
 // Global variables
 let tokenClient = null;
 let gapiInited = false;
@@ -18,7 +26,7 @@ let lastSyncToken = null;
 // Refresh token if needed
 async function refreshTokenIfNeeded() {
   try {
-    const savedToken = localStorage.getItem('googleAuthToken');
+    const savedToken = sessionStorage.getItem('googleAuthToken');
     if (!savedToken) return false;
     
     const token = JSON.parse(savedToken);
@@ -117,7 +125,7 @@ async function initGoogleAuth() {
             expires_at: expiresAt
           };
           
-          localStorage.setItem('googleAuthToken', JSON.stringify(tokenToStore));
+          sessionStorage.setItem('googleAuthToken', JSON.stringify(tokenToStore));
           
           // Set the token for API calls
           gapi.client.setToken(tokenResponse);
@@ -127,7 +135,7 @@ async function initGoogleAuth() {
           startAutoSync();
         } catch (e) {
           console.error('Error processing token:', e);
-          localStorage.removeItem('googleAuthToken');
+          sessionStorage.removeItem('googleAuthToken');
         }
       },
       error_callback: (error) => {
@@ -136,7 +144,7 @@ async function initGoogleAuth() {
           // User closed the popup, don't show error
           return;
         }
-        localStorage.removeItem('googleAuthToken');
+        sessionStorage.removeItem('googleAuthToken');
         if (error.error !== 'popup_closed_by_user') {
           showToast('Failed to sign in to Google', 'error');
         }
@@ -145,7 +153,7 @@ async function initGoogleAuth() {
     
     // Check for existing valid token on page load
     try {
-      const savedToken = localStorage.getItem('googleAuthToken');
+      const savedToken = sessionStorage.getItem('googleAuthToken');
       if (savedToken) {
         const token = JSON.parse(savedToken);
         const now = Date.now() / 1000;
@@ -168,12 +176,12 @@ async function initGoogleAuth() {
           return true;
         } else {
           // Token expired, remove it
-          localStorage.removeItem('googleAuthToken');
+          sessionStorage.removeItem('googleAuthToken');
         }
       }
     } catch (e) {
       console.error('Error checking saved token:', e);
-      localStorage.removeItem('googleAuthToken');
+      sessionStorage.removeItem('googleAuthToken');
     }
     
     gisInited = true;
@@ -213,10 +221,10 @@ async function handleGoogleSignIn() {
           signInBtn.disabled = false;
           signInBtn.textContent = 'Connect Google Drive';
         }
-      } else if (localStorage.getItem('googleAuthToken')) {
+      } else if (sessionStorage.getItem('googleAuthToken')) {
         // If we have a token but gapi doesn't know about it, try to set it
         try {
-          const token = JSON.parse(localStorage.getItem('googleAuthToken'));
+          const token = JSON.parse(sessionStorage.getItem('googleAuthToken'));
           if (token && token.access_token) {
             gapi.client.setToken(token);
             await updateCloudStatus();
@@ -228,14 +236,14 @@ async function handleGoogleSignIn() {
             }
           }
         } catch (e) {
-          console.error('Error setting token from localStorage:', e);
+          console.error('Error setting token from sessionStorage:', e);
         }
       }
     }, 500);
     
     // If we don't have a token after 1 second, show the popup
     setTimeout(() => {
-      if (!gapi.client.getToken() && !localStorage.getItem('googleAuthToken')) {
+      if (!gapi.client.getToken() && !sessionStorage.getItem('googleAuthToken')) {
         console.log('Silent refresh failed, showing sign-in popup');
         tokenClient.requestAccessToken({ prompt: 'select_account' });
       }
@@ -281,7 +289,7 @@ async function handleGoogleSignOut() {
       gapi.client.setToken(null);
     }
     // Clear stored token
-    localStorage.removeItem('googleAuthToken');
+    sessionStorage.removeItem('googleAuthToken');
     
     // Update settings
     await Promise.all([
@@ -1297,8 +1305,8 @@ export async function initCloudTab() {
       return;
     }
     
-    // Check if we have a valid token in localStorage
-    const savedToken = localStorage.getItem('googleAuthToken');
+    // Check if we have a valid token in sessionStorage
+    const savedToken = sessionStorage.getItem('googleAuthToken');
     if (savedToken) {
       try {
         const token = JSON.parse(savedToken);
@@ -1316,7 +1324,7 @@ export async function initCloudTab() {
         }
       } catch (e) {
         console.error('Error initializing with saved token:', e);
-        localStorage.removeItem('googleAuthToken');
+        sessionStorage.removeItem('googleAuthToken');
       }
     }
     
@@ -1343,7 +1351,7 @@ export function isCloudConnected() {
     if (hasGapiToken) return true;
     // Fallbacks: stored token or setting
     try {
-      const stored = localStorage.getItem('googleAuthToken');
+      const stored = sessionStorage.getItem('googleAuthToken');
       if (stored) {
         const token = JSON.parse(stored);
         const now = Date.now() / 1000;
@@ -1367,7 +1375,7 @@ export async function removeDocumentFromCloud(docId) {
       await initGoogleAuth();
       token = gapi.client?.getToken();
       if (!token) {
-        const saved = localStorage.getItem('googleAuthToken');
+        const saved = sessionStorage.getItem('googleAuthToken');
         if (saved) {
           const parsed = JSON.parse(saved);
           if (parsed?.access_token) {
@@ -1455,7 +1463,7 @@ export async function initCloudOnIndex() {
     // If we have a saved token and gapi has none, set it
     const hasToken = !!(gapi.client?.getToken());
     if (!hasToken) {
-      const saved = localStorage.getItem('googleAuthToken');
+      const saved = sessionStorage.getItem('googleAuthToken');
       if (saved) {
         try {
           const parsed = JSON.parse(saved);

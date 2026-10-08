@@ -13,8 +13,12 @@ function updateMetaThemeColor(){
   meta.setAttribute('content', bg);
 }
 
-// Store the original secret for hint purposes
-let originalSecret = '';
+// Masked password hint (first 2 characters + asterisks); never the plaintext password
+let secretHint = '';
+
+function maskSecret(secret) {
+  return secret && secret.length > 2 ? secret.substring(0, 2) + '*'.repeat(secret.length - 2) : '';
+}
 
 async function hashSecret(secret) {
   // Use scrypt for password hashing suitable for storage (memory-hard)
@@ -81,8 +85,14 @@ async function loadSettings() {
   const usePin = await getSetting('usePin', false);
   const secretSet = await getSetting('secretSet', false);
   
-  // Store the original secret for hint
-  originalSecret = await getSetting('originalSecret', '');
+  secretHint = await getSetting('secretHint', '');
+  // Migrate the legacy plaintext copy to the masked hint
+  const legacySecret = await getSetting('originalSecret', '');
+  if (legacySecret) {
+    secretHint = maskSecret(legacySecret);
+    await setSetting('secretHint', secretHint);
+    await setSetting('originalSecret', '');
+  }
   
   // AI settings
   // AI Settings
@@ -140,10 +150,8 @@ async function loadSettings() {
       currentPasswordField.closest('.form-row').style.display = 'block';
     }
     
-    // Show first 2 characters of the original secret as a hint
-    if (originalSecret && originalSecret.length > 2 && passwordHintText) {
-      const hint = originalSecret.substring(0, 2) + '*'.repeat(originalSecret.length - 2);
-      passwordHintText.textContent = hint;
+    if (secretHint && passwordHintText) {
+      passwordHintText.textContent = secretHint;
     }
   } else {
     // If no password is set yet, hide the current password field and forgot password link
@@ -337,6 +345,7 @@ async function resetPassword() {
         // Clear the password
         await setSetting('secretHash', '');
         await setSetting('secretSet', false);
+        await setSetting('secretHint', '');
         await setSetting('originalSecret', '');
         
         // Reload settings
@@ -530,7 +539,8 @@ async function saveSettings() {
     const hash = await hashSecret(newSecret);
     await setSetting('secretHash', hash);
     await setSetting('secretSet', true);
-    await setSetting('originalSecret', newSecret);
+    await setSetting('secretHint', maskSecret(newSecret));
+    await setSetting('originalSecret', '');
     
     // Clear the password fields
     document.getElementById('currentSecret').value = '';
@@ -609,7 +619,38 @@ function toggleAiProviderSettings() {
     baseUrlLabel.style.display = 'block';
     apiKeyLabel.style.display = 'none';
   }
+updateAiSecurityWarning();
 }
+
+function isLocalHostUrl(url) {
+try {
+  const host = new URL(url).hostname;
+  return host === 'localhost' || host === '127.0.0.1' || host === '[::1]';
+} catch {
+  return null;
+}
+}
+
+// Explain where AI requests go and where the API key is kept
+function updateAiSecurityWarning() {
+const warning = document.getElementById('aiSecurityWarning');
+if (!warning) return;
+const provider = document.getElementById('aiProvider').value;
+const baseUrl = document.getElementById('aiBaseUrl').value.trim() || 'http://localhost:11434';
+let message = '';
+
+if (provider === 'openai') {
+  message = 'OpenAI: your document text is sent to OpenAI. Your API key is stored unencrypted in this browser, so use a key with a spending limit and only on a device you trust.';
+} else if (isLocalHostUrl(baseUrl) === null) {
+  message = 'The base URL is not a valid URL.';
+} else if (!isLocalHostUrl(baseUrl)) {
+  message = 'This base URL is not on this computer. Your document text will be sent to that server.';
+}
+
+warning.textContent = message;
+warning.style.display = message ? 'block' : 'none';
+}
+
 
 // Handle tab switching in the new settings page layout
 function handleTabSwitching() {
@@ -1303,14 +1344,14 @@ loadSettings().then(async () => {
                 settingsToKeep = ['theme', 'fontSize', 'autoSave', 'spellCheck'];
               } else {
                 // If just deleting regular settings, keep security settings
-                settingsToKeep = ['secretHash', 'usePin', 'originalSecret', 'secretSet'];
+                settingsToKeep = ['secretHash', 'usePin', 'secretHint', 'originalSecret', 'secretSet'];
               }
               
               for (const setting of allSettings) {
                 if (setting && setting.key) {
                   // If we're deleting locked data and this is a security setting, delete it
                   // Or if we're deleting settings and this is not a security setting, delete it
-                  const shouldDelete = (deleteLockedData && ['secretHash', 'usePin', 'originalSecret', 'secretSet'].includes(setting.key)) ||
+                  const shouldDelete = (deleteLockedData && ['secretHash', 'usePin', 'secretHint', 'originalSecret', 'secretSet'].includes(setting.key)) ||
                                     (deleteSettings && !settingsToKeep.includes(setting.key));
                   
                   if (shouldDelete) {
@@ -1495,6 +1536,7 @@ loadSettings().then(async () => {
   if (aiProviderSelect) {
     aiProviderSelect.addEventListener('change', toggleAiProviderSettings);
   }
+  document.getElementById('aiBaseUrl')?.addEventListener('input', updateAiSecurityWarning);
 
   // Squircle borders toggle
   const squircleToggle = document.getElementById('useSquircleBorders');

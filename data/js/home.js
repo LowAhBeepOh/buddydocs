@@ -3,6 +3,7 @@ import { isCloudConnected, removeDocumentFromCloud } from './cloud.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
 import { notificationManager } from './notifications.js';
+import { sanitizeHtml, escapeHtml, htmlToPlainText } from './sanitize.js';
 
 // Current folder navigation
 let currentFolderId = null;
@@ -80,6 +81,10 @@ async function importBdoxFile(file) {
     
     // Import the document (generate new ID to avoid conflicts)
     const doc = { ...data.document, id: null };
+    if (typeof doc.content === 'string') doc.content = sanitizeHtml(doc.content);
+    if (Array.isArray(doc.pages)) {
+      doc.pages = doc.pages.map(page => ({ ...page, content: sanitizeHtml(page.content) }));
+    }
     const saved = await saveDocument(doc);
     return { success: true, title: doc.title || 'Untitled' };
   } catch (error) {
@@ -896,7 +901,7 @@ async function handleDocAction(doc, action) {
       try { connected = !!(await isCloudConnected()); } catch (e) { connected = false; }
       if (!connected) {
         const settingConnected = await getSetting('googleDriveEnabled', false);
-        const storedToken = !!localStorage.getItem('googleAuthToken');
+        const storedToken = !!sessionStorage.getItem('googleAuthToken');
         connected = !!settingConnected || storedToken;
       }
 
@@ -951,7 +956,7 @@ function createDocCard(doc){
   const meta = node.querySelector('.meta');
   if (isListMode) {
     meta.innerHTML = `
-      <strong class="title">${doc.title || 'Untitled'}</strong>
+      <strong class="title">${escapeHtml(doc.title || 'Untitled')}</strong>
       <span class="type">${(doc.type||'document').replace(/^./, c=>c.toUpperCase())}</span>
       <span class="edited-time">${doc.updatedAt ? timeAgo(doc.updatedAt) : ''}</span>
       <span class="due">${dueBadge(doc)}</span>
@@ -1261,7 +1266,7 @@ function createFolderCard(folder) {
   
   // Display either image or emoji based on folder settings
   if (folder.thumbnailType === 'image' && folder.thumbnailImage) {
-    thumb.innerHTML = `<div class="folder-thumbnail"><img src="${folder.thumbnailImage}" alt="${folder.name}"></div>`;
+    thumb.innerHTML = `<div class="folder-thumbnail"><img src="${escapeHtml(folder.thumbnailImage)}" alt="${escapeHtml(folder.name)}"></div>`;
   } else {
     thumb.innerHTML = `<span class="folder-emoji">${folder.emoji || '📁'}</span>`;
   }
@@ -1272,14 +1277,14 @@ function createFolderCard(folder) {
   const isListMode = document.getElementById('docGrid').classList.contains('list-mode');
   if (isListMode) {
     meta.innerHTML = `
-      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <strong class="title">${escapeHtml(folder.name || 'Untitled Folder')}</strong>
       <span class="type">Folder</span>
       <span class="edited-time">${folder.updatedAt ? timeAgo(folder.updatedAt) : ''}</span>
       <span class="due"></span>
     `;
   } else {
     meta.innerHTML = `
-      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <strong class="title">${escapeHtml(folder.name || 'Untitled Folder')}</strong>
       <span class="type">Folder</span>
     `;
   }
@@ -1407,19 +1412,20 @@ function hydrateDocCardPreview(card){
         chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
       }
       if (chosen){
-        thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+        thumb.innerHTML = `<img src="${escapeHtml(chosen)}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
         thumb.style.padding = '0';
       }
     } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
       const firstSlide = doc.slides[0];
-      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${firstSlide.background || '#fff'}; font-size: 11px; color: var(--muted);">
+      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${escapeHtml(firstSlide.background || '#fff')}; font-size: 11px; color: var(--muted);">
         <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
       </div>`;
       thumb.style.padding = '0';
     } else {
       const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
       if (content) {
-        thumb.innerHTML = content.slice(0, 200) + (content.length > 200 ? '...' : '');
+        const plain = htmlToPlainText(content).slice(0, 200);
+        thumb.textContent = plain + (plain.length >= 200 ? '...' : '');
       }
     }
   } catch (err) {
@@ -1605,7 +1611,7 @@ async function renderDeadlines() {
       <div class="deadline-info">
         <span class="material-symbols-outlined deadline-icon">event</span>
         <div class="deadline-text">
-          <strong class="deadline-title">${d.title || 'Untitled'}</strong>
+          <strong class="deadline-title">${escapeHtml(d.title || 'Untitled')}</strong>
           <div class="deadline-date">${new Date(d.dueDate).toDateString()}</div>
         </div>
       </div>
