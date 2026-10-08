@@ -14,9 +14,16 @@ let syncCallbacks = new Set();
 // Track time until next sync
 let timeUntilNextSync = SYNC_INTERVAL;
 let syncCountdownInterval = null;
+let serviceStarted = false;
+
+// Delay before an overdue sync fires, so it doesn't compete with page load
+const OVERDUE_SYNC_DELAY = 15 * 1000;
 
 // Initialize the sync service
 export async function initSyncService() {
+  if (serviceStarted) return;
+  serviceStarted = true;
+
   // Load last sync time
   lastSyncTime = await getSetting('lastSyncTime', 0);
   
@@ -25,9 +32,6 @@ export async function initSyncService() {
   
   // Start the sync interval
   startSyncInterval();
-  
-  // Set up beforeunload handler
-  window.addEventListener('beforeunload', handleBeforeUnload);
   
   console.log('Sync service initialized');
 }
@@ -67,6 +71,9 @@ async function performSync() {
     pendingSync = true;
     return;
   }
+
+  // Pages without a sync handler (editor, gallery, slides) must not mark a sync as done
+  if (syncCallbacks.size === 0) return;
   
   syncInProgress = true;
   
@@ -134,20 +141,6 @@ function updateSyncUI() {
   syncStatus.title = `Last sync: ${new Date(lastSyncTime).toLocaleTimeString()}`;
 }
 
-// Handle page unload
-function handleBeforeUnload() {
-  if (syncInProgress) {
-    // If sync is in progress, try to wait a bit for it to complete
-    const startTime = Date.now();
-    const maxWaitTime = 2000; // 2 seconds max wait
-    
-    // This is a synchronous wait, so it will block the page unload
-    while (syncInProgress && (Date.now() - startTime) < maxWaitTime) {
-      // Busy wait (not ideal, but necessary for unload)
-    }
-  }
-}
-
 // Update the sync countdown
 export function updateSyncCountdown() {
   const now = Date.now();
@@ -156,7 +149,7 @@ export function updateSyncCountdown() {
   
   // If it's been too long since last sync, trigger one now
   if (timeSinceLastSync > SYNC_INTERVAL * 1.5) {
-    timeUntilNextSync = 0;
+    timeUntilNextSync = OVERDUE_SYNC_DELAY;
   }
   
   updateSyncUI();

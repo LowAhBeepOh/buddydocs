@@ -1,8 +1,11 @@
+import { getSetting } from './idb.js';
 import { initSyncService, onSync } from './syncService.js';
 
-// Initialize sync service when the page loads
+// Background sync only runs for users connected to Google Drive
 document.addEventListener('DOMContentLoaded', async () => {
   try {
+    const enabled = await getSetting('googleDriveEnabled', false);
+    if (enabled !== true) return;
     await initSyncService();
     console.log('Sync service initialized');
   } catch (error) {

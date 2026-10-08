@@ -4,6 +4,7 @@ import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
 import { notificationManager } from './notifications.js';
 import { sanitizeHtml, escapeHtml, htmlToPlainText } from './sanitize.js';
+import { markdownToHtml, docxToPages } from './doc-formats.js';
 
 // Current folder navigation
 let currentFolderId = null;
@@ -93,18 +94,62 @@ async function importBdoxFile(file) {
   }
 }
 
-async function handleBdoxDrop(files) {
-  const bdoxFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.bdox'));
-  if (bdoxFiles.length === 0) {
-    alert('No .bdox files found. Please drop Buddy Docs files.');
+const IMPORT_EXTENSIONS = ['.bdox', '.md', '.markdown', '.docx'];
+
+function getImportExtension(name) {
+  const lower = name.toLowerCase();
+  return IMPORT_EXTENSIONS.find(ext => lower.endsWith(ext)) || '';
+}
+
+async function saveImportedPages(title, pagesHtml) {
+  const pages = pagesHtml.map((content, index) => ({
+    id: crypto.randomUUID(),
+    title: `Page ${index + 1}`,
+    content: sanitizeHtml(content),
+    createdAt: Date.now()
+  }));
+  await saveDocument({
+    id: null,
+    title,
+    type: 'document',
+    content: pages[0].content,
+    dueDate: null,
+    tags: [],
+    folderId: null,
+    pages,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+}
+
+async function importDocumentFile(file) {
+  const ext = getImportExtension(file.name);
+  if (ext === '.bdox') return importBdoxFile(file);
+  try {
+    const title = file.name.slice(0, -ext.length) || 'Untitled';
+    const pagesHtml = ext === '.docx'
+      ? await docxToPages(await file.arrayBuffer())
+      : [markdownToHtml(await file.text())];
+    await saveImportedPages(title, pagesHtml.length ? pagesHtml : ['']);
+    return { success: true, title };
+  } catch (error) {
+    console.error('Import failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function handleDocumentDrop(files) {
+  const importable = Array.from(files).filter(f => getImportExtension(f.name));
+  if (importable.length === 0) {
+    alert('No supported files found. Please drop .bdox, .md or .docx files.');
     return;
   }
   
   let successCount = 0;
   let errorCount = 0;
   
-  for (const file of bdoxFiles) {
-    const result = await importBdoxFile(file);
+  for (const file of importable) {
+    const result = await importDocumentFile(file);
     if (result.success) {
       successCount++;
     } else {
@@ -161,7 +206,7 @@ function setupDragAndDrop() {
     dropZone.classList.remove('active');
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleBdoxDrop(files);
+      handleDocumentDrop(files);
     }
   });
 }

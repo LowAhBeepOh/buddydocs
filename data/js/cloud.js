@@ -5,7 +5,6 @@ import { initSyncService, onSync, updateSyncCountdown } from './syncService.js';
 // Google Drive API Configuration
 const GOOGLE_CLIENT_ID = '843640373447-4v9vbpn0nhtallnmkrua34msqgm25j9d.apps.googleusercontent.com';
 const GOOGLE_SCOPES = 'https://www.googleapis.com/auth/drive.file https://www.googleapis.com/auth/userinfo.email';
-const SYNC_INTERVAL = 8 * 60 * 1000; // 8 minutes in milliseconds
 const TOKEN_REFRESH_BUFFER = 90 * 60 * 1000; // 90 minutes before token expires
 const STORAGE_LIMIT = 1 * 1024 * 1024 * 1024; // 1GB in bytes
 
@@ -327,21 +326,6 @@ async function startAutoSync() {
   setupChangeDetection();
   
   console.log('Auto-sync started');
-}
-
-// Handle page unload
-function handleBeforeUnload() {
-  // Force a sync if it's been a while since the last one
-  const lastSync = localStorage.getItem('lastSyncTime');
-  if (lastSync) {
-    const timeSinceLastSync = Date.now() - new Date(lastSync).getTime();
-    if (timeSinceLastSync >= SYNC_INTERVAL / 2) { // If it's been more than half the interval
-      // Use sendBeacon for reliable sync on page unload
-      const syncData = new FormData();
-      syncData.append('lastSyncTime', new Date().toISOString());
-      navigator.sendBeacon('/sync', syncData);
-    }
-  }
 }
 
 // Set up change detection polling

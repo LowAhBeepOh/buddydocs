@@ -7,6 +7,7 @@ import { showVersionHistoryModal, saveVersion } from './version-history.js';
 import { showSummaryModal } from './summary-tool.js';
 import { renderReviewPanel, enableAutoCorrect } from './grammar-check.js';
 import { sanitizeHtml, escapeHtml } from './sanitize.js';
+import { htmlToMarkdown, htmlPagesToDocx } from './doc-formats.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -894,6 +895,16 @@ function htmlToPlainText(html){
   return (tmp.textContent || tmp.innerText || '').trim();
 }
 
+// The live editor is read for the current page so exports include unsaved edits.
+function getExportPages(){
+  const pages = currentDoc.pages && currentDoc.pages.length
+    ? currentDoc.pages.map(page => page.content || '')
+    : [currentDoc.content || ''];
+  const index = currentDoc.pages && currentDoc.pages[currentPageIndex] ? currentPageIndex : 0;
+  pages[index] = placeholderActive ? '' : editor.innerHTML;
+  return pages;
+}
+
 async function exportAs(type){
   const titleSafe = (currentDoc.title||'document').replace(/[^\w\-]+/g,'_');
   if (type === 'txt'){
@@ -901,14 +912,7 @@ async function exportAs(type){
     return downloadBlob(blob, `${titleSafe}.txt`);
   }
   if (type === 'md'){
-    // naive markdown: strip tags and keep headings/list markers where possible
-    let html = currentDoc.content || '';
-    html = html.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n');
-    html = html.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n');
-    html = html.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
-    html = html.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
-    html = html.replace(/<br\s*\/?>(\n)?/gi, '\n');
-    const text = htmlToPlainText(html);
+    const text = getExportPages().map(htmlToMarkdown).filter(Boolean).join('\n\n---\n\n');
     const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
     return downloadBlob(blob, `${titleSafe}.md`);
   }
@@ -949,11 +953,14 @@ async function exportAs(type){
   }
   
   if (type === 'docx'){
-    // Lightweight client-only fallback: generate HTML file and hint extension
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${escapeHtml(currentDoc.title||'Document')}</title></head><body>${currentDoc.content||''}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const suggested = `${titleSafe}.${type}.html`;
-    return downloadBlob(blob, suggested);
+    try {
+      const blob = await htmlPagesToDocx(getExportPages());
+      return downloadBlob(blob, `${titleSafe}.docx`);
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      alert('Word export failed. Please try again.');
+      return;
+    }
   }
   
   if (type === 'gdocs'){
