@@ -579,6 +579,8 @@
   <script type="module">
     import { setSetting, getSetting, listDocuments, saveDocument } from './data/js/idb.js';
     import { pickGalleryPreview, setImageSrc } from './data/js/images.js';
+    import { requireSecret, initVault } from './data/js/vault.js';
+    initVault();
 
     const btn = document.getElementById('profileBtn');
     const menu = document.getElementById('profileMenu');
@@ -635,39 +637,7 @@
     const searchSuggestions = document.getElementById('searchSuggestions');
 
     async function requireAuth(){
-      const secretSet = await getSetting('secretSet', false);
-      if (!secretSet) return true;
-      const usePin = await getSetting('usePin', false);
-      const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
-      if (input == null) return false;
-      try {
-        const saltStr = await getSetting('secretSalt', '');
-        const stored = await getSetting('secretHash', '');
-        
-        if (saltStr && saltStr.length > 0) {
-          const { scrypt } = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
-          const enc = new TextEncoder();
-          const passwordBytes = enc.encode(input);
-          const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-          
-          for (const N of [2048, 4096, 16384]) {
-            const r = 8, p = 1, dkLen = 32;
-            const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
-            const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
-            if (stored && hashHex === stored) return true;
-          }
-          return false;
-        } else {
-          const enc = new TextEncoder();
-          const data = enc.encode(input);
-          const digest = await crypto.subtle.digest('SHA-256', data);
-          const bytes = Array.from(new Uint8Array(digest));
-          const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
-          return stored && hashHex === stored;
-        }
-      } catch {
-        return false;
-      }
+      return requireSecret();
     }
 
     async function performSearch(term) {

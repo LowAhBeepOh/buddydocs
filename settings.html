@@ -267,6 +267,33 @@
               </div>
             </div>
           </div>
+
+          <div class="security-option">
+            <div class="tile">
+              <div class="vault-header">
+                <span>Encryption at rest</span>
+                <span id="vaultStatusBadge" class="vault-badge">Off</span>
+              </div>
+              <p class="help-text" id="vaultHelp">Encrypts locked images and saved API keys with a key derived from your password. Set a password or PIN first.</p>
+              <div id="vaultOffControls" class="vault-controls" style="display:block;">
+                <p class="help-text">Uses the password/PIN you set below. Your data never leaves this device.</p>
+                <button id="enableVaultBtn" class="btn" type="button">Enable encryption</button>
+              </div>
+              <div id="vaultOnControls" class="vault-controls" style="display:none;">
+                <button id="unlockVaultBtn" class="btn" type="button">Unlock</button>
+                <button id="lockVaultBtn" class="btn secondary" type="button">Lock now</button>
+                <label class="vault-inline">
+                  <span>Auto-lock after (minutes, 0 = never)</span>
+                  <input id="vaultAutoLock" class="input" type="number" min="0" step="1" value="15" />
+                </label>
+                <label class="vault-inline vault-checkbox">
+                  <input id="vaultLockOnHide" type="checkbox" />
+                  <span>Lock when I switch tabs</span>
+                </label>
+                <button id="disableVaultBtn" class="btn danger outline" type="button">Turn off encryption</button>
+              </div>
+            </div>
+          </div>
         </div>
       </section>
 

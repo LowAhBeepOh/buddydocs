@@ -1,5 +1,6 @@
 import { getImageRecord, getDocument, putDocumentRaw, listDocumentIds, getSetting, setSetting } from './idb.js';
 import { isImageRef, imageIdFromRef, dataUrlToBlob, makeHiPreview } from './image-utils.js';
+import { isEncryptedImageRecord, decryptImageThumb, decryptImageFull, onVaultChange } from './vault.js';
 
 const CACHE_LIMITS = { thumb: 300, hi: 120, full: 2 };
 const MIGRATION_KEY = 'galleryImagesMigrated';
@@ -38,7 +39,16 @@ export async function resolveImageUrl(src, variant = 'thumb') {
     const rec = await getImageRecord(id);
     if (!rec) return null;
     let blob;
-    if (variant === 'thumb') {
+    if (isEncryptedImageRecord(rec)) {
+      // Protected images are unreadable until the vault is unlocked.
+      if (variant === 'full') {
+        blob = await decryptImageFull(rec);
+      } else {
+        // Encrypted records ship a pre-encrypted thumbnail, so thumbnails stay cheap.
+        blob = await decryptImageThumb(rec);
+      }
+      if (!blob) return null;
+    } else if (variant === 'thumb') {
       blob = rec.thumb || rec.blob;
     } else if (variant === 'hi') {
       const hi = await makeHiPreview(rec.blob);
@@ -126,7 +136,9 @@ export function cancelImageLoad(img) {
 export async function getImageBlob(src) {
   if (isImageRef(src)) {
     const rec = await getImageRecord(imageIdFromRef(src));
-    return rec?.blob ?? null;
+    if (!rec) return null;
+    if (isEncryptedImageRecord(rec)) return await decryptImageFull(rec);
+    return rec.blob;
   }
   return src.startsWith('data:') ? dataUrlToBlob(src) : null;
 }
@@ -137,6 +149,15 @@ export function clearImageCache(variant) {
   for (const url of cache.values()) URL.revokeObjectURL(url);
   cache.clear();
 }
+
+// Locking the vault must drop every decrypted object URL and any in-flight decryption.
+onVaultChange((reason) => {
+  if (reason !== 'locked') return;
+  clearImageCache('thumb');
+  clearImageCache('hi');
+  clearImageCache('full');
+  inflight.clear();
+});
 
 // Picks the image to show on a card. Pinned first, then a random visible entry. Spoilers and locked entries are never shown.
 export function pickGalleryPreview(doc) {

@@ -416,8 +416,9 @@
   <script type="module">
     import { getDocument, saveDocument, deleteDocument, putDocumentRaw, ingestBlob } from './data/js/idb.js';
     import { setSetting, getSetting } from './data/js/idb.js';
-    import { encodeForStorage, extForMime } from './data/js/image-utils.js';
+    import { encodeForStorage, extForMime, isImageRef, imageIdFromRef } from './data/js/image-utils.js';
     import { setImageSrc, cancelImageLoad, getImageBlob, clearImageCache } from './data/js/images.js';
+    import { requireSecret, initVault, protectImage, unprotectImage, isVaultEnabled, isVaultUnlocked, onVaultChange } from './data/js/vault.js';
     
     // Prevent context menu on protected elements
     document.addEventListener('contextmenu', (e) => {
@@ -754,8 +755,12 @@
     }
 
     function updateDownloadButtonVisibility() {
+      // Look the button up directly: this runs during loadOrCreate(), before the
+      // module-level `const downloadAllBtn` finishes initializing.
+      const btn = document.getElementById('downloadAllBtn');
+      if (!btn) return;
       const items = gallery.querySelectorAll('.gallery-item:not(.add-image)');
-      downloadAllBtn.hidden = items.length === 0;
+      btn.hidden = items.length === 0;
     }
 
     // Edits are saved after a short pause. Saves run one at a time so an older write can't land after a newer one.
@@ -887,7 +892,23 @@
       }, options);
     }
 
+    // When the vault locks, hide protected images again instead of showing decrypted thumbnails.
+    onVaultChange((reason) => {
+      if (reason !== 'locked') return;
+      gallerySessionUnlocked = false;
+      gallery.querySelectorAll('.gallery-item.locked').forEach(el => {
+        const img = el.querySelector('img');
+        if (img) unloadToPlaceholder(img);
+        const ov = el.querySelector('.overlay');
+        if (ov) {
+          ov.classList.remove('hidden');
+          ov.innerHTML = '<span class="material-symbols-outlined" style="pointer-events: none;">lock</span>';
+        }
+      });
+    });
+
     setupLazyLoading();
+    initVault();
     bindGallery();
     bindMeta();
     loadOrCreate();
@@ -1050,6 +1071,7 @@
             // Make sure overlay shows lock icon
             ov.innerHTML = '<span class="material-symbols-outlined" style="pointer-events: none;">lock</span>';
           }
+          await protectImageRef(item);
         } else {
           // Auth needed to unlock
           const ok = await requireAuth();
@@ -1057,6 +1079,7 @@
           gallerySessionUnlocked = true; // Session is now unlocked
           item.dataset.locked = 'false';
           item.classList.remove('locked');
+          await unprotectImageRef(item);
           loadThumb(item.querySelector('img'));
           const ov = item.querySelector('.overlay');
           if (ov) ov.classList.add('hidden');
@@ -1088,46 +1111,36 @@
       function closeContextMenu(){ ctx.hidden = true; }
     }
 
+    // Unlocking is handled by the vault; this keeps the existing call sites working.
     async function requireAuth(){
-      const secretSet = await getSetting('secretSet', false);
-      if (!secretSet) return true;
-      const usePin = await getSetting('usePin', false);
-      const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
-      if (input == null) return false;
+      return requireSecret();
+    }
+
+    // Encrypts a locked image so its bytes are unreadable on disk (only when encryption is on).
+    async function protectImageRef(item){
+      const img = item.querySelector('img');
+      const ref = img?.dataset.ref;
+      if (!isImageRef(ref)) return;
       try {
-        const saltStr = await getSetting('secretSalt', '');
-        const stored = await getSetting('secretHash', '');
-        
-        if (saltStr && saltStr.length > 0) {
-          // Cache the scrypt module import to avoid repeated CDN requests
-          if (!scryptModule) {
-            scryptModule = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
-          }
-          const { scrypt } = scryptModule;
-          const enc = new TextEncoder();
-          const passwordBytes = enc.encode(input);
-          const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-          
-          // Try with new N=2048 first, then fall back to N=4096 and N=16384 for backward compatibility
-          for (const N of [2048, 4096, 16384]) {
-            const r = 8, p = 1, dkLen = 32;
-            const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
-            const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
-            if (stored && hashHex === stored) {
-              return true;
-            }
-          }
-          return false;
-        } else {
-          const enc = new TextEncoder();
-          const data = enc.encode(input);
-          const digest = await crypto.subtle.digest('SHA-256', data);
-          const bytes = Array.from(new Uint8Array(digest));
-          const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
-          return stored && hashHex === stored;
+        if (await isVaultEnabled() && isVaultUnlocked()) {
+          await protectImage(imageIdFromRef(ref));
         }
-      } catch {
-        return false;
+      } catch (err) {
+        console.warn('Could not encrypt image at rest', err);
+      }
+    }
+
+    // Returns an image's bytes to plaintext when it is unlocked.
+    async function unprotectImageRef(item){
+      const img = item.querySelector('img');
+      const ref = img?.dataset.ref;
+      if (!isImageRef(ref)) return;
+      try {
+        if (await isVaultEnabled() && isVaultUnlocked()) {
+          await unprotectImage(imageIdFromRef(ref));
+        }
+      } catch (err) {
+        console.warn('Could not decrypt image', err);
       }
     }
 

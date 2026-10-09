@@ -4,6 +4,21 @@ import { TOOLBAR_ITEMS } from './toolbar-config.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
 import { scrypt } from 'https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm';
 import { getVersions } from './version-history.js';
+import {
+  getAiApiKey,
+  setAiApiKey,
+  isVaultEnabled,
+  isVaultUnlocked,
+  enableVault,
+  unlockVault,
+  lockVault,
+  disableVault,
+  getVaultStatus,
+  setVaultPreferences,
+  changeVaultPassphrase,
+  onVaultChange,
+  initVault
+} from './vault.js';
 
 const root = document.documentElement;
 function updateMetaThemeColor(){
@@ -131,7 +146,7 @@ async function loadSettings() {
   const aiProvider = await getSetting('aiProvider', 'ollama');
   const aiModel = await getSetting('aiModel', '');
   const aiBaseUrl = await getSetting('aiBaseUrl', 'http://localhost:11434');
-  const aiApiKey = await getSetting('aiApiKey', '');
+  const aiApiKey = await getAiApiKey();
   const smartComposeTrainFromDocs = await getSetting('smartComposeTrainFromDocs', false);
   const scConf = await getSetting('smartComposeConfThresh', 0.88);
   const scMinCtx = await getSetting('smartComposeMinContext', 2);
@@ -531,7 +546,11 @@ async function saveSettings() {
     }
     settingsToSave.push(setSetting('aiModel', aiModel));
     if (newAiApiKey) {
-      settingsToSave.push(setSetting('aiApiKey', newAiApiKey));
+      if (await isVaultEnabled() && !isVaultUnlocked()) {
+        alert('Unlock encryption in the Security tab before saving an API key.');
+        return;
+      }
+      settingsToSave.push(setAiApiKey(newAiApiKey));
     }
     // Do not save base URL for OpenAI
     settingsToSave.push(setSetting('aiBaseUrl', ''));
@@ -539,7 +558,7 @@ async function saveSettings() {
     settingsToSave.push(setSetting('aiModel', aiModel));
     settingsToSave.push(setSetting('aiBaseUrl', aiBaseUrl || 'http://localhost:11434'));
     // Do not save API key for other providers
-    settingsToSave.push(setSetting('aiApiKey', ''));
+    settingsToSave.push(setAiApiKey(''));
   }
 
   await Promise.all(settingsToSave);
@@ -577,6 +596,16 @@ async function saveSettings() {
       return;
     }
     
+    // Keep the vault's encryption key in sync with the password that protects it
+    if (await isVaultEnabled()) {
+      try {
+        await changeVaultPassphrase(currentSecret, newSecret);
+      } catch (err) {
+        alert('Could not update the encryption password: ' + err.message);
+        return;
+      }
+    }
+
     // Hash and save the new password
     const hash = await hashSecret(newSecret);
     await setSetting('secretHash', hash);
@@ -674,7 +703,7 @@ try {
 }
 
 // Explain where AI requests go and where the API key is kept
-function updateAiSecurityWarning() {
+async function updateAiSecurityWarning() {
 const warning = document.getElementById('aiSecurityWarning');
 if (!warning) return;
 const provider = document.getElementById('aiProvider').value;
@@ -682,7 +711,10 @@ const baseUrl = document.getElementById('aiBaseUrl').value.trim() || 'http://loc
 let message = '';
 
 if (provider === 'openai') {
-  message = 'OpenAI: your document text is sent to OpenAI. Your API key is stored unencrypted in this browser, so use a key with a spending limit and only on a device you trust.';
+  const vaulted = await isVaultEnabled();
+  message = vaulted
+    ? 'OpenAI: your document text is sent to OpenAI. Your API key is encrypted at rest and only readable while encryption is unlocked.'
+    : 'OpenAI: your document text is sent to OpenAI. Your API key is stored unencrypted in this browser. Enable encryption in Security, and use a key with a spending limit.';
 } else if (isLocalHostUrl(baseUrl) === null) {
   message = 'The base URL is not a valid URL.';
 } else if (!isLocalHostUrl(baseUrl)) {
@@ -1045,6 +1077,11 @@ async function initActivityTab(){
 // Initialize the app
 loadSettings().then(async () => {
   handleTabSwitching();
+
+  await initVault();
+  await renderVaultStatus();
+  initVaultControls();
+  onVaultChange(() => { renderVaultStatus(); });
   
   // Lazy initialize Cloud tab only when opened
   const cloudPane = document.getElementById('cloud');
@@ -1800,3 +1837,93 @@ document.getElementById('themeSelect')?.addEventListener('change', (e)=>{
   const val = e.target.value;
   themeModule.applyClassicTheme(val);
 });
+
+// ---- Encryption vault (encryption at rest + secrets vault) ----
+
+async function renderVaultStatus() {
+  const badge = document.getElementById('vaultStatusBadge');
+  if (!badge) return;
+
+  const status = await getVaultStatus();
+  badge.textContent = status.enabled ? (status.unlocked ? 'Unlocked' : 'Locked') : 'Off';
+  badge.classList.toggle('on', status.enabled && status.unlocked);
+  badge.classList.toggle('locked', status.enabled && !status.unlocked);
+
+  const offControls = document.getElementById('vaultOffControls');
+  const onControls = document.getElementById('vaultOnControls');
+  if (offControls) offControls.style.display = status.enabled ? 'none' : 'block';
+  if (onControls) onControls.style.display = status.enabled ? 'flex' : 'none';
+
+  const unlockBtn = document.getElementById('unlockVaultBtn');
+  const lockBtn = document.getElementById('lockVaultBtn');
+  if (unlockBtn) unlockBtn.style.display = status.unlocked ? 'none' : 'inline-flex';
+  if (lockBtn) lockBtn.style.display = status.unlocked ? 'inline-flex' : 'none';
+
+  const autoLockInput = document.getElementById('vaultAutoLock');
+  const lockOnHideInput = document.getElementById('vaultLockOnHide');
+  if (autoLockInput) autoLockInput.value = status.autoLockMinutes;
+  if (lockOnHideInput) lockOnHideInput.checked = status.lockOnHide;
+
+  const help = document.getElementById('vaultHelp');
+  if (help) {
+    help.textContent = status.enabled
+      ? 'Locked images and saved API keys are encrypted with a key derived from your password. Unlock to read them on this device.'
+      : 'Encrypts locked images and saved API keys with a key derived from your password. Set a password or PIN first.';
+  }
+}
+
+function initVaultControls() {
+  document.getElementById('enableVaultBtn')?.addEventListener('click', async () => {
+    const secretSet = await getSetting('secretSet', false);
+    const pass = prompt(secretSet ? 'Confirm your password to enable encryption' : 'Choose a password to enable encryption');
+    if (pass == null) return;
+    if (!pass) { alert('A password is required.'); return; }
+    if (secretSet && !(await verifyCurrentPassword(pass))) { alert('Password is incorrect.'); return; }
+    try {
+      await enableVault(pass);
+      alert('Encryption enabled. Locked images and saved API keys are now encrypted on this device.');
+    } catch (err) {
+      alert('Could not enable encryption: ' + err.message);
+    }
+    await renderVaultStatus();
+    updateAiSecurityWarning();
+  });
+
+  document.getElementById('lockVaultBtn')?.addEventListener('click', async () => {
+    lockVault('manual');
+    await renderVaultStatus();
+  });
+
+  document.getElementById('unlockVaultBtn')?.addEventListener('click', async () => {
+    const pass = prompt('Enter your password to unlock encryption');
+    if (pass == null) return;
+    const ok = await unlockVault(pass);
+    if (!ok) alert('Incorrect password.');
+    await renderVaultStatus();
+    updateAiSecurityWarning();
+  });
+
+  document.getElementById('vaultAutoLock')?.addEventListener('change', async (e) => {
+    await setVaultPreferences({ autoLockMinutes: Number(e.target.value) });
+  });
+
+  document.getElementById('vaultLockOnHide')?.addEventListener('change', async (e) => {
+    await setVaultPreferences({ lockOnHide: e.target.checked });
+  });
+
+  document.getElementById('disableVaultBtn')?.addEventListener('click', async () => {
+    if (!confirm('Turn off encryption? Protected images and saved API keys will be stored unencrypted again.')) return;
+    const pass = prompt('Enter your password to turn off encryption');
+    if (pass == null) return;
+    const ok = isVaultUnlocked() || await unlockVault(pass);
+    if (!ok) { alert('Incorrect password.'); return; }
+    try {
+      await disableVault();
+      alert('Encryption turned off. Your content is stored unencrypted again.');
+    } catch (err) {
+      alert('Could not turn off encryption: ' + err.message);
+    }
+    await renderVaultStatus();
+    updateAiSecurityWarning();
+  });
+}

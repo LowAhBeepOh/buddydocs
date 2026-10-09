@@ -1,5 +1,6 @@
 // Onboarding.js - Handles the multi-step onboarding flow
 import { setSetting, getSetting } from './idb.js';
+import { enableVault, setLegacySecretHash, isVaultEnabled } from './vault.js';
 
 document.addEventListener('DOMContentLoaded', () => {
   // Initialize onboarding
@@ -216,9 +217,14 @@ function initOnboarding() {
     }
     
     if (passwordValue) {
-      // In a real app, you'd want to hash this password
+      // Never store the password itself. Enable encryption if it is still off and keep
+      // a scrypt hash for the legacy lock checks.
+      if (!(await isVaultEnabled())) {
+        try { await enableVault(passwordValue); } catch { /* encryption stays off */ }
+      }
+      try { await setLegacySecretHash(passwordValue); } catch { /* hash is best-effort */ }
       await setSetting('hasPassword', true);
-      await setSetting('password', passwordValue);
+      await setSetting('password', '');
     }
     
     await setSetting('theme', selectedTheme);

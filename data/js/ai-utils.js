@@ -1,4 +1,5 @@
 import { getSetting } from './idb.js';
+import { getAiApiKey } from './vault.js';
 
 /**
  * Generates a response from the AI based on the given prompt
@@ -18,7 +19,7 @@ export async function generateAiResponse(prompt, { max_tokens = 100, temperature
     const provider = await getSetting('aiProvider', 'ollama');
     let model = await getSetting('aiModel', '');
     let baseUrl = await getSetting('aiBaseUrl', '');
-    const apiKey = await getSetting('aiApiKey', '');
+    const apiKey = await getAiApiKey();
 
     // Set default values based on provider if not set
     if (!model) {

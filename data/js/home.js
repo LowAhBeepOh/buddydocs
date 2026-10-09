@@ -6,6 +6,7 @@ import { notificationManager } from './notifications.js';
 import { sanitizeHtml, escapeHtml, htmlToPlainText } from './sanitize.js';
 import { markdownToHtml, docxToPages } from './doc-formats.js';
 import { pickGalleryPreview, setImageSrc, migrateLegacyGalleries } from './images.js';
+import { requireSecret, initVault } from './vault.js';
 
 // Current folder navigation
 let currentFolderId = null;
@@ -19,48 +20,9 @@ let scryptModule = null;
 
 // Export render functions for other modules to trigger UI refresh
 export { renderDocs, renderDeadlines, renderGreeting };
+// Legacy call sites now delegate to the shared vault gate, which also unlocks encryption.
 async function requireAuth(){
-  const secretSet = await getSetting('secretSet', false);
-  if (!secretSet) return true;
-  const usePin = await getSetting('usePin', false);
-  const input = prompt(usePin ? 'Enter PIN' : 'Enter password');
-  if (input == null) return false;
-  try {
-    // Prefer scrypt if salt is available; fallback to SHA-256 for legacy hashes
-    const saltStr = await getSetting('secretSalt', '');
-    const stored = await getSetting('secretHash', '');
-    
-    if (saltStr && saltStr.length > 0) {
-      // Cache the scrypt module import to avoid repeated CDN requests
-      if (!scryptModule) {
-        scryptModule = await import('https://cdn.jsdelivr.net/npm/scrypt-js@3.0.1/+esm');
-      }
-      const { scrypt } = scryptModule;
-      const enc = new TextEncoder();
-      const passwordBytes = enc.encode(input);
-      const saltBytes = Uint8Array.from(atob(saltStr), c => c.charCodeAt(0));
-      
-      // Try with new N=2048 first, then fall back to N=4096 and N=16384 for backward compatibility
-      for (const N of [2048, 4096, 16384]) {
-        const r = 8, p = 1, dkLen = 32;
-        const result = await scrypt(passwordBytes, saltBytes, N, r, p, dkLen);
-        const hashHex = Array.from(result).map(b=>b.toString(16).padStart(2,'0')).join('');
-        if (stored && hashHex === stored) {
-          return true;
-        }
-      }
-      return false;
-    } else {
-      const enc = new TextEncoder();
-      const data = enc.encode(input);
-      const digest = await crypto.subtle.digest('SHA-256', data);
-      const bytes = Array.from(new Uint8Array(digest));
-      const hashHex = bytes.map(b=>b.toString(16).padStart(2,'0')).join('');
-      return stored && hashHex === stored;
-    }
-  } catch {
-    return false;
-  }
+  return requireSecret();
 }
 
 
@@ -2395,6 +2357,7 @@ async function showBulkMoveToFolderModal(docIds) {
 
 // Initialize everything when DOM is ready
 async function initialize() {
+  await initVault();
   await migrateListsAndDeleteBoards();
   await migrateLegacyGalleries();
   await renderGreeting();

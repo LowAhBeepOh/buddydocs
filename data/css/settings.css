@@ -1320,3 +1320,12 @@ input[type="range"]::-moz-range-thumb {
 #tipBox {
   margin-top: 10px;
 }
+
+/* Encryption vault card */
+.vault-header { display: flex; align-items: center; justify-content: space-between; gap: 12px; font-weight: 600; }
+.vault-badge { font-size: 12px; font-weight: 600; padding: 2px 10px; border-radius: 999px; background: color-mix(in hsl, var(--text-secondary) 15%, transparent); color: var(--text-secondary); }
+.vault-badge.on { background: color-mix(in hsl, #16a34a 20%, transparent); color: #16a34a; }
+.vault-badge.locked { background: color-mix(in hsl, #d97706 20%, transparent); color: #d97706; }
+.vault-controls { display: flex; flex-direction: column; gap: 10px; margin-top: 12px; }
+.vault-inline { display: flex; flex-direction: column; gap: 4px; font-size: 13px; }
+.vault-inline.vault-checkbox { flex-direction: row; align-items: center; gap: 8px; }

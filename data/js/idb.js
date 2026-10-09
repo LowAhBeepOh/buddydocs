@@ -5,7 +5,7 @@ import { isImageRef, imageIdFromRef, makeImageRef, dataUrlToBlob, blobToDataUrl,
 
 // Only bump DB_VERSION when adding a store or index
 const DB_NAME = 'buddy-docs-db';
-const DB_VERSION = 8;
+const DB_VERSION = 9;
 const IMAGES_STORE = 'images';
 const IMAGE_GC_STARTUP_MS = 30 * 1000;
 const IMAGE_GC_DELAY_MS = 5 * 60 * 1000;
@@ -16,7 +16,8 @@ export const STORES = {
   settings: 'settings',
   documents: 'documents',
   calendar_notes: 'calendar_notes',
-  folders: 'folders'
+  folders: 'folders',
+  secrets: 'secrets'
 };
 
 // One connection is shared by all calls. It is dropped if another tab upgrades the database.
@@ -30,6 +31,10 @@ function openDB() {
       const db = req.result;
       if (e.oldVersion < 8 && !db.objectStoreNames.contains(IMAGES_STORE)) {
         db.createObjectStore(IMAGES_STORE, { keyPath: 'id' });
+      }
+      // Encrypted credentials (API keys and similar). Kept out of cloud sync on purpose.
+      if (e.oldVersion < 9 && !db.objectStoreNames.contains(STORES.secrets)) {
+        db.createObjectStore(STORES.secrets, { keyPath: 'key' });
       }
       if (!db.objectStoreNames.contains(STORES.settings)) {
         db.createObjectStore(STORES.settings, { keyPath: 'key' });
@@ -184,6 +189,33 @@ export async function inflateDocument(doc) {
 
 export async function getImageRecord(id) {
   return (await run(IMAGES_STORE, 'readonly', s => s.get(id))) || null;
+}
+
+export async function listImageRecords() {
+  return (await run(IMAGES_STORE, 'readonly', s => s.getAll())) || [];
+}
+
+// Overwrites an existing image record. Used when an image is locked (encrypted) or unlocked.
+export function putImageRecord(record) {
+  return run(IMAGES_STORE, 'readwrite', s => s.put(record));
+}
+
+// Secrets store: values are stored already encrypted; this layer never sees plaintext.
+export async function putSecretRecord(record) {
+  return run(STORES.secrets, 'readwrite', s => s.put(record));
+}
+
+export async function getSecretRecord(key) {
+  return (await run(STORES.secrets, 'readonly', s => s.get(key))) || null;
+}
+
+export async function deleteSecretRecord(key) {
+  await run(STORES.secrets, 'readwrite', s => s.delete(key));
+  return true;
+}
+
+export async function listSecretRecords() {
+  return (await run(STORES.secrets, 'readonly', s => s.getAll())) || [];
 }
 
 export function clearImages() {
