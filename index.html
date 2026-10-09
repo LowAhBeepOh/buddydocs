@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:*; frame-src https://accounts.google.com https://apis.google.com https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
  <meta name="google-site-verification" content="X7l7do6ab_8PkoGVmYu87GkzsHGoslUDAFW_mlnbgcY" />
   <meta name="description" content="Buddy Docs is an open-source document editor project, designed for students. No login at all.">
   <meta name="keywords" content="Buddy Docs, document editor, open-source, student, free, web app, editor, lowkey peak">
@@ -67,7 +68,7 @@
       <p class="sub">Keep your docs organized and on track.</p>
       <div id="dropZone" class="drop-zone" hidden>
         <span class="material-symbols-outlined">upload_file</span>
-        <p>Drop .bdox files here to import</p>
+        <p>Drop .bdox, .md or .docx files here to import</p>
       </div>
     </section>
 
@@ -141,6 +142,7 @@
             </nav>
           </div>
           <div class="templates-grid-container">
+            <input id="templateSearch" class="template-search" type="search" placeholder="Search templates" aria-label="Search templates" />
             <div id="templatesGrid" class="card-grid templates-grid"></div>
           </div>
         </div>
@@ -218,6 +220,24 @@
   </template>
 
   <!-- Move to Folder Modal -->
+  <div id="templatePreviewModal" class="modal-backdrop" hidden>
+    <div class="modal-card template-preview-modal" role="dialog" aria-modal="true" aria-labelledby="templatePreviewTitle">
+      <div class="modal-head">
+        <div>
+          <h3 id="templatePreviewTitle"></h3>
+          <p class="modal-subtitle" id="templatePreviewCategory"></p>
+        </div>
+        <button id="closeTemplatePreview" class="icon-btn" title="Close"><span class="material-symbols-outlined">close</span></button>
+      </div>
+      <div class="template-preview-body">
+        <iframe id="templatePreviewFrame" class="template-preview-frame" sandbox="" title="Template preview"></iframe>
+      </div>
+      <div class="template-preview-foot">
+        <a id="templatePreviewUse" class="template-action primary" href="#">Use template</a>
+      </div>
+    </div>
+  </div>
+
   <div id="moveToFolderModal" class="modal-backdrop" hidden>
     <div class="modal-card folder-modal">
       <div class="modal-head">
@@ -558,6 +578,7 @@
   </script>
   <script type="module">
     import { setSetting, getSetting, listDocuments, saveDocument } from './data/js/idb.js';
+    import { pickGalleryPreview, setImageSrc } from './data/js/images.js';
 
     const btn = document.getElementById('profileBtn');
     const menu = document.getElementById('profileMenu');
@@ -668,9 +689,10 @@
         
         // Thumbnail logic
         let thumbContent = '';
+        let previewRef = null;
         if (doc.type === 'gallery') {
-          const src = pickRandomGalleryImage(doc);
-          if (src) thumbContent = `<div class="search-result-thumb ${doc.locked ? 'locked' : ''}"><img src="${src}" alt=""></div>`;
+          previewRef = pickGalleryPreview(doc);
+          if (previewRef) thumbContent = `<div class="search-result-thumb ${doc.locked ? 'locked' : ''}"><img alt=""></div>`;
           else thumbContent = `<span class="material-symbols-outlined">photo_library</span>`;
         } else if (doc.type === 'presentation') {
           thumbContent = `<span class="material-symbols-outlined">slideshow</span>`;
@@ -699,6 +721,10 @@
           location.href = targetHref;
         });
         searchSuggestions.appendChild(item);
+        if (previewRef) {
+          const thumbImg = item.querySelector('.search-result-thumb img');
+          if (thumbImg) setImageSrc(thumbImg, previewRef, 'thumb');
+        }
       });
     }
 
@@ -820,23 +846,10 @@
   </script>
   <script src="data/js/logo-manager.js"></script>
   <script type="module">
-    // Index-level gallery thumbnail fallback: if no pinned image
-    // (doc.thumbnailSrc) exists, choose a random non-spoiler, non-locked
-    // image from doc.content for display.
+    import { pickGalleryPreview, setImageSrc } from './data/js/images.js';
+    // Index-level gallery thumbnail fallback: if no pinned image is set,
+    // choose a random non-spoiler, non-locked image for display.
     // This runs in index.html as requested, complementing home.js.
-    function pickRandomGalleryImage(doc) {
-      if (!doc || doc.type !== 'gallery') return null;
-      if (doc.thumbnailSrc) return doc.thumbnailSrc;
-      if (!Array.isArray(doc.content) || doc.content.length === 0) return null;
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
-        .filter(e => e && typeof e.src === 'string');
-      const candidates = entries.filter(e => !e.spoiler && !e.locked);
-      if (!candidates.length) return null;
-      const rnd = Math.floor(Math.random() * candidates.length);
-      return candidates[rnd].src;
-    }
-
     function applyGalleryThumb(card){
       if (!card || !card.classList.contains('doc-card')) return;
       const doc = card._doc;
@@ -845,16 +858,16 @@
       // Do not override locked docs or those already showing an image
       if (doc.locked) return;
       const hasImg = !!thumb.querySelector('img');
-      const chosen = pickRandomGalleryImage(doc);
-      if (doc.type === 'gallery' && chosen && !hasImg){
+      const chosen = doc.type === 'gallery' ? pickGalleryPreview(doc) : null;
+      if (chosen && !hasImg){
         thumb.innerHTML = '';
         const img = document.createElement('img');
-        img.src = chosen;
         img.alt = doc.title || 'Gallery';
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';
         thumb.appendChild(img);
+        setImageSrc(img, chosen, 'thumb');
       }
     }
 

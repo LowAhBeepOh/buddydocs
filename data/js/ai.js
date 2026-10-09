@@ -1,4 +1,5 @@
 import { getSetting, setSetting } from './idb.js';
+import { sanitizeHtml } from './sanitize.js';
 
 // CompactB Personality System
 const PERSONALITY = {
@@ -244,7 +245,7 @@ function applyDocumentEdit(editData) {
     const overwrite = !!(editData.overwrite || editData.changes?.overwrite);
     if (newContent){
       if (overwrite){
-        if (newContent !== editorEl.innerHTML){ editorEl.innerHTML = newContent; changed = true; }
+        if (newContent !== editorEl.innerHTML){ editorEl.innerHTML = sanitizeHtml(newContent); changed = true; }
       } else {
         editorEl.insertAdjacentHTML('beforeend', newContent);
         changed = true;
@@ -619,7 +620,7 @@ async function bindChatbotEvents() {
     messageEl.innerHTML = `
       <div class="message-content system-message">
         <span class="material-symbols-outlined">info</span>
-        ${content}
+        ${sanitizeHtml(content)}
       </div>
     `;
     messagesContainer.appendChild(messageEl);
@@ -642,7 +643,7 @@ async function bindChatbotEvents() {
           '<span class="material-symbols-outlined sparkle-icon">auto_awesome</span>'
         }
       </div>
-      <div class="message-content">${formattedContent}</div>
+      <div class="message-content">${sanitizeHtml(formattedContent)}</div>
     `;
 
     messagesContainer.appendChild(messageEl);
@@ -666,7 +667,7 @@ async function bindChatbotEvents() {
   // Utility: strip HTML tags to text
   function stripHtml(html){
     const div = document.createElement('div');
-    div.innerHTML = html || '';
+    div.innerHTML = sanitizeHtml(html || '');
     return div.textContent || div.innerText || '';
   }
   
@@ -754,7 +755,7 @@ async function bindChatbotEvents() {
         }
       } else if (changes.newContent) {
         if (changes.overwrite) {
-          previewEditorEl.innerHTML = changes.newContent;
+          previewEditorEl.innerHTML = sanitizeHtml(changes.newContent);
         } else {
           previewEditorEl.insertAdjacentHTML('beforeend', changes.newContent);
         }
@@ -1033,7 +1034,7 @@ async function bindChatbotEvents() {
       // Replace thinking message with error
       const thinkingEl = thinkingId ? document.getElementById(thinkingId) : null;
       if (thinkingEl) {
-        thinkingEl.querySelector('.message-content').innerHTML = `<span class="error-icon">⚠️</span> Oops! I ran into an issue: ${error.message}<br><br><em>Tip: Make sure your AI model is configured in Settings and running.</em>`;
+        thinkingEl.querySelector('.message-content').innerHTML = `<span class="error-icon">⚠️</span> Oops! I ran into an issue: ${escapeHtml(error.message)}<br><br><em>Tip: Make sure your AI model is configured in Settings and running.</em>`;
         thinkingEl.classList.add('error');
       } else {
         addMessage('assistant', `<span class="error-icon">⚠️</span> Oops! ${error.message}`, true);

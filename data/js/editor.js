@@ -6,6 +6,8 @@ import { initMusicPlayer } from './music-player.js';
 import { showVersionHistoryModal, saveVersion } from './version-history.js';
 import { showSummaryModal } from './summary-tool.js';
 import { renderReviewPanel, enableAutoCorrect } from './grammar-check.js';
+import { sanitizeHtml, escapeHtml } from './sanitize.js';
+import { htmlToMarkdown, htmlPagesToDocx } from './doc-formats.js';
 
 const editor = document.getElementById('editor');
 const titleEl = document.getElementById('docTitle');
@@ -239,6 +241,135 @@ function insertTable(rows, cols) {
   editor.focus();
 }
 
+// Dropdowns for Edit, View, Insert, Format and Help. Every item runs an existing command.
+const actionMenu = { btn: null };
+
+function closeActionMenu(){
+  document.getElementById('menuDropdown')?.setAttribute('hidden','');
+  actionMenu.btn?.setAttribute('aria-expanded','false');
+  actionMenu.btn = null;
+}
+
+function openActionMenu(btn, name){
+  const menu = document.getElementById('menuDropdown');
+  const build = ACTION_MENUS[name];
+  if (!menu || !build) return;
+  menu.replaceChildren(...build().map(buildMenuEntry));
+  const r = btn.getBoundingClientRect();
+  menu.style.left = `${r.left}px`;
+  menu.style.top = `${r.bottom + 6}px`;
+  menu.removeAttribute('hidden');
+  btn.setAttribute('aria-expanded','true');
+  actionMenu.btn = btn;
+}
+
+function buildMenuEntry(item){
+  if (item.divider){
+    const divider = document.createElement('div');
+    divider.className = 'menu-divider';
+    return divider;
+  }
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.className = 'menu-item';
+  if (item.icon){
+    const icon = document.createElement('span');
+    icon.className = 'material-symbols-outlined';
+    icon.textContent = item.icon;
+    button.appendChild(icon);
+  }
+  button.appendChild(document.createTextNode(item.label));
+  if (item.shortcut){
+    const shortcut = document.createElement('span');
+    shortcut.className = 'menu-shortcut';
+    shortcut.textContent = item.shortcut;
+    button.appendChild(shortcut);
+  }
+  button.addEventListener('mousedown', (e) => e.preventDefault());
+  button.addEventListener('click', () => {
+    closeActionMenu();
+    item.run();
+  });
+  return button;
+}
+
+// Focus first so the command applies to the current selection
+function runEditorCommand(fn){
+  editor.focus();
+  fn();
+}
+const execCmd = (cmd, value) => runEditorCommand(() => document.execCommand(cmd, false, value));
+const clickButton = (id) => () => document.getElementById(id)?.click();
+const blockItem = (label, icon, tag) => ({ label, icon, run: () => runEditorCommand(() => applyBlock(tag)) });
+
+const toolsState = { aiEnabled: false, smartComposeOn: false };
+
+const ACTION_MENUS = {
+  edit: () => [
+    { label: 'Undo', icon: 'undo', shortcut: 'Ctrl+Z', run: () => execCmd('undo') },
+    { label: 'Redo', icon: 'redo', shortcut: 'Ctrl+Y', run: () => execCmd('redo') },
+    { divider: true },
+    { label: 'Select all', icon: 'select_all', shortcut: 'Ctrl+A', run: () => execCmd('selectAll') },
+  ],
+  view: () => {
+    const toolbarHidden = document.querySelector('.formatbar')?.classList.contains('compact');
+    const menusHidden = document.querySelector('.editor-wrap')?.classList.contains('hide-menus');
+    return [
+      { label: isViewMode ? 'Switch to editing' : 'Reading view', icon: isViewMode ? 'edit' : 'visibility', run: clickButton(isViewMode ? 'editModeBtn' : 'viewModeBtn') },
+      { divider: true },
+      { label: toolbarHidden ? 'Show formatting toolbar' : 'Hide formatting toolbar', icon: 'view_compact', run: () => document.querySelector('.formatbar')?.classList.toggle('compact') },
+      { label: menusHidden ? 'Show menus' : 'Hide menus', icon: 'fullscreen', shortcut: 'Ctrl+Shift+F', run: clickButton('hideMenusBtn') },
+    ];
+  },
+  insert: () => [
+    { label: 'Image', icon: 'image', run: clickButton('insertImage') },
+    { label: 'Link', icon: 'link', shortcut: 'Ctrl+K', run: clickButton('insertLink') },
+    { label: 'Table', icon: 'table_chart', run: clickButton('insertTableBtn') },
+    { label: 'Horizontal line', icon: 'horizontal_rule', run: () => execCmd('insertHorizontalRule') },
+  ],
+  format: () => [
+    { label: 'Bold', icon: 'format_bold', shortcut: 'Ctrl+B', run: () => execCmd('bold') },
+    { label: 'Italic', icon: 'format_italic', shortcut: 'Ctrl+I', run: () => execCmd('italic') },
+    { label: 'Underline', icon: 'format_underlined', shortcut: 'Ctrl+U', run: () => execCmd('underline') },
+    { label: 'Strikethrough', icon: 'strikethrough_s', run: () => execCmd('strikeThrough') },
+    { label: 'Subscript', icon: 'subscript', run: () => runEditorCommand(applySubscript) },
+    { label: 'Superscript', icon: 'superscript', run: () => runEditorCommand(applySuperscript) },
+    { divider: true },
+    blockItem('Paragraph', 'notes', 'p'),
+    blockItem('Heading 1', 'title', 'h1'),
+    blockItem('Heading 2', 'title', 'h2'),
+    blockItem('Heading 3', 'title', 'h3'),
+    blockItem('Quote', 'format_quote', 'blockquote'),
+    blockItem('Code', 'code', 'pre'),
+    { divider: true },
+    { label: 'Bulleted list', icon: 'format_list_bulleted', run: () => execCmd('insertUnorderedList') },
+    { label: 'Numbered list', icon: 'format_list_numbered', run: () => execCmd('insertOrderedList') },
+    { divider: true },
+    { label: 'Align left', icon: 'format_align_left', run: () => execCmd('justifyLeft') },
+    { label: 'Align center', icon: 'format_align_center', run: () => execCmd('justifyCenter') },
+    { label: 'Align right', icon: 'format_align_right', run: () => execCmd('justifyRight') },
+    { divider: true },
+    { label: 'Clear formatting', icon: 'format_clear', run: clickButton('clearFormat') },
+  ],
+  tools: () => [
+    ...(toolsState.aiEnabled ? [
+      { label: 'CompactB', icon: 'auto_awesome', run: openChatbotFromMenu },
+      { divider: true },
+    ] : []),
+    { label: 'Version history', icon: 'history', run: openVersionHistoryFromMenu },
+    { label: 'Summary', icon: 'summarize', run: openSummaryFromMenu },
+    { label: 'Review', icon: 'spellcheck', run: toggleReviewPanel },
+    { divider: true },
+    { label: 'Smart Compose', icon: 'auto_fix_high', shortcut: toolsState.smartComposeOn ? 'On' : 'Off', run: toggleSmartComposeFromMenu },
+  ],
+  help: () => [
+    { label: 'Keyboard shortcuts', icon: 'keyboard', run: () => showKeyboardShortcutsHelp() },
+    { label: 'Word count', icon: 'analytics', shortcut: 'Ctrl+Shift+C', run: () => showWordCountPopup() },
+    { divider: true },
+    { label: 'Privacy policy', icon: 'policy', run: () => window.open('data/legal/privacypolicy.html', '_blank', 'noopener') },
+  ],
+};
+
 function bindToolbar(){
   document.querySelectorAll('.formatbar [data-cmd]').forEach(btn => {
     btn.addEventListener('click', () => {
@@ -248,37 +379,26 @@ function bindToolbar(){
     });
   });
   // top menu actions (File/Edit/View/Insert/Format/Tools/Help)
-  // Menus are lightweight; many items map to existing actions/shortcuts
   const menuContainer = document.querySelector('.menu-row');
   if (menuContainer){
-    menuContainer.addEventListener('click', async (e)=>{
+    // Keep focus and text selection in the editor when a menu button is pressed
+    menuContainer.addEventListener('mousedown', (e)=>{
+      if (e.target.closest('.menu-btn')) e.preventDefault();
+    });
+    menuContainer.addEventListener('click', (e)=>{
       const btn = e.target.closest('.menu-btn');
       if (!btn) return;
       const name = btn.dataset.menu;
-      switch(name){
-        case 'file':
-          toggleFileMenu();
-          break;
-        case 'edit':
-          document.execCommand('selectAll');
-          break;
-        case 'view':
-          // toggle compact formatbar
-          document.querySelector('.formatbar')?.classList.toggle('compact');
-          break;
-        case 'insert':
-          document.getElementById('insertImage')?.click();
-          break;
-        case 'format':
-          document.getElementById('blockFormat')?.focus();
-          break;
-        case 'tools':
-          toggleToolsMenu();
-          break;
-        case 'help':
-          alert('Buddy Docs — Editor Help coming soon.');
-          break;
-      }
+      const wasOpen = actionMenu.btn === btn;
+      closeActionMenu();
+      if (name === 'file') return toggleFileMenu();
+      if (!wasOpen) openActionMenu(btn, name);
+    });
+    document.addEventListener('click', (ev)=>{
+      if (actionMenu.btn && !ev.target.closest('.menu-btn, #menuDropdown')) closeActionMenu();
+    });
+    document.addEventListener('keydown', (e)=>{
+      if (e.key === 'Escape' && actionMenu.btn) closeActionMenu();
     });
   }
   // block format select
@@ -468,17 +588,36 @@ function bindMeta(){
   tagsEl.addEventListener('change', () => currentDoc.tags = tagsEl.value.split(',').map(s=>s.trim()).filter(Boolean));
 }
 
+// Header save indicator: icon, tooltip, and error colour
+function setSyncState(state){
+  const icon = document.getElementById('syncIcon');
+  const btn = document.getElementById('syncIndicator');
+  const states = {
+    pending: { icon: 'sync', spin: false, title: 'Unsaved changes', error: false },
+    saving: { icon: 'sync', spin: true, title: 'Saving…', error: false },
+    saved: { icon: 'check', spin: false, title: 'Saved', error: false },
+    error: { icon: 'error', spin: false, title: 'Save failed. Recent changes may not be stored.', error: true }
+  };
+  const s = states[state];
+  if (!s) return;
+  if (icon){ icon.textContent = s.icon; icon.classList.toggle('spin', s.spin); }
+  if (btn){
+    btn.title = s.title;
+    btn.setAttribute('aria-label', s.title);
+    btn.classList.toggle('sync-error', s.error);
+  }
+}
+
 function autosave(){
   let t;
   let lastSavedContent = '';
   let versionSaveCounter = 0;
-  
-  function queue(){
-    clearTimeout(t);
-    // immediately show unsaved state
-    const iconPending = document.getElementById('syncIcon');
-    if (iconPending){ iconPending.textContent = 'sync'; iconPending.classList.remove('spin'); }
-    t = setTimeout(async () => {
+  let editSeq = 0;
+  let saveChain = Promise.resolve();
+
+  async function save(seq){
+    if (seq === editSeq) setSyncState('saving');
+    try {
       // Save current page content
       if (currentDoc.pages && currentDoc.pages[currentPageIndex]) {
         currentDoc.pages[currentPageIndex].content = editor.innerHTML;
@@ -487,23 +626,39 @@ function autosave(){
       } else {
         currentDoc.content = editor.innerHTML;
       }
-      
-      const icon = document.getElementById('syncIcon');
-      if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
       await saveDocument(currentDoc);
-      
-      // Save version every 10 saves (approximately every minute of active editing)
-      versionSaveCounter++;
-      if (versionSaveCounter >= 10 && currentDoc.id) {
-        const currentContent = editor.innerHTML;
-        if (currentContent !== lastSavedContent) {
+    } catch (err) {
+      console.error('Autosave failed:', err);
+      setSyncState('error');
+      return;
+    }
+    // If a newer edit is already queued, its save sets the final state
+    if (seq === editSeq) setSyncState('saved');
+
+    // Save version every 10 saves (approximately every minute of active editing)
+    versionSaveCounter++;
+    if (versionSaveCounter >= 10 && currentDoc.id) {
+      const currentContent = editor.innerHTML;
+      if (currentContent !== lastSavedContent) {
+        try {
           await saveVersion(currentDoc.id, currentContent, currentDoc.title);
           lastSavedContent = currentContent;
           versionSaveCounter = 0;
+        } catch (err) {
+          console.warn('Version save failed:', err);
         }
       }
-      
-      if (icon){ icon.textContent = 'check'; icon.classList.remove('spin'); }
+    }
+  }
+
+  // Each edit restarts the debounce. Saves run one at a time so they never overlap.
+  function queue(){
+    clearTimeout(t);
+    editSeq++;
+    setSyncState('pending');
+    t = setTimeout(() => {
+      const seq = editSeq;
+      saveChain = saveChain.then(() => save(seq));
     }, 600);
   }
   editor.addEventListener('input', queue);
@@ -571,10 +726,10 @@ async function loadOrCreate(){
   
   // Load first page content
   if (currentDoc.pages && currentDoc.pages.length > 0) {
-    editor.innerHTML = currentDoc.pages[0].content || placeholderForType(currentDoc.type);
+    editor.innerHTML = sanitizeHtml(currentDoc.pages[0].content || placeholderForType(currentDoc.type));
     currentPageIndex = 0;
   } else {
-    editor.innerHTML = currentDoc.content || placeholderForType(currentDoc.type);
+    editor.innerHTML = sanitizeHtml(currentDoc.content || placeholderForType(currentDoc.type));
   }
   // Setup placeholder behavior (clear on first interaction)
   setupPlaceholderBehavior();
@@ -637,13 +792,18 @@ async function saveNow(){
     currentDoc.content = editor.innerHTML;
   }
   
-  const icon = document.getElementById('syncIcon');
-  if (icon){ icon.textContent = 'sync'; icon.classList.add('spin'); }
-  const saved = await saveDocument(currentDoc);
+  setSyncState('saving');
+  let saved;
+  try {
+    saved = await saveDocument(currentDoc);
+  } catch (err) {
+    setSyncState('error');
+    throw err;
+  }
   if (!getParam('id')){
     history.replaceState({}, '', `editor.html?id=${encodeURIComponent(saved.id)}`);
   }
-  if (icon){ icon.textContent = 'check'; icon.classList.remove('spin'); }
+  setSyncState('saved');
 }
 
 async function deleteNow(){
@@ -679,64 +839,6 @@ function toggleFileMenu(){
       document.removeEventListener('click', onDocClick);
     }
   }
-}
-
-function toggleToolsMenu(){
-  const btn = document.getElementById('toolsMenuBtn');
-  const menu = document.getElementById('toolsDropdown');
-  if (!btn || !menu) return;
-  const open = menu.hasAttribute('hidden') ? false : true;
-  if (open){
-    menu.setAttribute('hidden','');
-    btn.setAttribute('aria-expanded','false');
-    document.removeEventListener('click', onDocClick);
-    return;
-  }
-  // position the menu below the Tools button
-  const r = btn.getBoundingClientRect();
-  menu.style.left = `${r.left}px`;
-  menu.style.top = `${r.bottom + 6}px`;
-  menu.removeAttribute('hidden');
-  btn.setAttribute('aria-expanded','true');
-  setTimeout(()=> document.addEventListener('click', onDocClick));
-  function onDocClick(ev){
-    if (!menu.contains(ev.target) && ev.target !== btn){
-      menu.setAttribute('hidden','');
-      btn.setAttribute('aria-expanded','false');
-      document.removeEventListener('click', onDocClick);
-    }
-  }
-}
-
-// Tools menu item actions
-function bindToolsMenuActions(){
-  const menu = document.getElementById('toolsDropdown');
-  if (!menu) return;
-  menu.addEventListener('click', (e)=>{
-    const item = e.target.closest('.tools-menu-item, .menu-item');
-    if (!item) return;
-    // Close menu
-    menu.setAttribute('hidden','');
-    document.getElementById('toolsMenuBtn')?.setAttribute('aria-expanded','false');
-
-    if (item.id === 'openSummaryTool'){
-      showSummaryModal(editor?.innerHTML || '');
-      return;
-    }
-    if (item.id === 'openVersionHistory'){
-      if (currentDoc?.id) showVersionHistoryModal(currentDoc.id, currentDoc.title || 'Untitled');
-      return;
-    }
-    if (item.id === 'openReview'){
-      const panel = document.getElementById('reviewSidebar');
-      if (!panel) return;
-      panel.hidden = !panel.hidden;
-      if (!panel.hidden){
-        renderReviewPanel(editor);
-      }
-      return;
-    }
-  });
 }
 
 // Document Settings modal controls
@@ -793,6 +895,16 @@ function htmlToPlainText(html){
   return (tmp.textContent || tmp.innerText || '').trim();
 }
 
+// The live editor is read for the current page so exports include unsaved edits.
+function getExportPages(){
+  const pages = currentDoc.pages && currentDoc.pages.length
+    ? currentDoc.pages.map(page => page.content || '')
+    : [currentDoc.content || ''];
+  const index = currentDoc.pages && currentDoc.pages[currentPageIndex] ? currentPageIndex : 0;
+  pages[index] = placeholderActive ? '' : editor.innerHTML;
+  return pages;
+}
+
 async function exportAs(type){
   const titleSafe = (currentDoc.title||'document').replace(/[^\w\-]+/g,'_');
   if (type === 'txt'){
@@ -800,14 +912,7 @@ async function exportAs(type){
     return downloadBlob(blob, `${titleSafe}.txt`);
   }
   if (type === 'md'){
-    // naive markdown: strip tags and keep headings/list markers where possible
-    let html = currentDoc.content || '';
-    html = html.replace(/<h1[^>]*>([\s\S]*?)<\/h1>/gi, '# $1\n\n');
-    html = html.replace(/<h2[^>]*>([\s\S]*?)<\/h2>/gi, '## $1\n\n');
-    html = html.replace(/<h3[^>]*>([\s\S]*?)<\/h3>/gi, '### $1\n\n');
-    html = html.replace(/<li[^>]*>([\s\S]*?)<\/li>/gi, '- $1\n');
-    html = html.replace(/<br\s*\/?>(\n)?/gi, '\n');
-    const text = htmlToPlainText(html);
+    const text = getExportPages().map(htmlToMarkdown).filter(Boolean).join('\n\n---\n\n');
     const blob = new Blob([text], { type: 'text/markdown;charset=utf-8' });
     return downloadBlob(blob, `${titleSafe}.md`);
   }
@@ -819,7 +924,7 @@ async function exportAs(type){
     element.innerHTML = `
       <div style="font-family: 'Inter Tight', Arial, sans-serif; padding: 40px; max-width: 800px; margin: 0 auto;">
         <h1 style="color: #333; border-bottom: 2px solid #0550FF; padding-bottom: 10px; margin-bottom: 30px;">
-          ${currentDoc.title || 'Untitled Document'}
+          ${escapeHtml(currentDoc.title || 'Untitled Document')}
         </h1>
         <div style="line-height: 1.6; color: #000;">
           ${currentDoc.content || ''}
@@ -848,11 +953,14 @@ async function exportAs(type){
   }
   
   if (type === 'docx'){
-    // Lightweight client-only fallback: generate HTML file and hint extension
-    const html = `<!doctype html><html><head><meta charset="utf-8"><title>${currentDoc.title||'Document'}</title></head><body>${currentDoc.content||''}</body></html>`;
-    const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
-    const suggested = `${titleSafe}.${type}.html`;
-    return downloadBlob(blob, suggested);
+    try {
+      const blob = await htmlPagesToDocx(getExportPages());
+      return downloadBlob(blob, `${titleSafe}.docx`);
+    } catch (error) {
+      console.error('DOCX export failed:', error);
+      alert('Word export failed. Please try again.');
+      return;
+    }
   }
   
   if (type === 'gdocs'){
@@ -878,7 +986,7 @@ async function exportAs(type){
         // Remove empty style attributes with only whitespace
         cleanContent = cleanContent.replace(/style="\s*"/gi, '');
         
-        tempDiv.innerHTML = cleanContent;
+        tempDiv.innerHTML = sanitizeHtml(cleanContent);
         document.body.appendChild(tempDiv);
         
         // Select the content
@@ -1031,6 +1139,13 @@ function setupAutoFormat(){
   });
   
   // Handle backspace and other key events
+  editor.addEventListener('paste', (e) => {
+    const html = e.clipboardData?.getData('text/html');
+    if (!html) return;
+    e.preventDefault();
+    document.execCommand('insertHTML', false, sanitizeHtml(html));
+  });
+
   editor.addEventListener('keydown', (e) => {
     const selection = window.getSelection();
     if (!selection.rangeCount) return;
@@ -1612,15 +1727,18 @@ applyEditorPrefs();
 setupToolsMenu();
 initMusic();
 initOutlineTabs();
-bindToolsMenuActions();
 
-// Live-refresh Review panel when visible
+// Live-refresh Review panel when visible (debounced, since the check scans the whole document)
 if (editor){
+  let reviewRefreshTimer = null;
   editor.addEventListener('input', ()=>{
-    const panel = document.getElementById('reviewSidebar');
-    if (panel && !panel.hidden){
-      renderReviewPanel(editor);
-    }
+    clearTimeout(reviewRefreshTimer);
+    reviewRefreshTimer = setTimeout(()=>{
+      const panel = document.getElementById('reviewSidebar');
+      if (panel && !panel.hidden){
+        renderReviewPanel(editor);
+      }
+    }, 300);
   });
 }
 
@@ -1705,7 +1823,7 @@ function buildPagesList() {
     pageItem.className = `page-item ${index === currentPageIndex ? 'active' : ''}`;
     pageItem.innerHTML = `
       <span class="material-symbols-outlined page-item-icon">description</span>
-      <span class="page-item-title">${page.title}</span>
+      <span class="page-item-title">${escapeHtml(page.title)}</span>
       ${currentDoc.pages.length > 1 ? `<button class="page-item-delete" data-page-index="${index}"><span class="material-symbols-outlined">delete</span></button>` : ''}
     `;
     
@@ -1739,7 +1857,7 @@ function switchToPage(index) {
   
   // Switch to new page
   currentPageIndex = index;
-  editor.innerHTML = currentDoc.pages[index].content || '';
+  editor.innerHTML = sanitizeHtml(currentDoc.pages[index].content || '');
   
   // Update UI
   buildPagesList();
@@ -1781,7 +1899,7 @@ function deletePage(index) {
   }
   
   // Load the current page
-  editor.innerHTML = currentDoc.pages[currentPageIndex].content || '';
+  editor.innerHTML = sanitizeHtml(currentDoc.pages[currentPageIndex].content || '');
   
   buildPagesList();
   saveNow();
@@ -1818,142 +1936,78 @@ function initOutlineTabs() {
   }
 }
 
-// Setup Tools menu items
+// Load Tools menu state; menu items are built from this on open
 async function setupToolsMenu(){
-  const { getSetting } = await import('./idb.js');
-  const aiEnabled = await getSetting('aiEnabled', false);
-  const openAiBtn = document.getElementById('openAiBtn');
-  if (openAiBtn){
-    openAiBtn.style.display = aiEnabled ? '' : 'none';
-    openAiBtn.addEventListener('click', async ()=>{
-      toggleToolsMenu();
-      const { isAiEnabled } = await import('./ai.js');
-      const enabled = await isAiEnabled();
-      if (!enabled){
-        alert('AI is disabled. Enable it in Settings.');
-        return;
-      }
-      // Show chatbot UI and adjust layout
-      window.showChatbot?.();
-      const wrap = document.querySelector('.editor-wrap');
-      if (wrap){ wrap.classList.add('with-ai'); }
-    });
-  }
-  const openShortcuts = document.getElementById('openShortcuts');
-  if (openShortcuts){
-    openShortcuts.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      showKeyboardShortcutsHelp();
-    });
-  }
-  const openWordCount = document.getElementById('openWordCount');
-  if (openWordCount){
-    openWordCount.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      showWordCountPopup();
-    });
-  }
-  
-  // Version History
-  const openVersionHistory = document.getElementById('openVersionHistory');
-  if (openVersionHistory){
-    openVersionHistory.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      if (!currentDoc.id) {
-        alert('Please save the document first to view version history.');
-        return;
-      }
-      showVersionHistoryModal(currentDoc.id, (restored) => {
-        // Reload the restored document
-        currentDoc = restored;
-        titleEl.textContent = restored.title;
-        if (restored.pages && restored.pages.length > 0) {
-          editor.innerHTML = restored.pages[currentPageIndex].content;
-        } else {
-          editor.innerHTML = restored.content;
-        }
-        buildOutline();
-        updateStatusCounts();
-      });
-    });
-  }
-  
-  // Summary Tool
-  const openSummaryTool = document.getElementById('openSummaryTool');
-  if (openSummaryTool){
-    openSummaryTool.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      const content = editor.innerHTML;
-      if (!content.trim()) {
-        alert('Please add some content to summarize.');
-        return;
-      }
-      showSummaryModal(content);
-    });
-  }
-  
-  // Grammar Check
-  const openGrammarCheck = document.getElementById('openGrammarCheck');
-  if (openGrammarCheck){
-    openGrammarCheck.addEventListener('click', ()=>{
-      toggleToolsMenu();
-      const content = editor.innerHTML;
-      if (!content.trim()) {
-        alert('Please add some content to check.');
-        return;
-      }
-      showGrammarCheckModal(content, editor);
-    });
-  }
-  const toggleSmartCompose = document.getElementById('toggleSmartCompose');
-  if (toggleSmartCompose){
-    // Initialize button label to reflect current setting (default Off)
-    try {
-      const initiallyEnabled = await getSetting('smartComposeEnabled', false);
-      const spanInit = toggleSmartCompose.querySelector('span:last-child');
-      if (spanInit) spanInit.textContent = initiallyEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
-    } catch {}
-    toggleSmartCompose.addEventListener('click', async ()=>{
-      toggleToolsMenu();
-      // Read current persisted state (default off)
-      const wasEnabled = await getSetting('smartComposeEnabled', false);
-      let isEnabled;
-      if (wasEnabled) {
-        // Turn off
-        if (smartCompose && smartCompose.isEnabled) {
-          smartCompose.toggle();
-        }
-        isEnabled = false;
-      } else {
-        // Turn on: instantiate if missing, or toggle if present but disabled
-        if (!smartCompose) {
-          smartCompose = new SmartCompose(editor);
-          isEnabled = true;
-        } else {
-          if (!smartCompose.isEnabled) smartCompose.toggle();
-          isEnabled = true;
-        }
-      }
-      await setSetting('smartComposeEnabled', isEnabled);
+  toolsState.aiEnabled = await getSetting('aiEnabled', false);
+  toolsState.smartComposeOn = await getSetting('smartComposeEnabled', false);
+}
 
-      // Update button text to show current state
-      const span = toggleSmartCompose.querySelector('span:last-child');
-      if (span) {
-        span.textContent = isEnabled ? 'Smart Compose (On)' : 'Smart Compose (Off)';
-      }
-      
-      // Show feedback
-      const status = isEnabled ? 'enabled' : 'disabled';
-      console.log(`Smart Compose ${status}`);
-      
-      // Show help on first enable
-      if (isEnabled && !await getSetting('smartComposeHelpShown', false)) {
-        showSmartComposeHelp();
-        await setSetting('smartComposeHelpShown', true);
-      }
-    });
+async function openChatbotFromMenu(){
+  const { isAiEnabled } = await import('./ai.js');
+  if (!(await isAiEnabled())){
+    alert('AI is disabled. Enable it in Settings.');
+    return;
+  }
+  window.showChatbot?.();
+  document.querySelector('.editor-wrap')?.classList.add('with-ai');
+}
+
+function openVersionHistoryFromMenu(){
+  if (!currentDoc.id){
+    alert('Please save the document first to view version history.');
+    return;
+  }
+  showVersionHistoryModal(currentDoc.id, restoreVersionFromHistory);
+}
+
+function restoreVersionFromHistory(restored){
+  currentDoc = restored;
+  titleEl.textContent = restored.title;
+  if (restored.pages && restored.pages.length > 0){
+    editor.innerHTML = sanitizeHtml(restored.pages[currentPageIndex].content);
+  } else {
+    editor.innerHTML = sanitizeHtml(restored.content);
+  }
+  buildOutline();
+  updateStatusCounts();
+}
+
+function openSummaryFromMenu(){
+  const isPlaceholder = !!editor.querySelector('.placeholder');
+  if (isPlaceholder || !editor.textContent.trim()){
+    alert('Please add some content to summarize.');
+    return;
+  }
+  showSummaryModal(editor.innerHTML);
+}
+
+function toggleReviewPanel(){
+  const panel = document.getElementById('reviewSidebar');
+  if (!panel) return;
+  panel.hidden = !panel.hidden;
+  if (!panel.hidden) renderReviewPanel(editor);
+}
+
+async function toggleSmartComposeFromMenu(){
+  let isEnabled;
+  if (toolsState.smartComposeOn){
+    if (smartCompose?.isEnabled) smartCompose.toggle();
+    isEnabled = false;
+  } else {
+    // The SmartCompose constructor starts enabled
+    if (!smartCompose) smartCompose = new SmartCompose(editor);
+    else if (!smartCompose.isEnabled) smartCompose.toggle();
+    isEnabled = true;
+  }
+  toolsState.smartComposeOn = isEnabled;
+  await setSetting('smartComposeEnabled', isEnabled);
+
+  if (isEnabled && !await getSetting('smartComposeHelpShown', false)){
+    showSmartComposeHelp();
+    await setSetting('smartComposeHelpShown', true);
   }
 }
+
 
 // When closing chatbot, remove with-ai class
 window.hideChatbot = (function(orig){
@@ -2010,10 +2064,16 @@ function updateReadingUI(wordsCountOverride = null) {
   }
 }
 
+let lastOutlineSignature = null;
+
 function buildOutline() {
   const outlineList = document.getElementById('outlineList');
   if (!outlineList) return;
   const headings = Array.from(editor.querySelectorAll('h1, h2, h3'));
+  // Typing in body text leaves headings unchanged, so skip the rebuild
+  const signature = headings.map(h => h.tagName + h.textContent.trim()).join('\u0000');
+  if (signature === lastOutlineSignature) return;
+  lastOutlineSignature = signature;
   outlineList.innerHTML = '';
   if (headings.length === 0) {
     const empty = document.createElement('div');
@@ -2023,7 +2083,7 @@ function buildOutline() {
     return;
   }
   let h1Index = 0, h2Index = 0, h3Index = 0;
-  headings.forEach(h => {
+  headings.forEach((h, index) => {
     const level = Number(h.tagName.slice(1));
     if (level === 1) { h1Index++; h2Index = 0; h3Index = 0; }
     if (level === 2) { h2Index++; h3Index = 0; }
@@ -2045,13 +2105,16 @@ function buildOutline() {
     text.textContent = title;
     item.appendChild(num);
     item.appendChild(text);
-    // Scroll to heading on click
+    // Scroll to heading on click. Look the heading up at click time, because the
+    // outline can outlive the nodes it was built from after a page switch.
     item.addEventListener('click', (e) => {
       e.preventDefault();
-      h.scrollIntoView({ behavior: 'smooth', block: 'center' });
+      const target = editor.querySelectorAll('h1, h2, h3')[index];
+      if (!target) return;
+      target.scrollIntoView({ behavior: 'smooth', block: 'center' });
       // briefly highlight
-      h.style.outline = `2px solid var(--primary)`;
-      setTimeout(() => (h.style.outline = ''), 800);
+      target.style.outline = `2px solid var(--primary)`;
+      setTimeout(() => (target.style.outline = ''), 800);
     });
     outlineList.appendChild(item);
   });
@@ -2138,13 +2201,19 @@ function buildOutline() {
 // Hook into existing flows to update counts and outline
 (function attachLiveUpdates(){
   const update = ()=>{ updateStatusCounts(); buildOutline(); };
+  // Coalesce bursts of input into one update per frame
+  let frame = 0;
+  const scheduleUpdate = ()=>{
+    if (frame) return;
+    frame = requestAnimationFrame(()=>{ frame = 0; update(); });
+  };
   // initial
   if (document.readyState === 'complete' || document.readyState === 'interactive'){
     setTimeout(update, 0);
   } else {
     window.addEventListener('DOMContentLoaded', update, { once:true });
   }
-  editor.addEventListener('input', update);
+  editor.addEventListener('input', scheduleUpdate);
 })();
 
 // ==================== Voice Conversion (Active/Passive) ====================

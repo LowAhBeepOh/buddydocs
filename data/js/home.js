@@ -3,6 +3,9 @@ import { isCloudConnected, removeDocumentFromCloud } from './cloud.js';
 import { TEMPLATES } from './templates.js';
 import { generateWelcomeMessage } from './ai-utils.js';
 import { notificationManager } from './notifications.js';
+import { sanitizeHtml, escapeHtml, htmlToPlainText } from './sanitize.js';
+import { markdownToHtml, docxToPages } from './doc-formats.js';
+import { pickGalleryPreview, setImageSrc, migrateLegacyGalleries } from './images.js';
 
 // Current folder navigation
 let currentFolderId = null;
@@ -80,6 +83,10 @@ async function importBdoxFile(file) {
     
     // Import the document (generate new ID to avoid conflicts)
     const doc = { ...data.document, id: null };
+    if (typeof doc.content === 'string') doc.content = sanitizeHtml(doc.content);
+    if (Array.isArray(doc.pages)) {
+      doc.pages = doc.pages.map(page => ({ ...page, content: sanitizeHtml(page.content) }));
+    }
     const saved = await saveDocument(doc);
     return { success: true, title: doc.title || 'Untitled' };
   } catch (error) {
@@ -88,18 +95,62 @@ async function importBdoxFile(file) {
   }
 }
 
-async function handleBdoxDrop(files) {
-  const bdoxFiles = Array.from(files).filter(f => f.name.toLowerCase().endsWith('.bdox'));
-  if (bdoxFiles.length === 0) {
-    alert('No .bdox files found. Please drop Buddy Docs files.');
+const IMPORT_EXTENSIONS = ['.bdox', '.md', '.markdown', '.docx'];
+
+function getImportExtension(name) {
+  const lower = name.toLowerCase();
+  return IMPORT_EXTENSIONS.find(ext => lower.endsWith(ext)) || '';
+}
+
+async function saveImportedPages(title, pagesHtml) {
+  const pages = pagesHtml.map((content, index) => ({
+    id: crypto.randomUUID(),
+    title: `Page ${index + 1}`,
+    content: sanitizeHtml(content),
+    createdAt: Date.now()
+  }));
+  await saveDocument({
+    id: null,
+    title,
+    type: 'document',
+    content: pages[0].content,
+    dueDate: null,
+    tags: [],
+    folderId: null,
+    pages,
+    createdAt: Date.now(),
+    updatedAt: Date.now()
+  });
+}
+
+async function importDocumentFile(file) {
+  const ext = getImportExtension(file.name);
+  if (ext === '.bdox') return importBdoxFile(file);
+  try {
+    const title = file.name.slice(0, -ext.length) || 'Untitled';
+    const pagesHtml = ext === '.docx'
+      ? await docxToPages(await file.arrayBuffer())
+      : [markdownToHtml(await file.text())];
+    await saveImportedPages(title, pagesHtml.length ? pagesHtml : ['']);
+    return { success: true, title };
+  } catch (error) {
+    console.error('Import failed:', error);
+    return { success: false, error: error.message };
+  }
+}
+
+async function handleDocumentDrop(files) {
+  const importable = Array.from(files).filter(f => getImportExtension(f.name));
+  if (importable.length === 0) {
+    alert('No supported files found. Please drop .bdox, .md or .docx files.');
     return;
   }
   
   let successCount = 0;
   let errorCount = 0;
   
-  for (const file of bdoxFiles) {
-    const result = await importBdoxFile(file);
+  for (const file of importable) {
+    const result = await importDocumentFile(file);
     if (result.success) {
       successCount++;
     } else {
@@ -156,7 +207,7 @@ function setupDragAndDrop() {
     dropZone.classList.remove('active');
     const files = e.dataTransfer.files;
     if (files.length > 0) {
-      handleBdoxDrop(files);
+      handleDocumentDrop(files);
     }
   });
 }
@@ -896,7 +947,7 @@ async function handleDocAction(doc, action) {
       try { connected = !!(await isCloudConnected()); } catch (e) { connected = false; }
       if (!connected) {
         const settingConnected = await getSetting('googleDriveEnabled', false);
-        const storedToken = !!localStorage.getItem('googleAuthToken');
+        const storedToken = !!sessionStorage.getItem('googleAuthToken');
         connected = !!settingConnected || storedToken;
       }
 
@@ -951,7 +1002,7 @@ function createDocCard(doc){
   const meta = node.querySelector('.meta');
   if (isListMode) {
     meta.innerHTML = `
-      <strong class="title">${doc.title || 'Untitled'}</strong>
+      <strong class="title">${escapeHtml(doc.title || 'Untitled')}</strong>
       <span class="type">${(doc.type||'document').replace(/^./, c=>c.toUpperCase())}</span>
       <span class="edited-time">${doc.updatedAt ? timeAgo(doc.updatedAt) : ''}</span>
       <span class="due">${dueBadge(doc)}</span>
@@ -964,28 +1015,16 @@ function createDocCard(doc){
   
   // Immediate preview for gallery: pinned image or random non-spoiler/non-locked fallback
   if (doc.type === 'gallery') {
-    let chosen = null;
-    if (doc.thumbnailSrc) {
-      chosen = doc.thumbnailSrc;
-    } else if (Array.isArray(doc.content) && doc.content.length > 0) {
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
-        .filter(e => e && typeof e.src === 'string');
-      const candidates = entries.filter(e => !e.spoiler && !e.locked);
-      if (candidates.length > 0) {
-        const rnd = Math.floor(Math.random() * candidates.length);
-        chosen = candidates[rnd].src;
-      }
-    }
+    const chosen = pickGalleryPreview(doc);
     if (chosen) {
       thumb.innerHTML = '';
       const img = document.createElement('img');
-      img.src = chosen;
       img.alt = doc.title || 'Gallery';
       img.style.width = '100%';
       img.style.height = '100%';
       img.style.objectFit = 'cover';
       thumb.appendChild(img);
+      setImageSrc(img, chosen, 'thumb');
     } else {
       thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
     }
@@ -1261,7 +1300,7 @@ function createFolderCard(folder) {
   
   // Display either image or emoji based on folder settings
   if (folder.thumbnailType === 'image' && folder.thumbnailImage) {
-    thumb.innerHTML = `<div class="folder-thumbnail"><img src="${folder.thumbnailImage}" alt="${folder.name}"></div>`;
+    thumb.innerHTML = `<div class="folder-thumbnail"><img src="${escapeHtml(folder.thumbnailImage)}" alt="${escapeHtml(folder.name)}"></div>`;
   } else {
     thumb.innerHTML = `<span class="folder-emoji">${folder.emoji || '📁'}</span>`;
   }
@@ -1272,14 +1311,14 @@ function createFolderCard(folder) {
   const isListMode = document.getElementById('docGrid').classList.contains('list-mode');
   if (isListMode) {
     meta.innerHTML = `
-      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <strong class="title">${escapeHtml(folder.name || 'Untitled Folder')}</strong>
       <span class="type">Folder</span>
       <span class="edited-time">${folder.updatedAt ? timeAgo(folder.updatedAt) : ''}</span>
       <span class="due"></span>
     `;
   } else {
     meta.innerHTML = `
-      <strong class="title">${folder.name || 'Untitled Folder'}</strong>
+      <strong class="title">${escapeHtml(folder.name || 'Untitled Folder')}</strong>
       <span class="type">Folder</span>
     `;
   }
@@ -1396,30 +1435,23 @@ function hydrateDocCardPreview(card){
     if (doc.locked) return;
 
     if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry);
-      let chosen = null;
-      if (doc.thumbnailSrc) {
-        chosen = doc.thumbnailSrc;
-      }
-      if (!chosen) {
-        const candidates = entries.filter(e => !e.spoiler && !e.locked);
-        chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
-      }
+      const chosen = pickGalleryPreview(doc);
       if (chosen){
-        thumb.innerHTML = `<img src="${chosen}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+        thumb.innerHTML = `<img alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
         thumb.style.padding = '0';
+        setImageSrc(thumb.querySelector('img'), chosen, 'thumb');
       }
     } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
       const firstSlide = doc.slides[0];
-      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${firstSlide.background || '#fff'}; font-size: 11px; color: var(--muted);">
+      thumb.innerHTML = `<div style="display: flex; align-items: center; justify-content: center; height: 100%; background: ${escapeHtml(firstSlide.background || '#fff')}; font-size: 11px; color: var(--muted);">
         <span class="material-symbols-outlined" style="font-size: 48px;">slideshow</span>
       </div>`;
       thumb.style.padding = '0';
     } else {
       const content = doc.content || (doc.pages && doc.pages.length > 0 ? doc.pages[0].content : null);
       if (content) {
-        thumb.innerHTML = content.slice(0, 200) + (content.length > 200 ? '...' : '');
+        const plain = htmlToPlainText(content).slice(0, 200);
+        thumb.textContent = plain + (plain.length >= 200 ? '...' : '');
       }
     }
   } catch (err) {
@@ -1605,7 +1637,7 @@ async function renderDeadlines() {
       <div class="deadline-info">
         <span class="material-symbols-outlined deadline-icon">event</span>
         <div class="deadline-text">
-          <strong class="deadline-title">${d.title || 'Untitled'}</strong>
+          <strong class="deadline-title">${escapeHtml(d.title || 'Untitled')}</strong>
           <div class="deadline-date">${new Date(d.dueDate).toDateString()}</div>
         </div>
       </div>
@@ -1637,45 +1669,142 @@ async function renderDeadlines() {
   await renderGreeting();
 }
 
-function renderTemplates(category = 'All') {
+const TEMPLATE_THUMB_WIDTH = 900;
+let templateThumbObserver = null;
+let templateThumbResizer = null;
+
+function buildTemplateDocument(html) {
+  // Empty sandbox: no scripts and no same-origin access. Templates are local, but this keeps thumbnails inert.
+  return `<!doctype html><html><head><meta charset="utf-8"><style>
+    html, body { margin: 0; background: #fff; }
+    body { padding: 32px; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; color: #1f1f1f; line-height: 1.5; }
+  </style></head><body>${html}</body></html>`;
+}
+
+function templateEditorUrl(template) {
+  return `editor.html?template=${encodeURIComponent(template.key)}`;
+}
+
+// Scales the fixed-width document so it fills the thumbnail box.
+function fitTemplateThumb(thumb) {
+  const frame = thumb.querySelector('iframe');
+  const scale = thumb.clientWidth / TEMPLATE_THUMB_WIDTH;
+  if (!scale) return;
+  frame.style.transform = `scale(${scale})`;
+  frame.style.height = `${thumb.clientHeight / scale}px`;
+}
+
+function showTemplatePreview(template) {
+  const modal = document.getElementById('templatePreviewModal');
+  if (!modal) return;
+  document.getElementById('templatePreviewTitle').textContent = template.title;
+  document.getElementById('templatePreviewCategory').textContent = template.category;
+  document.getElementById('templatePreviewFrame').srcdoc = buildTemplateDocument(template.content);
+  document.getElementById('templatePreviewUse').href = templateEditorUrl(template);
+  modal.removeAttribute('hidden');
+}
+
+function hideTemplatePreview() {
+  const modal = document.getElementById('templatePreviewModal');
+  if (!modal) return;
+  modal.setAttribute('hidden', '');
+  document.getElementById('templatePreviewFrame').srcdoc = '';
+}
+
+function createTemplateCard(template) {
+  const card = document.createElement('div');
+  card.className = 'card template-card';
+
+  const thumb = document.createElement('div');
+  thumb.className = 'template-thumb';
+  thumb.title = 'Preview template';
+  const frame = document.createElement('iframe');
+  frame.setAttribute('sandbox', '');
+  frame.setAttribute('aria-hidden', 'true');
+  frame.tabIndex = -1;
+  frame.style.width = `${TEMPLATE_THUMB_WIDTH}px`;
+  thumb.appendChild(frame);
+  thumb.addEventListener('click', () => showTemplatePreview(template));
+
+  const title = document.createElement('strong');
+  title.className = 'template-card-title';
+  const icon = document.createElement('span');
+  icon.className = 'template-card-icon';
+  icon.textContent = template.icon || '\u{1F4C4}';
+  title.append(icon, template.title);
+
+  const desc = document.createElement('p');
+  desc.className = 'template-card-desc';
+  desc.textContent = template.description;
+
+  const foot = document.createElement('div');
+  foot.className = 'template-card-foot';
+  const badge = document.createElement('span');
+  badge.className = 'badge';
+  badge.textContent = template.category;
+  const actions = document.createElement('div');
+  actions.className = 'template-card-actions';
+  const previewBtn = document.createElement('button');
+  previewBtn.type = 'button';
+  previewBtn.className = 'template-action';
+  previewBtn.textContent = 'Preview';
+  previewBtn.addEventListener('click', () => showTemplatePreview(template));
+  const useLink = document.createElement('a');
+  useLink.className = 'template-action primary';
+  useLink.href = templateEditorUrl(template);
+  useLink.textContent = 'Use';
+  actions.append(previewBtn, useLink);
+  foot.append(badge, actions);
+
+  card.append(thumb, title, desc, foot);
+  return { card, thumb };
+}
+
+function renderTemplates(category = 'All', query = '') {
   const grid = document.getElementById('templatesGrid');
   if (!grid) {
     console.error('Templates grid not found in the modal.');
     return;
   }
-  grid.innerHTML = ''; // Clear existing templates
+  templateThumbObserver?.disconnect();
+  templateThumbResizer?.disconnect();
+  grid.innerHTML = '';
 
-  const filteredTemplates = Object.values(TEMPLATES).filter(template => 
-    category === 'All' || template.category === category
-  );
+  const needle = query.trim().toLowerCase();
+  const filteredTemplates = Object.values(TEMPLATES)
+    .filter(template => category === 'All' || template.category === category)
+    .filter(template => !needle || `${template.title} ${template.description} ${template.category}`.toLowerCase().includes(needle))
+    .sort((a, b) => a.title.localeCompare(b.title));
 
   if (filteredTemplates.length === 0) {
-    grid.innerHTML = '<p class="empty-state">No templates found in this category.</p>';
+    const empty = document.createElement('p');
+    empty.className = 'empty-state';
+    empty.textContent = needle ? `No templates match "${query.trim()}".` : 'No templates found in this category.';
+    grid.appendChild(empty);
     return;
   }
 
-  // Sort templates by title for consistent ordering
-  filteredTemplates.sort((a, b) => a.title.localeCompare(b.title));
+  // Thumbnail content is only written into the iframe once the card scrolls near the viewport.
+  const pendingThumbs = new Map();
+  const resizer = new ResizeObserver(entries => entries.forEach(entry => fitTemplateThumb(entry.target)));
+  const observer = new IntersectionObserver((entries) => {
+    for (const entry of entries) {
+      if (!entry.isIntersecting) continue;
+      const thumb = entry.target;
+      thumb.querySelector('iframe').srcdoc = pendingThumbs.get(thumb);
+      pendingThumbs.delete(thumb);
+      observer.unobserve(thumb);
+    }
+  }, { rootMargin: '200px' });
+  templateThumbObserver = observer;
+  templateThumbResizer = resizer;
 
   for (const template of filteredTemplates) {
-    const card = document.createElement('a');
-    card.className = 'card template-card';
-    card.href = `editor.html?template=${encodeURIComponent(template.key)}`;
-    card.setAttribute('data-icon', template.icon || '📄');
-
-    // Render preview using raw HTML snippet (safe since templates are authored locally)
-    const previewHtml = template.content.substring(0, 600);
-    card.innerHTML = `
-      <strong data-icon="${template.icon || '📄'}">${template.title}</strong>
-      <div class="preview">${previewHtml}</div>
-      <div class="info">
-        <p>${template.description}</p>
-      </div>
-      <div class="meta">
-        <span class="badge">${template.category}</span>
-      </div>
-    `;
+    const { card, thumb } = createTemplateCard(template);
+    pendingThumbs.set(thumb, buildTemplateDocument(template.content));
     grid.appendChild(card);
+    resizer.observe(thumb);
+    observer.observe(thumb);
   }
 }
 
@@ -1684,21 +1813,29 @@ function setupTemplatesModal() {
   const modal = document.getElementById('templatesModal');
   const closeBtn = document.getElementById('closeTemplatesModal');
   const sidebar = document.querySelector('.template-sidebar');
+  const searchInput = document.getElementById('templateSearch');
+  const previewModal = document.getElementById('templatePreviewModal');
+  const closePreviewBtn = document.getElementById('closeTemplatePreview');
 
   if (!modal || !openBtn || !closeBtn || !sidebar) {
     return;
   }
 
+  let activeCategory = 'All';
+  const refresh = () => renderTemplates(activeCategory, searchInput?.value ?? '');
+
   function open() {
-    modal?.removeAttribute('hidden');
+    modal.removeAttribute('hidden');
     document.body.style.overflow = 'hidden';
-    renderTemplates('All');
-    // Ensure the 'All' button is active by default
-    sidebar.querySelector('button[data-category="All"]').classList.add('active');
+    activeCategory = 'All';
+    if (searchInput) searchInput.value = '';
+    sidebar.querySelectorAll('button').forEach(btn => btn.classList.toggle('active', btn.dataset.category === 'All'));
+    refresh();
   }
 
   function close() {
-    modal?.setAttribute('hidden', '');
+    hideTemplatePreview();
+    modal.setAttribute('hidden', '');
     document.body.style.overflow = '';
   }
 
@@ -1711,18 +1848,31 @@ function setupTemplatesModal() {
   modal.addEventListener('click', (e) => {
     if (e.target === modal) close();
   });
+
+  previewModal?.addEventListener('click', (e) => {
+    if (e.target === previewModal) hideTemplatePreview();
+  });
+  closePreviewBtn?.addEventListener('click', hideTemplatePreview);
+
   window.addEventListener('keydown', (e) => {
-    if (!modal?.hasAttribute('hidden') && e.key === 'Escape') close();
+    if (e.key !== 'Escape' || modal.hasAttribute('hidden')) return;
+    if (previewModal && !previewModal.hasAttribute('hidden')) {
+      hideTemplatePreview();
+    } else {
+      close();
+    }
   });
 
   sidebar.addEventListener('click', (e) => {
-    if (e.target.tagName === 'BUTTON') {
-      const category = e.target.dataset.category;
-      sidebar.querySelectorAll('button').forEach(btn => btn.classList.remove('active'));
-      e.target.classList.add('active');
-      renderTemplates(category);
-    }
+    const btn = e.target.closest('button[data-category]');
+    if (!btn) return;
+    activeCategory = btn.dataset.category;
+    sidebar.querySelectorAll('button').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+    refresh();
   });
+
+  searchInput?.addEventListener('input', refresh);
 }
 
 function bindSearch() {
@@ -2246,6 +2396,7 @@ async function showBulkMoveToFolderModal(docIds) {
 // Initialize everything when DOM is ready
 async function initialize() {
   await migrateListsAndDeleteBoards();
+  await migrateLegacyGalleries();
   await renderGreeting();
   await renderDocs();
   await renderDeadlines();

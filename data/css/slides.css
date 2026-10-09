@@ -220,6 +220,47 @@ body {
   color: var(--muted);
 }
 
+/* Scaled slide stage, shared by the editor overlay, presenter view, and print */
+.slide-host {
+  position: relative;
+  overflow: hidden;
+}
+
+.slide-stage {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 960px;
+  height: 540px;
+  transform-origin: 0 0;
+  overflow: hidden;
+  background: white;
+}
+
+/* Speaker notes */
+.speaker-notes {
+  width: 100%;
+  max-width: 960px;
+  margin-top: 12px;
+}
+
+.speaker-notes label {
+  display: block;
+  font-size: 12px;
+  color: var(--muted);
+  margin-bottom: 6px;
+}
+
+.speaker-notes textarea {
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 64px;
+  max-height: 160px;
+  resize: vertical;
+  font: inherit;
+  font-size: 14px;
+  padding: 8px 12px;
+}
 /* Slide elements */
 .slide-element {
   position: absolute;
@@ -381,10 +422,8 @@ body {
 }
 
 .present-canvas {
-  width: 90vw;
-  height: 50.625vw;
-  max-height: 90vh;
-  max-width: 160vh;
+  width: min(90vw, 160vh);
+  aspect-ratio: 16 / 9;
   background: white;
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
   position: relative;
@@ -605,5 +644,48 @@ body {
   
   .slide-thumbnail {
     min-width: 160px;
+  }
+}
+
+/* Print / PDF export: one 16:9 page per slide */
+#printRoot {
+  display: none;
+}
+
+@media print {
+  @page {
+    size: 1280px 720px;
+    margin: 0;
+  }
+
+  html,
+  body {
+    height: auto !important;
+    overflow: visible !important;
+    background: white !important;
+  }
+
+  body > :not(#printRoot) {
+    display: none !important;
+  }
+
+  #printRoot {
+    display: block;
+  }
+
+  .print-page {
+    position: relative;
+    width: 1280px;
+    height: 720px;
+    overflow: hidden;
+    break-after: page;
+    page-break-after: always;
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
+  .print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
   }
 }

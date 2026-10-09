@@ -38,7 +38,7 @@
   <p>Buddy Docs is designed with your privacy as one of our top priorities and can be used entirely locally without any sign‑in. All documents are stored locally in your browser's IndexedDB. Google Drive sync is an optional backup feature that allows you to access your documents across devices. If you choose to connect your Google account, Buddy Docs interacts directly with your Google Drive to open, edit, and save files you've created with our product. We do not store, copy, or process your files on any servers. All operations occur client‑side within your web browser. If you opt in to cloud saving, authentication is handled via Google OAuth; otherwise, no Google sign‑in or Google API access occurs.</p>
 
   <h2>Using Buddy Docs without sign‑in</h2>
-  <p>You can use Buddy Docs offline and without connecting to any cloud service, so your documents and preferences are only stored locally in your browser's IndexedDB, with authentication tokens stored separately in localStorage. No Google user data is accessed, requested, or stored unless you explicitly choose to connect your Google Drive for cloud features.</p>
+  <p>You can use Buddy Docs offline and without connecting to any cloud service, so your documents and preferences are only stored locally in your browser's IndexedDB, with authentication tokens stored separately in sessionStorage (cleared when you close the tab). No Google user data is accessed, requested, or stored unless you explicitly choose to connect your Google Drive for cloud features.</p>
 
   <h2>What we access</h2>
   <ul>

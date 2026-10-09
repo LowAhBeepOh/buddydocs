@@ -529,39 +529,6 @@
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
 
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
-
 /* Diff styles */
 .diff-section{ margin-top: 8px; }
 .diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
@@ -589,39 +556,6 @@
 
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
-
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
 
 @media (max-width:1000px){
   /* Override earlier rule that hid the chatbot on small screens */
@@ -655,39 +589,6 @@
 
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
-
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
 
 /* Edit proposal operations list */
 .ops-list{ display:grid; gap:6px; margin:8px 0 12px; }
@@ -1192,15 +1093,6 @@ body {
   }
 }
 
-/* Smart Compose indicator in Tools menu */
-.tools-menu-item.smart-compose-enabled .material-symbols-outlined {
-  color: var(--primary);
-}
-
-.tools-menu-item.smart-compose-disabled .material-symbols-outlined {
-  color: var(--muted);
-}
-
 /* Ensure editor has relative positioning for ghost text */
 .editor {
   position: relative;
@@ -1278,6 +1170,7 @@ body {
 .menu-btn{appearance:none; background:transparent; border:none; color:var(--muted); font-weight:600; padding:4px 8px; border-radius:8px; cursor:pointer; font-family: var(--bd-font-family)}
 .menu-btn:hover, .menu-btn[aria-expanded="true"]{background:color-mix(in hsl, var(--primary) 10%, var(--surface)); color:var(--text)}
 .formatbar{position:sticky; top:0; z-index:25; background:color-mix(in hsl, var(--surface) 85%, white 15%); border-top:1px solid var(--border); border-bottom:1px solid var(--border); padding:8px 16px; backdrop-filter: blur(6px); display:flex; flex-wrap:wrap; align-items:center; gap:4px}
+:root[data-density="compact"] .formatbar{padding:4px 10px}
 .formatbar.compact{display:none}
 
 /* The current editor is no-meta (1fr); with AI we need space for the chatbot panel */
@@ -1698,39 +1591,6 @@ body {
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
 
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
-
 /* Mode selector */
 .ai-chatbot-mode { padding: 8px 12px; border-bottom: 1px solid var(--border); background: color-mix(in hsl, var(--primary) 6%, var(--surface)); }
 .ai-chatbot-mode select { width: 100%; background: var(--surface); color: var(--text); border: 1px solid var(--border); border-radius: 6px; padding: 6px 8px; }
@@ -1767,39 +1627,6 @@ body {
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
 
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
-
 /* Diff styles */
 .diff-section{ margin-top: 8px; }
 .diff-container{ background: color-mix(in hsl, var(--primary) 6%, var(--surface)); border: 1px solid var(--border); border-radius: 8px; padding: 8px; font-family: ui-monospace, Menlo, Monaco, 'Doto', monospace; font-size: 12px; line-height: 1.6; max-height: 220px; overflow:auto; }
@@ -1827,39 +1654,6 @@ body {
 
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
-
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
 
 @media (max-width:1000px){
   /* Override earlier rule that hid the chatbot on small screens */
@@ -1893,39 +1687,6 @@ body {
 
 /* ensure the column holding chatbot has no extra padding */
 .editor-wrap.with-ai > .ai-chatbot{ justify-self: end; }
-
-/* Tools dropdown menu */
-#toolsDropdown {
-  min-width: 160px;
-}
-
-.tools-menu-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: var(--text);
-  cursor: pointer;
-  width: 100%;
-  text-align: left;
-  font-size: 14px;
-  border-radius: 6px;
-}
-
-.tools-menu-item:hover {
-  background: color-mix(in hsl, var(--primary) 8%, var(--surface));
-}
-
-.tools-menu-item .material-symbols-outlined {
-  font-size: 16px;
-  color: var(--muted);
-}
-
-.tools-menu-item.ai-item .material-symbols-outlined {
-  color: var(--primary);
-}
 
 /* Highlight dropdown */
 .highlight-dropdown-container{ position: relative; }
@@ -2084,3 +1845,6 @@ body {
   font-size: 18px;
   color: var(--muted);
 }
+
+/* Header save indicator error state */
+#syncIndicator.sync-error{color:var(--error)}

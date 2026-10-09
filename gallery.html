@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:*; frame-src https://accounts.google.com https://apis.google.com https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0550FF" />
@@ -410,11 +411,13 @@
   <script type="module" src="data/js/theme.js"></script>
   <script type="module" src="data/js/version-history.js"></script>
   <script type="module" src="data/js/initSync.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
 </body> 
   <script type="module">
-    import { getDocument, saveDocument, deleteDocument } from './data/js/idb.js';
+    import { getDocument, saveDocument, deleteDocument, putDocumentRaw, ingestBlob } from './data/js/idb.js';
     import { setSetting, getSetting } from './data/js/idb.js';
+    import { encodeForStorage, extForMime } from './data/js/image-utils.js';
+    import { setImageSrc, cancelImageLoad, getImageBlob, clearImageCache } from './data/js/images.js';
     
     // Prevent context menu on protected elements
     document.addEventListener('contextmenu', (e) => {
@@ -460,6 +463,23 @@
       return u.searchParams.get(name);
     }
 
+    const LOADING_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
+    const LOCKED_PLACEHOLDER = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3C/svg%3E';
+
+    // The 'idb:' reference lives in img.dataset.ref. The DOM only shows a thumbnail object URL,
+    // so locked images never load until unlocked.
+    function loadThumb(img) {
+      img.classList.remove('lazy');
+      setImageSrc(img, img.dataset.ref, 'thumb');
+    }
+
+    function unloadToPlaceholder(img) {
+      cancelImageLoad(img);
+      img.src = LOCKED_PLACEHOLDER;
+      img.classList.remove('lazy');
+      window.imageObserver?.unobserve(img);
+    }
+
     function createGalleryItem(imageEntry, lazy = true) {
       const item = itemTemplate.content.cloneNode(true).children[0];
       const img = item.querySelector('img');
@@ -483,18 +503,17 @@
       item.dataset.locked = String(!!meta.locked);
       item.dataset.pinned = String(!!meta.pinned);
 
-      if (lazy) {
-        // Lazy loading: set data-src instead of src
-        img.dataset.src = meta.src;
-        img.src = 'data:image/svg+xml,%3Csvg xmlns="http://www.w3.org/2000/svg" width="300" height="200"%3E%3Crect width="100%25" height="100%25" fill="%23f0f0f0"/%3E%3Ctext x="50%25" y="50%25" text-anchor="middle" dy=".3em" fill="%23999"%3ELoading...%3C/text%3E%3C/svg%3E';
+      img.dataset.ref = meta.src;
+      if (meta.locked) {
+        img.src = LOCKED_PLACEHOLDER;
+      } else if (lazy) {
+        img.src = LOADING_PLACEHOLDER;
         img.classList.add('lazy');
-        
-        // Set up intersection observer for this image
         if (window.imageObserver) {
           window.imageObserver.observe(img);
         }
       } else {
-        img.src = meta.src;
+        setImageSrc(img, meta.src, 'thumb');
       }
       // Create overlay for spoiler/locked with security attributes
       const overlay = document.createElement('div');
@@ -575,74 +594,43 @@
       });
     }
 
-    function compressImage(file, maxWidth = 1200, quality = 0.8) {
-      return new Promise(resolve => {
-        const canvas = document.createElement('canvas');
-        const ctx = canvas.getContext('2d');
-        const img = new Image();
-        
-        img.onload = () => {
-          // Calculate new dimensions
-          let { width, height } = img;
-          if (width > maxWidth) {
-            height = (height * maxWidth) / width;
-            width = maxWidth;
-          }
-          
-          canvas.width = width;
-          canvas.height = height;
-          
-          // Draw and compress
-          ctx.drawImage(img, 0, 0, width, height);
-          const compressedDataUrl = canvas.toDataURL('image/jpeg', quality);
-          resolve(compressedDataUrl);
-        };
-        
-        img.onerror = () => resolve(null);
-        img.src = URL.createObjectURL(file);
+    function hasInlineImages(doc) {
+      if (doc.thumbnailSrc) return true;
+      return doc.content.some(entry => {
+        const src = typeof entry === 'string' ? entry : entry?.src;
+        return typeof src === 'string' && src.startsWith('data:');
       });
     }
 
-    // Read a file as a DataURL (used to preserve animated GIFs)
-    function readFileAsDataURL(file) {
-      return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.onload = () => resolve(reader.result);
-        reader.onerror = reject;
-        reader.readAsDataURL(file);
-      });
+    // Stores one dropped or picked file and returns its 'idb:' reference, or null if it can't be used
+    async function storeFile(file) {
+      if (!file.type.startsWith('image/')) return null;
+      const encoded = await encodeForStorage(file);
+      if (encoded) return ingestBlob(encoded);
+      // SVG can't be decoded to a bitmap, so keep the original file
+      if (file.type === 'image/svg+xml') return ingestBlob(file);
+      return null;
     }
 
     async function handleFiles(files) {
-      const processFile = async (file) => {
-        if (!file.type.startsWith('image/')) return null;
-        // Preserve GIF animation by not compressing via canvas (which only keeps first frame)
-        if (file.type === 'image/gif') {
-          return await readFileAsDataURL(file);
-        }
-        // Compress other image types before storing
-        const compressed = await compressImage(file);
-        return compressed;
-      };
-
       // Process files in batches to avoid blocking UI
       const batchSize = 3;
       const fileArray = Array.from(files);
-      
+
       for (let i = 0; i < fileArray.length; i += batchSize) {
         const batch = fileArray.slice(i, i + batchSize);
-        const results = await Promise.all(batch.map(processFile));
-        
-        results.filter(Boolean).forEach(imageData => {
-          createGalleryItem(imageData, false); // Don't lazy load newly added images
+        const refs = await Promise.all(batch.map(storeFile));
+
+        refs.filter(Boolean).forEach(ref => {
+          createGalleryItem(ref, false); // Don't lazy load newly added images
         });
-        
+
         // Small delay to keep UI responsive
         if (i + batchSize < fileArray.length) {
           await new Promise(resolve => setTimeout(resolve, 10));
         }
       }
-      
+
       saveNow();
     }
 
@@ -727,7 +715,10 @@
       items.forEach(el => {
         const img = el.querySelector('img');
         const ov = el.querySelector('.overlay');
-        if (img) img.classList.add('revealed');
+        if (img) {
+          loadThumb(img);
+          img.classList.add('revealed');
+        }
         if (ov) ov.classList.add('hidden');
       });
     }
@@ -748,6 +739,9 @@
       if (currentDoc.dueDate) dueEl.value = currentDoc.dueDate;
       if (currentDoc.tags?.length) tagsEl.value = currentDoc.tags.join(', ');
       
+      // Older saves kept image bytes inline. Move them into the images store before rendering.
+      if (hasInlineImages(currentDoc)) await putDocumentRaw(currentDoc);
+
       // Load images with lazy loading
       currentDoc.content.forEach(entry => {
         createGalleryItem(entry, true); // Enable lazy loading for existing images
@@ -764,32 +758,42 @@
       downloadAllBtn.hidden = items.length === 0;
     }
 
-    async function saveNow(){
+    // Edits are saved after a short pause. Saves run one at a time so an older write can't land after a newer one.
+    const SAVE_DELAY_MS = 300;
+    let saveTimer = null;
+    let saveChain = Promise.resolve();
+    let galleryDeleted = false;
+
+    function saveNow(){
+      clearTimeout(saveTimer);
+      saveTimer = setTimeout(flushSave, SAVE_DELAY_MS);
+    }
+
+    function flushSave(){
+      if (!saveTimer) return saveChain;
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      saveChain = saveChain.then(persistDocument).catch(err => console.error('Failed to save gallery', err));
+      return saveChain;
+    }
+
+    async function persistDocument(){
+      if (galleryDeleted) return;
       const items = Array.from(gallery.querySelectorAll('.gallery-item:not(.add-image)'));
-      currentDoc.content = items.map(item => {
-        const img = item.querySelector('img');
-        const src = img?.dataset?.src || img?.src;
-        const spoiler = item.dataset.spoiler === 'true';
-        const locked = item.dataset.locked === 'true';
-        const pinned = item.dataset.pinned === 'true';
-        return { src, spoiler, locked, pinned };
-      });
-      
-      // Set thumbnailSrc only when a pinned image exists. Otherwise leave undefined
-      // so the index page can choose a random non-spoiler, non-locked image.
-      const pinnedItem = items.find(item => item.dataset.pinned === 'true');
-      if (pinnedItem) {
-        const img = pinnedItem.querySelector('img');
-        currentDoc.thumbnailSrc = img?.dataset?.src || img?.src;
-      } else {
-        delete currentDoc.thumbnailSrc;
-      }
-      
+      currentDoc.content = items.map(item => ({
+        src: item.querySelector('img').dataset.ref,
+        spoiler: item.dataset.spoiler === 'true',
+        locked: item.dataset.locked === 'true',
+        pinned: item.dataset.pinned === 'true'
+      }));
+      // Card previews are picked at render time, so no thumbnailSrc is stored
+      delete currentDoc.thumbnailSrc;
+
       const saved = await saveDocument(currentDoc);
       if (!getParam('id')){
         history.replaceState({}, '', `gallery.html?id=${encodeURIComponent(saved.id)}`);
       }
-      
+
       // Update button visibility
       updateDownloadButtonVisibility();
     }
@@ -798,9 +802,20 @@
       if (!currentDoc.id) return;
       const ok = confirm('Delete this gallery?');
       if (!ok) return;
+      // Stop pending saves so the deleted gallery can't be written back
+      galleryDeleted = true;
+      clearTimeout(saveTimer);
+      saveTimer = null;
+      await saveChain;
       await deleteDocument(currentDoc.id);
       location.href = './';
     }
+
+    // Write pending edits when the tab is hidden or closed
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'hidden') flushSave();
+    });
+    window.addEventListener('pagehide', flushSave);
 
     // Setup profile menu
     (async () => {
@@ -863,9 +878,8 @@
         entries.forEach(entry => {
           if (entry.isIntersecting) {
             const img = entry.target;
-            if (img.dataset.src) {
-              img.src = img.dataset.src;
-              img.classList.remove('lazy');
+            if (img.dataset.ref && img.closest('.gallery-item')?.dataset.locked !== 'true') {
+              loadThumb(img);
               window.imageObserver.unobserve(img);
             }
           }
@@ -894,46 +908,33 @@
     document.body.appendChild(ctx);
 
     // Download a single image
-    function downloadImage(item) {
-      const img = item.querySelector('img');
-      if (!img || !img.src) return;
+    async function downloadImage(item) {
+      const ref = item.querySelector('img')?.dataset.ref;
+      if (!ref) return;
+      const blob = await getImageBlob(ref);
+      if (!blob) return;
 
-      // Get the filename from the image source or use a default
-      let filename = 'image';
-      if (currentDoc.title) {
-        filename = currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
-      }
-      
-      // Extract extension from src
-      const src = img.src;
-      const urlObj = new URL(src, window.location.origin);
-      const pathname = urlObj.pathname;
-      const ext = pathname.split('.').pop().split('?')[0] || 'png';
-      
-      // For data URLs, generate a unique name
-      if (src.startsWith('data:')) {
-        const mimeType = src.match(/data:([^;]+)/)?.[1] || 'image/png';
-        const extFromMime = mimeType.split('/')[1] || 'png';
-        filename += `_${Date.now()}.${extFromMime}`;
-      } else {
-        filename += `.${ext}`;
-      }
+      const base = currentDoc.title ? currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'image';
+      downloadBlob(blob, `${base}_${Date.now()}.${extForMime(blob.type)}`);
+    }
 
-      // Create a link and trigger download
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
       const link = document.createElement('a');
-      link.href = src;
+      link.href = url;
       link.download = filename;
       link.style.display = 'none';
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
     }
 
     // Download all images (with auth check if locked images exist)
     async function downloadAllImages() {
       // Check if there are any locked images
       const hasLockedImages = Array.from(gallery.querySelectorAll('.gallery-item.locked')).length > 0;
-      
+
       // If there are locked images, require authentication
       if (hasLockedImages) {
         const ok = await requireAuth();
@@ -946,78 +947,26 @@
         return;
       }
 
-      // Create ZIP file
       const zip = new JSZip();
-      
-      // Add each image to the zip
-      for (let i = 0; i < items.length; i++) {
-        const item = items[i];
-        const img = item.querySelector('img');
-        
-        if (!img || !img.src) continue;
+      const baseFilename = currentDoc.title ? currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() : 'image';
 
-        // Generate filename
-        let baseFilename = 'image';
-        if (currentDoc.title) {
-          baseFilename = currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      // Read one image at a time from the images store
+      for (let i = 0; i < items.length; i++) {
+        const ref = items[i].querySelector('img')?.dataset.ref;
+        if (!ref) continue;
+        const blob = await getImageBlob(ref);
+        if (!blob) {
+          console.error(`Failed to read image ${i + 1}`);
+          continue;
         }
-        
-        // Extract extension from src
-        const src = img.src;
-        let filename = '';
-        let fileData = null;
-        
-        if (src.startsWith('data:')) {
-          // Handle data URLs
-          const mimeType = src.match(/data:([^;]+)/)?.[1] || 'image/png';
-          const extFromMime = mimeType.split('/')[1] || 'png';
-          filename = `${baseFilename}_${i + 1}.${extFromMime}`;
-          
-          // Convert data URL to blob
-          const binaryString = atob(src.split(',')[1]);
-          const bytes = new Uint8Array(binaryString.length);
-          for (let j = 0; j < binaryString.length; j++) {
-            bytes[j] = binaryString.charCodeAt(j);
-          }
-          fileData = bytes;
-        } else {
-          // Handle regular URLs
-          try {
-            const urlObj = new URL(src, window.location.origin);
-            const pathname = urlObj.pathname;
-            const ext = pathname.split('.').pop().split('?')[0] || 'png';
-            filename = `${baseFilename}_${i + 1}.${ext}`;
-            
-            // Fetch image
-            const response = await fetch(src);
-            fileData = await response.arrayBuffer();
-          } catch (err) {
-            console.error(`Failed to fetch image ${i + 1}:`, err);
-            continue;
-          }
-        }
-        
-        // Add file to zip
-        if (fileData) {
-          zip.file(filename, fileData);
-        }
+        zip.file(`${baseFilename}_${i + 1}.${extForMime(blob.type)}`, blob);
       }
-      
+
       // Generate and download zip
       try {
         const zipFilename = currentDoc.title ? currentDoc.title.replace(/[^a-z0-9]/gi, '_').toLowerCase() + '.zip' : 'gallery.zip';
         const blob = await zip.generateAsync({ type: 'blob' });
-        
-        const link = document.createElement('a');
-        link.href = URL.createObjectURL(blob);
-        link.download = zipFilename;
-        link.style.display = 'none';
-        document.body.appendChild(link);
-        link.click();
-        document.body.removeChild(link);
-        
-        // Clean up object URL
-        URL.revokeObjectURL(link.href);
+        downloadBlob(blob, zipFilename);
       } catch (err) {
         console.error('Failed to create zip:', err);
         alert('Failed to create zip file');
@@ -1094,6 +1043,7 @@
           // No auth needed to lock
           item.dataset.locked = 'true';
           item.classList.add('locked');
+          unloadToPlaceholder(item.querySelector('img'));
           const ov = item.querySelector('.overlay');
           if (ov) {
             ov.classList.remove('hidden');
@@ -1107,6 +1057,7 @@
           gallerySessionUnlocked = true; // Session is now unlocked
           item.dataset.locked = 'false';
           item.classList.remove('locked');
+          loadThumb(item.querySelector('img'));
           const ov = item.querySelector('.overlay');
           if (ov) ov.classList.add('hidden');
         }
@@ -1207,7 +1158,10 @@
     function closeLightbox() {
       lightbox.classList.remove('active');
       document.body.style.overflow = '';
-      lightboxImg.src = '';
+      cancelImageLoad(lightboxImg);
+      lightboxImg.removeAttribute('src');
+      delete lightboxImg.dataset.ref;
+      clearImageCache('full');
     }
 
     function updateLightboxImage() {
@@ -1218,11 +1172,10 @@
       }
 
       const item = images[currentLightboxIndex];
-      const img = item.querySelector('img');
-      const src = img?.dataset?.src || img?.src;
-      
-      if (src) {
-        lightboxImg.src = src;
+      const ref = item.querySelector('img').dataset.ref;
+
+      if (ref) {
+        setImageSrc(lightboxImg, ref, 'full');
         lightboxCounter.textContent = `${currentLightboxIndex + 1} / ${images.length}`;
       }
 

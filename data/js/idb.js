@@ -1,9 +1,16 @@
 // Simple IndexedDB wrapper for Buddy Docs
-// Stores: settings, documents
+// Stores: settings, documents, calendar_notes, folders, images (internal, not in STORES)
 
-// NEVER CHANGE DB_NAME OR DB_VERSION
+import { isImageRef, imageIdFromRef, makeImageRef, dataUrlToBlob, blobToDataUrl, sha256Hex, makeThumbnail } from './image-utils.js';
+
+// Only bump DB_VERSION when adding a store or index
 const DB_NAME = 'buddy-docs-db';
-const DB_VERSION = 7;
+const DB_VERSION = 8;
+const IMAGES_STORE = 'images';
+const IMAGE_GC_STARTUP_MS = 30 * 1000;
+const IMAGE_GC_DELAY_MS = 5 * 60 * 1000;
+const IMAGE_GC_GRACE_MS = 10 * 60 * 1000;
+let imageSweepTimer = null;
 
 export const STORES = {
   settings: 'settings',
@@ -12,11 +19,18 @@ export const STORES = {
   folders: 'folders'
 };
 
+// One connection is shared by all calls. It is dropped if another tab upgrades the database.
+let dbPromise = null;
+
 function openDB() {
-  return new Promise((resolve, reject) => {
+  if (dbPromise) return dbPromise;
+  dbPromise = new Promise((resolve, reject) => {
     const req = indexedDB.open(DB_NAME, DB_VERSION);
     req.onupgradeneeded = (e) => {
       const db = req.result;
+      if (e.oldVersion < 8 && !db.objectStoreNames.contains(IMAGES_STORE)) {
+        db.createObjectStore(IMAGES_STORE, { keyPath: 'id' });
+      }
       if (!db.objectStoreNames.contains(STORES.settings)) {
         db.createObjectStore(STORES.settings, { keyPath: 'key' });
       }
@@ -47,9 +61,27 @@ function openDB() {
         }
       }
     };
-    req.onsuccess = () => resolve(req.result);
-    req.onerror = () => reject(req.error);
+    req.onsuccess = () => {
+      const db = req.result;
+      db.onversionchange = () => { db.close(); dbPromise = null; };
+      db.onclose = () => { dbPromise = null; };
+      scheduleImageSweep(IMAGE_GC_STARTUP_MS);
+      resolve(db);
+    };
+    req.onerror = () => { dbPromise = null; reject(req.error); };
   });
+  return dbPromise;
+}
+
+// Runs one request in its own transaction and resolves with its result once the transaction commits
+function run(storeName, mode, fn) {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const t = db.transaction(storeName, mode);
+    const req = fn(t.objectStore(storeName));
+    t.oncomplete = () => resolve(req?.result);
+    t.onerror = () => reject(t.error);
+    t.onabort = () => reject(t.error);
+  }));
 }
 
 export async function tx(storeName, mode = 'readonly') {
@@ -82,56 +114,203 @@ export async function setSetting(key, value) {
 }
 
 // Documents API
-export async function saveDocument(doc) {
-  const now = Date.now();
-  doc.updatedAt = now;
-  if (!doc.id) doc.id = crypto.randomUUID();
-  const store = await tx(STORES.documents, 'readwrite');
+// Gallery images are stored once in the images store. A document keeps only 'idb:<id>' references,
+// so documents stay small and the UI loads just the thumbnails it shows.
+
+function imageIdsIn(doc) {
+  const ids = [];
+  if (!doc || !Array.isArray(doc.content)) return ids;
+  for (const entry of doc.content) {
+    const src = typeof entry === 'string' ? entry : entry?.src;
+    if (isImageRef(src)) ids.push(imageIdFromRef(src));
+  }
+  return ids;
+}
+
+export async function ingestBlob(blob) {
+  const id = await sha256Hex(blob);
+  const exists = await run(IMAGES_STORE, 'readonly', s => s.getKey(id));
+  if (exists === undefined) {
+    const thumb = await makeThumbnail(blob);
+    await run(IMAGES_STORE, 'readwrite', s => s.put({
+      id,
+      blob,
+      thumb: thumb?.blob ?? null,
+      width: thumb?.width ?? 0,
+      height: thumb?.height ?? 0,
+      type: blob.type,
+      size: blob.size,
+      createdAt: Date.now()
+    }));
+  }
+  return makeImageRef(id);
+}
+
+// Replaces inline data URLs with image references and normalises gallery entries
+async function deflateDocument(doc) {
+  if (doc.type !== 'gallery' || !Array.isArray(doc.content)) return doc;
+  delete doc.thumbnailSrc;
+  const content = [];
+  for (const entry of doc.content) {
+    const item = typeof entry === 'string' ? { src: entry } : { ...entry };
+    if (typeof item.src === 'string' && item.src.startsWith('data:')) {
+      item.src = await ingestBlob(dataUrlToBlob(item.src));
+    }
+    content.push(item);
+  }
+  doc.content = content;
+  return doc;
+}
+
+// Turns references back into data URLs. Used for sync and export, which need self-contained documents.
+export async function inflateDocument(doc) {
+  if (!doc || doc.type !== 'gallery' || !Array.isArray(doc.content)) return doc;
+  const out = { ...doc, content: [] };
+  delete out.thumbnailSrc;
+  for (const entry of doc.content) {
+    const item = typeof entry === 'string' ? { src: entry } : { ...entry };
+    if (isImageRef(item.src)) {
+      const rec = await getImageRecord(imageIdFromRef(item.src));
+      if (!rec) {
+        console.warn('Gallery image missing from storage, skipping', item.src);
+        continue;
+      }
+      item.src = await blobToDataUrl(rec.blob);
+    }
+    out.content.push(item);
+  }
+  return out;
+}
+
+export async function getImageRecord(id) {
+  return (await run(IMAGES_STORE, 'readonly', s => s.get(id))) || null;
+}
+
+export function clearImages() {
+  return run(IMAGES_STORE, 'readwrite', s => s.clear());
+}
+
+// Total bytes of stored gallery images, used by the storage usage meter
+export async function getImageStorageBytes() {
+  const db = await openDB();
   return new Promise((resolve, reject) => {
-    const r = store.put(doc);
-    r.onsuccess = () => resolve(doc);
-    r.onerror = () => reject(r.error);
+    let total = 0;
+    const t = db.transaction(IMAGES_STORE, 'readonly');
+    const req = t.objectStore(IMAGES_STORE).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      total += cursor.value.size || 0;
+      cursor.continue();
+    };
+    t.oncomplete = () => resolve(total);
+    t.onerror = () => reject(t.error);
   });
 }
 
-export async function getDocument(id) {
-  const store = await tx(STORES.documents, 'readonly');
-  return new Promise((resolve, reject) => {
-    const r = store.get(id);
-    r.onsuccess = () => resolve(r.result || null);
-    r.onerror = () => reject(r.error);
-  });
+export async function saveDocument(doc) {
+  doc.updatedAt = Date.now();
+  return putDocumentRaw(doc);
+}
+
+// Writes the document as given, keeping its updatedAt. Used by settings import.
+export async function putDocumentRaw(doc) {
+  if (!doc.id) doc.id = crypto.randomUUID();
+  const previous = await run(STORES.documents, 'readonly', s => s.get(doc.id));
+  await deflateDocument(doc);
+  await run(STORES.documents, 'readwrite', s => s.put(doc));
+  const kept = new Set(imageIdsIn(doc));
+  if (imageIdsIn(previous).some(id => !kept.has(id))) scheduleImageSweep(IMAGE_GC_DELAY_MS);
+  return doc;
+}
+
+export async function getDocument(id, { inflate = false } = {}) {
+  const doc = await run(STORES.documents, 'readonly', s => s.get(id));
+  if (!doc) return null;
+  return inflate ? inflateDocument(doc) : doc;
 }
 
 export async function deleteDocument(id) {
-  const store = await tx(STORES.documents, 'readwrite');
-  return new Promise((resolve, reject) => {
-    const r = store.delete(id);
-    r.onsuccess = () => resolve(true);
-    r.onerror = () => reject(r.error);
+  const existing = await run(STORES.documents, 'readonly', s => s.get(id));
+  await run(STORES.documents, 'readwrite', s => s.delete(id));
+  if (imageIdsIn(existing).length) scheduleImageSweep(IMAGE_GC_DELAY_MS);
+  return true;
+}
+
+function scheduleImageSweep(delay) {
+  clearTimeout(imageSweepTimer);
+  imageSweepTimer = setTimeout(() => {
+    imageSweepTimer = null;
+    sweepOrphanImages().catch(err => console.warn('Gallery image cleanup failed', err));
+  }, delay);
+}
+
+function collectReferencedImageIds() {
+  return openDB().then(db => new Promise((resolve, reject) => {
+    const ids = new Set();
+    const t = db.transaction(STORES.documents, 'readonly');
+    const req = t.objectStore(STORES.documents).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      imageIdsIn(cursor.value).forEach(id => ids.add(id));
+      cursor.continue();
+    };
+    t.oncomplete = () => resolve(ids);
+    t.onerror = () => reject(t.error);
+  }));
+}
+
+// Deletes images no document references. Recent images are skipped, since they may be about to be saved.
+async function sweepOrphanImages() {
+  const referenced = await collectReferencedImageIds();
+  const cutoff = Date.now() - IMAGE_GC_GRACE_MS;
+  const db = await openDB();
+  const orphans = await new Promise((resolve, reject) => {
+    const found = [];
+    const t = db.transaction(IMAGES_STORE, 'readonly');
+    const req = t.objectStore(IMAGES_STORE).openCursor();
+    req.onsuccess = () => {
+      const cursor = req.result;
+      if (!cursor) return;
+      const { id, createdAt } = cursor.value;
+      if (!referenced.has(id) && createdAt < cutoff) found.push(id);
+      cursor.continue();
+    };
+    t.oncomplete = () => resolve(found);
+    t.onerror = () => reject(t.error);
+  });
+  if (!orphans.length) return;
+  await run(IMAGES_STORE, 'readwrite', s => {
+    orphans.forEach(id => s.delete(id));
   });
 }
 
-export async function listDocuments({ search = '', includeArchived = false, onlyArchived = false } = {}) {
-  const store = await tx(STORES.documents, 'readonly');
-  return new Promise((resolve, reject) => {
-    const r = store.getAll();
-    r.onsuccess = () => {
-      let items = r.result.sort((a,b)=>b.updatedAt - a.updatedAt);
+export async function listDocuments({ search = '', includeArchived = false, onlyArchived = false, inflate = false } = {}) {
+  let items = await run(STORES.documents, 'readonly', s => s.getAll());
+  items.sort((a,b)=>b.updatedAt - a.updatedAt);
 
-      // Archived filtering
-      if (onlyArchived) {
-        items = items.filter(d => !!d.archived);
-      } else if (!includeArchived) {
-        items = items.filter(d => !d.archived);
-      }
+  // Archived filtering
+  if (onlyArchived) {
+    items = items.filter(d => !!d.archived);
+  } else if (!includeArchived) {
+    items = items.filter(d => !d.archived);
+  }
 
-      const term = search.trim().toLowerCase();
-      if (term) items = items.filter(d => (d.title||'').toLowerCase().includes(term));
-      resolve(items);
-    };
-    r.onerror = () => reject(r.error);
-  });
+  const term = search.trim().toLowerCase();
+  if (term) items = items.filter(d => (d.title||'').toLowerCase().includes(term));
+
+  if (inflate) {
+    // One document at a time so only one inflated gallery is in memory at once
+    const inflated = [];
+    for (const d of items) inflated.push(await inflateDocument(d));
+    items = inflated;
+  }
+  return items;
+}
+
+export function listDocumentIds() {
+  return run(STORES.documents, 'readonly', s => s.getAllKeys()).then(keys => keys || []);
 }
 
 export async function listDeadlinesForMonth(year, month) {

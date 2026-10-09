@@ -1,6 +1,7 @@
 <!doctype html>
 <html lang="en" data-theme="light">
 <head>
+  <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdnjs.cloudflare.com https://cdn.jsdelivr.net https://apis.google.com https://accounts.google.com https://*.gstatic.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://cdnjs.cloudflare.com; font-src 'self' data: https://fonts.gstatic.com https://cdnjs.cloudflare.com; img-src 'self' data: blob: https:; connect-src 'self' https: http://localhost:* http://127.0.0.1:* ws://localhost:*; frame-src https://accounts.google.com https://apis.google.com https://*.google.com; worker-src 'self' blob:; object-src 'none'; base-uri 'self'; form-action 'self'" />
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0550FF" />
@@ -105,6 +106,18 @@
               </select>
             </label>
           </div>
+          <div class="row">
+            <label class="tile toggle-row">
+              <span>Custom accent color</span>
+              <input id="useCustomAccent" class="toggle" type="checkbox" />
+            </label>
+          </div>
+          <div id="accentColorRow" class="row" style="display: none;">
+            <label class="tile">
+              <span>Accent color</span>
+              <input id="accentColor" class="input" type="color" value="#0550ff" />
+            </label>
+          </div>
           <button id="switchToDynamic" class="btn secondary">Switch to new version</button>
         </div>
 
@@ -168,6 +181,24 @@
             <span>Import Font File</span>
             <input id="fontFileInput" class="input" type="file" accept=".ttf,.otf,.woff,.woff2" />
           </label>
+        </div>
+
+        <!-- Density and editor toolbar settings -->
+        <div class="row">
+          <label class="tile">
+            <span>Interface density</span>
+            <select id="uiDensity" class="input">
+              <option value="comfortable">Comfortable</option>
+              <option value="compact">Compact</option>
+            </select>
+          </label>
+        </div>
+        <div class="row">
+          <div class="tile">
+            <span>Editor toolbar buttons</span>
+            <p class="tile-hint">Unchecked buttons are hidden in the editor toolbar.</p>
+            <div id="toolbarItems" class="toolbar-items-grid"></div>
+          </div>
         </div>
 
         <!-- Border Shape Settings -->
@@ -320,6 +351,7 @@
             <input id="aiApiKey" class="input" type="password" placeholder="sk-..." />
           </label>
         </div>
+        <p id="aiSecurityWarning" class="help-text" style="display: none;"></p>
         <div class="row">
           <label class="tile">
             <span>Train Smart Compose on own documents (local)</span>
@@ -448,7 +480,7 @@
             <span>Sync Options</span>
             <div class="sync-controls">
               <label class="toggle-row">
-                <span>Auto-sync every 5 minutes</span>
+                <span>Auto-sync every 8 minutes</span>
                 <input type="checkbox" id="autoSync" checked class="toggle" />
               </label>
               <button id="syncNow" class="btn" disabled>Sync Now</button>
@@ -562,7 +594,7 @@
               <span class="material-symbols-outlined logo-icon">note_stack</span>
             </div>
             <h3>Typeset</h3>
-            <p class="version">Version 0.9.7</p>
+            <p class="version">Version 0.9.8</p>
           </div>
 
           <div class="about-grid">
@@ -572,6 +604,27 @@
                 <h4>Updates</h4>
               </div>
               <div class="updates-container">
+                <div class="update-entry">
+                  <div class="update-header">
+                    <span class="update-version">v0.9.8</span>
+                    <span class="update-date">Oct 9, 2026</span>
+                  </div>
+                  <ul class="update-changes">
+                    <li>Editor menus (Edit, View, Insert, Format, Help) now work</li>
+                    <li>Editor save indicator shows pending, saving, saved, or error; autosaves no longer overlap</li>
+                    <li>Custom accent color for the classic themes</li>
+                    <li>Pick which format bar buttons show in the editor</li>
+                    <li>Comfortable and compact density options</li>
+                    <li>Fixed the theme dropdown and font reset when changing themes</li>
+                    <li>Templates: cleaner cards, live thumbnails, search and preview</li>
+                    <li>Presentations: PDF export, speaker notes, and a presenter view with next slide and timer</li>
+                    <li>Documents: real Markdown and DOCX export and import</li>
+                    <li>Google Drive sync only runs when Drive is turned on</li>
+                    <li>Gallery: images are stored once and deduplicated, so large galleries use less memory</li>
+                    <li>Gallery: previews are sharper, and fullscreen still shows full resolution</li>
+                    <li>Security: imported HTML is sanitized, CSP and SRI added, Drive token moved to session storage, and a warning appears when AI features send data off the device</li>
+                  </ul>
+                </div>
                 <div class="update-entry">
                   <div class="update-header">
                     <span class="update-version">v0.9.7</span>
@@ -723,8 +776,8 @@
   </main>
 
   <script src="data/js/idb.js" type="module"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js" integrity="sha384-+mbV2IY1Zk/X1p/nWllGySJSUN8uMs+gUAN10Or95UBH0fpj6GfKgPmgC5EXieXG" crossorigin="anonymous"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.2.0/crypto-js.min.js" integrity="sha384-mgWScxWVKP8F7PBbpNp7i/aSb17kN0LcifBpahAplF3Mn0GR4/u1oMpWIm2rD8yY" crossorigin="anonymous"></script>
   <script src="data/js/theme.js" type="module"></script>
   <script src="data/js/settings.js" type="module"></script>
   <script>

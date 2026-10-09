@@ -47,5 +47,4 @@ I typically use "main" as the GitHub Pages, and "dev" for actual coding. I will 
 - `archive.html`: the archive for documents.
 - `onboarding.html`: the onboarding page for new users.
 - `oauth2callback.html`: for Google Drive integration.
-- `r`: "redir"/"specials" folder for redirects and special event pages.
 - `data`: contains all the assets, css and js files.
