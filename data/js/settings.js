@@ -1,4 +1,4 @@
-import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument } from './idb.js';
+import { getSetting, setSetting, tx, deleteDocument, saveDocument, STORES, listDocuments, getDocument, inflateDocument, putDocumentRaw, clearImages } from './idb.js';
 import * as themeModule from './theme.js';
 import { TOOLBAR_ITEMS } from './toolbar-config.js';
 import { openDB } from 'https://cdn.jsdelivr.net/npm/idb@7/+esm';
@@ -1451,6 +1451,7 @@ loadSettings().then(async () => {
                     reject(e);
                   };
                 });
+                await clearImages();
               } else if (deleteLockedData) {
                 // Delete only locked documents and strip locked entries from galleries
                 const allDocs = await new Promise((resolve) => {
@@ -1638,16 +1639,25 @@ importFile.addEventListener('change', handleFileImport);
   });
 });
 
+// Reads every record in a store. Documents are inflated so exported files carry their gallery images.
+async function readStoreForExport(storeName) {
+  const store = await tx(storeName, 'readonly');
+  const allRecords = await new Promise((resolve, reject) => {
+    const r = store.getAll();
+    r.onsuccess = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+  });
+  if (storeName !== STORES.documents) return allRecords;
+  const docs = [];
+  for (const doc of allRecords) docs.push(await inflateDocument(doc));
+  return docs;
+}
+
 async function exportDataAsZip() {
   const zip = new JSZip();
 
   for (const storeName of Object.values(STORES)) {
-    const store = await tx(storeName, 'readonly');
-    const allRecords = await new Promise((resolve, reject) => {
-      const r = store.getAll();
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
+    const allRecords = await readStoreForExport(storeName);
     zip.file(`${storeName}.json`, JSON.stringify(allRecords, null, 2));
   }
 
@@ -1668,13 +1678,7 @@ async function exportDataAsBluecore() {
 
   const data = {};
   for (const storeName of Object.values(STORES)) {
-    const store = await tx(storeName, 'readonly');
-    const allRecords = await new Promise((resolve, reject) => {
-      const r = store.getAll();
-      r.onsuccess = () => resolve(r.result);
-      r.onerror = () => reject(r.error);
-    });
-    data[storeName] = allRecords;
+    data[storeName] = await readStoreForExport(storeName);
   }
 
   const encrypted = CryptoJS.AES.encrypt(JSON.stringify(data), password).toString();
@@ -1744,6 +1748,20 @@ async function handleFileImport(event) {
 }
 
 async function importData(storeName, data, isOverwrite) {
+  if (storeName === STORES.documents) {
+    // Imported documents may carry inline images. putDocumentRaw moves them into the images store.
+    if (isOverwrite) {
+      const store = await tx(storeName, 'readwrite');
+      await new Promise((resolve, reject) => {
+        const r = store.clear();
+        r.onsuccess = () => resolve();
+        r.onerror = () => reject(r.error);
+      });
+      await clearImages();
+    }
+    for (const record of data) await putDocumentRaw(record);
+    return;
+  }
   const store = await tx(storeName, 'readwrite');
   if (isOverwrite) {
     await new Promise((resolve, reject) => {

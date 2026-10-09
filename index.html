@@ -578,6 +578,7 @@
   </script>
   <script type="module">
     import { setSetting, getSetting, listDocuments, saveDocument } from './data/js/idb.js';
+    import { pickGalleryPreview, setImageSrc } from './data/js/images.js';
 
     const btn = document.getElementById('profileBtn');
     const menu = document.getElementById('profileMenu');
@@ -688,9 +689,10 @@
         
         // Thumbnail logic
         let thumbContent = '';
+        let previewRef = null;
         if (doc.type === 'gallery') {
-          const src = pickRandomGalleryImage(doc);
-          if (src) thumbContent = `<div class="search-result-thumb ${doc.locked ? 'locked' : ''}"><img src="${src}" alt=""></div>`;
+          previewRef = pickGalleryPreview(doc);
+          if (previewRef) thumbContent = `<div class="search-result-thumb ${doc.locked ? 'locked' : ''}"><img alt=""></div>`;
           else thumbContent = `<span class="material-symbols-outlined">photo_library</span>`;
         } else if (doc.type === 'presentation') {
           thumbContent = `<span class="material-symbols-outlined">slideshow</span>`;
@@ -719,6 +721,10 @@
           location.href = targetHref;
         });
         searchSuggestions.appendChild(item);
+        if (previewRef) {
+          const thumbImg = item.querySelector('.search-result-thumb img');
+          if (thumbImg) setImageSrc(thumbImg, previewRef, 'thumb');
+        }
       });
     }
 
@@ -840,23 +846,10 @@
   </script>
   <script src="data/js/logo-manager.js"></script>
   <script type="module">
-    // Index-level gallery thumbnail fallback: if no pinned image
-    // (doc.thumbnailSrc) exists, choose a random non-spoiler, non-locked
-    // image from doc.content for display.
+    import { pickGalleryPreview, setImageSrc } from './data/js/images.js';
+    // Index-level gallery thumbnail fallback: if no pinned image is set,
+    // choose a random non-spoiler, non-locked image for display.
     // This runs in index.html as requested, complementing home.js.
-    function pickRandomGalleryImage(doc) {
-      if (!doc || doc.type !== 'gallery') return null;
-      if (doc.thumbnailSrc) return doc.thumbnailSrc;
-      if (!Array.isArray(doc.content) || doc.content.length === 0) return null;
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
-        .filter(e => e && typeof e.src === 'string');
-      const candidates = entries.filter(e => !e.spoiler && !e.locked);
-      if (!candidates.length) return null;
-      const rnd = Math.floor(Math.random() * candidates.length);
-      return candidates[rnd].src;
-    }
-
     function applyGalleryThumb(card){
       if (!card || !card.classList.contains('doc-card')) return;
       const doc = card._doc;
@@ -865,16 +858,16 @@
       // Do not override locked docs or those already showing an image
       if (doc.locked) return;
       const hasImg = !!thumb.querySelector('img');
-      const chosen = pickRandomGalleryImage(doc);
-      if (doc.type === 'gallery' && chosen && !hasImg){
+      const chosen = doc.type === 'gallery' ? pickGalleryPreview(doc) : null;
+      if (chosen && !hasImg){
         thumb.innerHTML = '';
         const img = document.createElement('img');
-        img.src = chosen;
         img.alt = doc.title || 'Gallery';
         img.style.width = '100%';
         img.style.height = '100%';
         img.style.objectFit = 'cover';
         thumb.appendChild(img);
+        setImageSrc(img, chosen, 'thumb');
       }
     }
 

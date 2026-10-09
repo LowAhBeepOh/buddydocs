@@ -1,5 +1,5 @@
 // Import required functions from idb.js
-import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, saveFolder, tx, STORES } from './idb.js';
+import { getSetting, setSetting, listDocuments, saveDocument, deleteDocument, saveFolder, tx, STORES, inflateDocument, getImageStorageBytes } from './idb.js';
 import { initSyncService, onSync, updateSyncCountdown } from './syncService.js';
 
 // Google Drive API Configuration
@@ -576,8 +576,8 @@ async function syncToGoogleDrive(forceFullSync = false) {
       if (ops.length) await Promise.allSettled(ops);
     }
 
-    // 1) Load local docs
-    const localDocs = await listDocuments({ includeArchived: true });
+    // 1) Load local docs. Inflated so the uploaded bundle is self-contained.
+    const localDocs = await listDocuments({ includeArchived: true, inflate: true });
 
     // 2) Load remote documents.json (if exists)
     const { id: documentsJsonId, modifiedTime: remoteModTimeA } = await getDocumentsJsonFile();
@@ -1023,6 +1023,8 @@ async function saveToGoogleDrive(folderId, doc) {
     console.error('Invalid document:', doc);
     return null;
   }
+  // Drive files must be self-contained, so gallery image references become data URLs
+  doc = await inflateDocument(doc);
   
   // Create a clean document object that preserves type-specific fields
   const docToSave = (() => {
@@ -1219,13 +1221,14 @@ function showToast(message, type = 'info') {
   }, 100);
 }
 
-// Calculate total size of all synced documents
+// Calculate total size of all synced documents, including gallery image bytes
 async function calculateAppStorageUsage() {
   const documents = await listDocuments();
-  return documents.reduce((total, doc) => {
-    // Estimate size by converting to JSON string
+  const docBytes = documents.reduce((total, doc) => {
+    // Estimate size by converting to JSON string. Gallery images are counted separately below.
     return total + (JSON.stringify(doc).length || 0);
   }, 0);
+  return docBytes + await getImageStorageBytes();
 }
 
 // Update storage usage display for BuddyDocs

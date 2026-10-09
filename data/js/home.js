@@ -5,6 +5,7 @@ import { generateWelcomeMessage } from './ai-utils.js';
 import { notificationManager } from './notifications.js';
 import { sanitizeHtml, escapeHtml, htmlToPlainText } from './sanitize.js';
 import { markdownToHtml, docxToPages } from './doc-formats.js';
+import { pickGalleryPreview, setImageSrc, migrateLegacyGalleries } from './images.js';
 
 // Current folder navigation
 let currentFolderId = null;
@@ -1014,28 +1015,16 @@ function createDocCard(doc){
   
   // Immediate preview for gallery: pinned image or random non-spoiler/non-locked fallback
   if (doc.type === 'gallery') {
-    let chosen = null;
-    if (doc.thumbnailSrc) {
-      chosen = doc.thumbnailSrc;
-    } else if (Array.isArray(doc.content) && doc.content.length > 0) {
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry)
-        .filter(e => e && typeof e.src === 'string');
-      const candidates = entries.filter(e => !e.spoiler && !e.locked);
-      if (candidates.length > 0) {
-        const rnd = Math.floor(Math.random() * candidates.length);
-        chosen = candidates[rnd].src;
-      }
-    }
+    const chosen = pickGalleryPreview(doc);
     if (chosen) {
       thumb.innerHTML = '';
       const img = document.createElement('img');
-      img.src = chosen;
       img.alt = doc.title || 'Gallery';
       img.style.width = '100%';
       img.style.height = '100%';
       img.style.objectFit = 'cover';
       thumb.appendChild(img);
+      setImageSrc(img, chosen, 'thumb');
     } else {
       thumb.innerHTML = '<span class="material-symbols-outlined">description</span>';
     }
@@ -1446,19 +1435,11 @@ function hydrateDocCardPreview(card){
     if (doc.locked) return;
 
     if (doc.type === 'gallery' && Array.isArray(doc.content) && doc.content.length > 0) {
-      const entries = doc.content
-        .map(entry => typeof entry === 'string' ? { src: entry, spoiler:false, locked:false } : entry);
-      let chosen = null;
-      if (doc.thumbnailSrc) {
-        chosen = doc.thumbnailSrc;
-      }
-      if (!chosen) {
-        const candidates = entries.filter(e => !e.spoiler && !e.locked);
-        chosen = candidates.length ? candidates[Math.floor(Math.random() * candidates.length)].src : null;
-      }
+      const chosen = pickGalleryPreview(doc);
       if (chosen){
-        thumb.innerHTML = `<img src="${escapeHtml(chosen)}" alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
+        thumb.innerHTML = `<img alt="Gallery preview" style="width: 100%; height: 100%; object-fit: cover;">`;
         thumb.style.padding = '0';
+        setImageSrc(thumb.querySelector('img'), chosen, 'thumb');
       }
     } else if (doc.type === 'presentation' && Array.isArray(doc.slides) && doc.slides.length > 0) {
       const firstSlide = doc.slides[0];
@@ -2415,6 +2396,7 @@ async function showBulkMoveToFolderModal(docIds) {
 // Initialize everything when DOM is ready
 async function initialize() {
   await migrateListsAndDeleteBoards();
+  await migrateLegacyGalleries();
   await renderGreeting();
   await renderDocs();
   await renderDeadlines();
