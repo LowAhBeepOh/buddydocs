@@ -1,11 +1,12 @@
 /* Enhanced CompactB AI Chatbot Styles */
 
-/* Fix positioning to avoid collisions with header and footer */
+/* Fix positioning to avoid collisions with header and footer.
+   --editor-header-h tracks the real header height (see more-editor.css). */
 .ai-chatbot {
-  top: 120px !important;
+  top: calc(var(--editor-header-h, 96px) + 12px) !important;
   bottom: 32px !important;
   height: auto !important;
-  width: 420px !important;
+  width: min(420px, 100vw) !important;
 }
 
 /* Send button - now visible with icon */

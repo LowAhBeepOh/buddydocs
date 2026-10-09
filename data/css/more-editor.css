@@ -1,40 +1,137 @@
-/* Make header sticky */
-.editor-header {
-    position: fixed !important;
-    top: 0;
-    left: 0;
-    right: 0;
-    z-index: 1000 !important;
-    background: var(--bg) !important;
-    border-bottom: 1px solid var(--border) !important;
-    box-shadow: 0 2px 8px rgba(0,0,0,0.05) !important;
+/* ==========================================================================
+   Editor layout — stable app shell
+   --------------------------------------------------------------------------
+   This stylesheet is loaded after editor.css and only on editor.html, so it
+   is the place to pin down the page-level layout. Everything here is written
+   to stay in place no matter which panels are open (outline, review, AI) or
+   whether the formatting toolbar wraps to a second line.
+
+   The old version hard-coded `top:76px` / `margin-top:120px` offsets to fake
+   a sticky toolbar; those values broke whenever the toolbar height changed.
+   The shell below relies on normal flow instead.
+   ========================================================================== */
+
+/* --- Single sticky header -------------------------------------------------
+   The menubar and the formatting toolbar both live inside
+   <header class="editor-header">. Sticking the header as one block removes
+   the old "two elements both pinned to top:0" collision. The header stays in
+   normal flow, so no element needs a hard-coded top margin. */
+.editor-header{
+  position: sticky;
+  top: 0;
+  z-index: 100;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  box-shadow: var(--shadow-1);
 }
 
-/* Adjust formatbar position */
-.formatbar {
-    position: fixed !important;
-    top: 76px !important;
-    left: 0;
-    right: 0;
-    z-index: 999 !important;
+/* The toolbar is an ordinary row inside the header. It must not stick on its
+   own, otherwise it detaches from the menubar while scrolling. */
+.editor-header .formatbar{
+  position: static;
+  top: auto;
+  z-index: auto;
+  border-top: 1px solid var(--border);
+  border-bottom: none;
+  box-shadow: none;
 }
 
-/* Add margin to editor content */
-.editor-wrap {
-    margin-top: 120px !important;
-    min-height: calc(100vh - 120px) !important;
+/* --- Content grid ---------------------------------------------------------
+   Named grid areas keep the page centred and stop it jumping sideways when a
+   sidebar is toggled. The three tracks are always reserved; hidden sidebars
+   simply leave their column empty. The previous .spacer element is gone. */
+.editor-wrap,
+.editor-wrap.with-outline{
+  display: grid;
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 280px);
+  grid-template-areas: "outline page review";
+  align-items: start;
+  gap: 16px;
+  max-width: 1400px;
+  margin: 0 auto;
+  padding: 16px;
 }
 
-/* Adjust outline sidebar position */
-.outline-sidebar {
-    position: sticky !important;
-    top: 140px !important; /* Header + formatbar + some spacing */
-    max-height: calc(100vh - 160px) !important; /* Prevent overflow */
-    overflow-y: auto !important;
-    align-self: flex-start !important;
+.editor-wrap.no-meta{
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas: "page";
 }
 
-/* Ensure profile menu appears above formatbar */
-#profileMenu {
-    z-index: 1001 !important; /* Higher than formatbar's z-index of 999 */
+/* The AI chatbot is a fixed overlay, so it must not reserve a phantom column
+   the way the old `1fr 250px` template did. */
+.editor-wrap.with-ai{
+  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 280px);
+  grid-template-areas: "outline page review";
 }
+
+.editor-wrap > #outlineSidebar{ grid-area: outline; }
+.editor-wrap > .page{ grid-area: page; min-width: 0; }
+.editor-wrap > #reviewSidebar{ grid-area: review; }
+
+/* --- Sidebars -------------------------------------------------------------
+   --editor-header-h is set from JS (see editor.html) to the current header
+   height, so the sidebars clear the header even when the toolbar wraps. */
+.outline-sidebar{
+  position: sticky;
+  top: calc(var(--editor-header-h, 96px) + 12px);
+  max-height: calc(100vh - var(--editor-header-h, 96px) - 60px);
+  overflow-y: auto;
+  align-self: start;
+}
+
+/* Toggling the outline must only hide the outline, not the review panel that
+   happens to share the .outline-sidebar class. */
+.editor-wrap:not(.with-outline) > #outlineSidebar{ display: none; }
+@media (min-width: 1001px){
+  .editor-wrap > #reviewSidebar:not([hidden]){ display: block; }
+}
+
+/* --- Document paper ------------------------------------------------------ */
+.editor{
+  width: min(850px, 100%);
+  margin: 0 auto;
+}
+
+/* Anchored headings should land below the sticky header, not underneath it. */
+.editor > *{ scroll-margin-top: calc(var(--editor-header-h, 96px) + 16px); }
+
+/* --- Responsive: collapse to a single column ----------------------------- */
+@media (max-width: 1000px){
+  .editor-wrap,
+  .editor-wrap.with-outline,
+  .editor-wrap.with-ai{
+    grid-template-columns: minmax(0, 1fr);
+    grid-template-areas: "page";
+  }
+  .editor-wrap > #outlineSidebar,
+  .editor-wrap > #reviewSidebar{ display: none; }
+}
+
+/* --- Fullscreen (hide-menus) mode ----------------------------------------
+   The class lives on .editor-wrap, but the header and status bar are siblings
+   of it, not descendants, so the old `.editor-wrap.hide-menus .editor-header`
+   selector never matched and the menus were never hidden. :has() lets the
+   siblings react to the wrap's state. */
+.editor-wrap.hide-menus{
+  padding: 0;
+  max-width: none;
+}
+body:has(.editor-wrap.hide-menus) .editor-header{ display: none; }
+
+/* --- Narrow screens ------------------------------------------------------
+   Let the menubar wrap instead of pushing the page wider than the viewport. */
+@media (max-width: 640px){
+  .menubar{
+    flex-wrap: wrap;
+    row-gap: 8px;
+  }
+  .menubar .left{ min-width: 0; flex: 1 1 220px; }
+  .menubar .right{ flex: 0 0 auto; }
+  .menubar .title-stack{ min-width: 0; }
+  .menubar .menu-row{ flex-wrap: wrap; }
+}
+
+/* Profile menu stays above the header and toolbar. */
+#profileMenu{ z-index: 1001; }

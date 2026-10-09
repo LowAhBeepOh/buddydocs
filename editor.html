@@ -104,7 +104,8 @@
         Convert to Passive
       </button>
     </div>
-    <div class="formatbar">
+    <!-- Formatting toolbar: a single row inside the sticky header -->
+    <div id="formatbar" class="formatbar" role="toolbar" aria-label="Formatting tools">
         <button data-cmd="undo" class="icon-btn" title="Undo"><span class="material-symbols-outlined">undo</span></button>
         <button data-cmd="redo" class="icon-btn" title="Redo"><span class="material-symbols-outlined">redo</span></button>
         <span class="sep"></span>
@@ -200,6 +201,8 @@
     </div>
   </header>
 
+  <!-- Document workspace: outline | page | review, laid out with named grid
+       areas so the page never shifts when a side panel opens or closes. -->
   <main class="editor-wrap with-outline">
     <!-- Document Outline Sidebar -->
     <aside id="outlineSidebar" class="outline-sidebar">
@@ -228,7 +231,7 @@
       </div>
     </aside>
 
-    <section class="page">
+    <section class="page" aria-label="Document canvas">
       <div id="editor" class="editor" contenteditable="true" spellcheck="true"></div>
     </section>
 
@@ -244,12 +247,10 @@
         <div id="reviewList" class="outline-list"></div>
       </div>
     </aside>
-
-    <div class="spacer"></div>
   </main>
 
   <!-- Status Bar -->
-  <footer class="status-bar">
+  <footer class="status-bar" aria-label="Document status">
     <div class="word-progress-bar" id="wordProgressBar" style="width:0%"></div>
     <div class="status-left">
       <button id="wordCountWidget" class="word-count-widget" title="Document statistics">
@@ -344,6 +345,21 @@
   <script type="module" src="data/js/initSync.js"></script>
   <script type="module">
     import { setSetting, getSetting } from './data/js/idb.js';
+
+    // Expose the real header height to CSS so sticky sidebars and headings
+    // clear it even when the toolbar wraps or is hidden in fullscreen mode.
+    (() => {
+      const header = document.querySelector('.editor-header');
+      const wrap = document.querySelector('.editor-wrap');
+      if (!header) return;
+      const sync = () => {
+        document.documentElement.style.setProperty('--editor-header-h', `${header.offsetHeight || 0}px`);
+      };
+      sync();
+      new ResizeObserver(sync).observe(header);
+      if (wrap) new MutationObserver(sync).observe(wrap, { attributes: true, attributeFilter: ['class'] });
+    })();
+
     // avatar handling
     (async () => {
       const profilePicture = await getSetting('profilePicture', null);
