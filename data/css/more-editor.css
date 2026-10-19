@@ -38,14 +38,26 @@
   box-shadow: none;
 }
 
+/* --- Document paper ------------------------------------------------------
+   A4 is 210mm x 297mm. At the CSS reference resolution (96dpi) that is
+   794px wide; we render it at 73% of that (≈27% smaller, rounded to 580px)
+   so the sheet always renders at the same size regardless of how wide the
+   window is. --paper-ratio is the A4 height/width ratio. */
+:root{
+  --paper-width: 580px;
+  --sidebar-width: 280px;
+  --paper-ratio: 1.4143;
+}
+
 /* --- Content grid ---------------------------------------------------------
    Named grid areas keep the page centred and stop it jumping sideways when a
-   sidebar is toggled. The three tracks are always reserved; hidden sidebars
-   simply leave their column empty. The previous .spacer element is gone. */
+   sidebar is toggled. The page track is fixed at the paper width, so the
+   side panels absorb any slack instead of changing the sheet's width.
+   Hidden sidebars simply leave their column empty. */
 .editor-wrap,
 .editor-wrap.with-outline{
   display: grid;
-  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 280px);
+  grid-template-columns: minmax(0, 1fr) var(--paper-width) minmax(0, 1fr);
   grid-template-areas: "outline page review";
   align-items: start;
   gap: 16px;
@@ -62,13 +74,31 @@
 /* The AI chatbot is a fixed overlay, so it must not reserve a phantom column
    the way the old `1fr 250px` template did. */
 .editor-wrap.with-ai{
-  grid-template-columns: minmax(0, 280px) minmax(0, 1fr) minmax(0, 280px);
+  grid-template-columns: minmax(0, 1fr) var(--paper-width) minmax(0, 1fr);
   grid-template-areas: "outline page review";
 }
 
-.editor-wrap > #outlineSidebar{ grid-area: outline; }
-.editor-wrap > .page{ grid-area: page; min-width: 0; }
-.editor-wrap > #reviewSidebar{ grid-area: review; }
+.editor-wrap > #outlineSidebar{
+  grid-area: outline;
+  justify-self: start;
+  width: 100%;
+  max-width: var(--sidebar-width);
+}
+.editor-wrap > .page{
+  grid-area: page;
+  min-width: 0;
+  /* The page is the sizing container for the sheet, so the A4 ratio below
+     also works when the sheet has to shrink on a narrow screen. */
+  width: min(var(--paper-width), 100%);
+  margin-inline: auto;
+  container-type: inline-size;
+}
+.editor-wrap > #reviewSidebar{
+  grid-area: review;
+  justify-self: end;
+  width: 100%;
+  max-width: var(--sidebar-width);
+}
 
 /* --- Sidebars -------------------------------------------------------------
    --editor-header-h is set from JS (see editor.html) to the current header
@@ -84,21 +114,26 @@
 /* Toggling the outline must only hide the outline, not the review panel that
    happens to share the .outline-sidebar class. */
 .editor-wrap:not(.with-outline) > #outlineSidebar{ display: none; }
-@media (min-width: 1001px){
+@media (min-width: 1200px){
   .editor-wrap > #reviewSidebar:not([hidden]){ display: block; }
 }
 
-/* --- Document paper ------------------------------------------------------ */
+/* The sheet keeps its A4 width on every desktop layout. Only when the
+   viewport is narrower than the sheet does it fall back to the available
+   width (100% via .page), and the min-height keeps the A4 ratio there too. */
 .editor{
-  width: min(850px, 100%);
+  width: 100%;
+  min-height: calc(100cqi * var(--paper-ratio));
   margin: 0 auto;
 }
 
 /* Anchored headings should land below the sticky header, not underneath it. */
 .editor > *{ scroll-margin-top: calc(var(--editor-header-h, 96px) + 16px); }
 
-/* --- Responsive: collapse to a single column ----------------------------- */
-@media (max-width: 1000px){
+/* --- Responsive: collapse to a single column -----------------------------
+   Below this width the three tracks would squeeze the sidebars to nothing,
+   so the paper takes the full column instead. */
+@media (max-width: 1199px){
   .editor-wrap,
   .editor-wrap.with-outline,
   .editor-wrap.with-ai{
